@@ -1,0 +1,41 @@
+{
+  "session_id": "f5b60a13-44e6-4323-b720-12cb0a107a0a",
+  "transcript_path": "C:\\Users\\hurst\\.claude\\projects\\D--1-Projects-WebDev-superbowl\\f5b60a13-44e6-4323-b720-12cb0a107a0a.jsonl",
+  "cwd": "D:\\1 Projects\\WebDev\\superbowl",
+  "permission_mode": "acceptEdits",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "D:\\1 Projects\\WebDev\\superbowl\\app\\page.tsx",
+    "old_string": "            React Template",
+    "new_string": "            Reactest Template",
+    "replace_all": false
+  },
+  "tool_response": {
+    "filePath": "D:\\1 Projects\\WebDev\\superbowl\\app\\page.tsx",
+    "oldString": "            React Template",
+    "newString": "            Reactest Template",
+    "originalFile": "export default function Home() {\n  return (\n    <div className=\"flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-black\">\n      <main className=\"flex w-full max-w-2xl flex-col gap-8 px-6 py-12\">\n        {/* Header */}\n        <div className=\"flex flex-col gap-4 text-center\">\n          <div className=\"flex items-center justify-center gap-3\">\n            <div className=\"flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-2xl font-bold text-white shadow-lg\">\n              BMC\n            </div>\n            <h1 className=\"text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50\">\n              React Template\n            </h1>\n          </div>\n          <p className=\"text-lg text-zinc-600 dark:text-zinc-400\">\n            A modern Next.js starter with TypeScript, Tailwind CSS, and shadcn/ui\n          </p>\n        </div>\n\n        {/* Setup Instructions Card */}\n        <div className=\"rounded-2xl border border-zinc-200 bg-white p-8 shadow-lg dark:border-zinc-800 dark:bg-zinc-900\">\n          <h2 className=\"mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50\">\n            Quick Start Guide\n          </h2>\n\n          <div className=\"flex flex-col gap-4\">\n            {/* Step 1 */}\n            <div className=\"flex gap-4\">\n              <div className=\"flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-500 text-sm font-semibold text-white\">\n                1\n              </div>\n              <div className=\"flex flex-col gap-2\">\n                <h3 className=\"font-medium text-zinc-900 dark:text-zinc-50\">\n                  Navigate to your project\n                </h3>\n                <code className=\"rounded-lg bg-zinc-100 px-4 py-3 text-sm font-mono text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200\">\n                  cd new_proj\n                </code>\n              </div>\n            </div>\n\n            {/* Step 2 */}\n            <div className=\"flex gap-4\">\n              <div className=\"flex size-8 shrink-0 items-center justify-center rounded-lg bg-purple-500 text-sm font-semibold text-white\">\n                2\n              </div>\n              <div className=\"flex flex-col gap-2\">\n                <h3 className=\"font-medium text-zinc-900 dark:text-zinc-50\">\n                  Install dependencies\n                </h3>\n                <code className=\"rounded-lg bg-zinc-100 px-4 py-3 text-sm font-mono text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200\">\n                  npm install\n                </code>\n              </div>\n            </div>\n\n            {/* Step 3 */}\n            <div className=\"flex gap-4\">\n              <div className=\"flex size-8 shrink-0 items-center justify-center rounded-lg bg-green-500 text-sm font-semibold text-white\">\n                3\n              </div>\n              <div className=\"flex flex-col gap-2\">\n                <h3 className=\"font-medium text-zinc-900 dark:text-zinc-50\">\n                  Start development server\n                </h3>\n                <code className=\"rounded-lg bg-zinc-100 px-4 py-3 text-sm font-mono text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200\">\n                  npm run dev\n                </code>\n              </div>\n            </div>\n          </div>\n        </div>\n\n        {/* Features Grid */}\n        <div className=\"grid gap-4 sm:grid-cols-2\">\n          <div className=\"rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900\">\n            <div className=\"mb-2 text-2xl\">⚡</div>\n            <h3 className=\"mb-1 font-semibold text-zinc-900 dark:text-zinc-50\">\n              Next.js 16\n            </h3>\n            <p className=\"text-sm text-zinc-600 dark:text-zinc-400\">\n              App Router with React 19 and Server Components\n            </p>\n          </div>\n\n          <div className=\"rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900\">\n            <div className=\"mb-2 text-2xl\">🎨</div>\n            <h3 className=\"mb-1 font-semibold text-zinc-900 dark:text-zinc-50\">\n              Tailwind CSS v4\n            </h3>\n            <p className=\"text-sm text-zinc-600 dark:text-zinc-400\">\n              Modern styling with shadcn/ui components\n            </p>\n          </div>\n\n          <div className=\"rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900\">\n            <div className=\"mb-2 text-2xl\">📘</div>\n            <h3 className=\"mb-1 font-semibold text-zinc-900 dark:text-zinc-50\">\n              TypeScript\n            </h3>\n            <p className=\"text-sm text-zinc-600 dark:text-zinc-400\">\n              Fully typed codebase with strict mode\n            </p>\n          </div>\n\n          <div className=\"rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900\">\n            <div className=\"mb-2 text-2xl\">🌙</div>\n            <h3 className=\"mb-1 font-semibold text-zinc-900 dark:text-zinc-50\">\n              Dark Mode\n            </h3>\n            <p className=\"text-sm text-zinc-600 dark:text-zinc-400\">\n              Built-in dark mode with OKLCH colors\n            </p>\n          </div>\n        </div>\n\n        {/* Footer */}\n        <p className=\"text-center text-sm text-zinc-500 dark:text-zinc-500\">\n          Edit <code className=\"rounded bg-zinc-200 px-2 py-1 font-mono text-xs dark:bg-zinc-800\">app/page.tsx</code> to get started\n        </p>\n      </main>\n    </div>\n  );\n}\n",
+    "structuredPatch": [
+      {
+        "oldStart": 9,
+        "oldLines": 7,
+        "newStart": 9,
+        "newLines": 7,
+        "lines": [
+          "               BMC",
+          "             </div>",
+          "             <h1 className=\"text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50\">",
+          "-              React Template",
+          "+              Reactest Template",
+          "             </h1>",
+          "           </div>",
+          "           <p className=\"text-lg text-zinc-600 dark:text-zinc-400\">"
+        ]
+      }
+    ],
+    "userModified": false,
+    "replaceAll": false
+  },
+  "tool_use_id": "toolu_01TD6xDq6Qvj4N8abmYL6g2W"
+}
