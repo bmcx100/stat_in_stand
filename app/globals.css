@@ -124,3 +124,66 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* App shell — mobile-width constraint */
+.app-shell {
+  @apply mx-auto flex min-h-screen w-full max-w-[430px] flex-col;
+}
+
+/* Page layout */
+.page-container {
+  @apply flex flex-1 flex-col gap-4 px-4 py-6;
+}
+
+.page-header {
+  @apply flex items-center justify-between;
+}
+
+.page-title {
+  @apply text-2xl font-bold tracking-tight;
+}
+
+/* Team cards (home screen) */
+.team-card {
+  @apply flex w-full items-center rounded-xl border py-4 pr-4 transition-colors;
+  padding-left: 10px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.team-card-link {
+  @apply flex flex-1 cursor-pointer items-center justify-end hover:opacity-80;
+}
+
+.team-card-name {
+  @apply ml-auto text-lg font-semibold text-white;
+}
+
+/* Team list (add teams screen) */
+.team-list {
+  @apply flex flex-col gap-3;
+}
+
+/* Heart toggle */
+.heart-button {
+  @apply mr-2 shrink-0 text-[#e3e3e3] transition-colors [&_svg]:size-6;
+}
+
+/* Add teams header */
+.add-teams-header {
+  @apply mb-2 flex items-center justify-between;
+}
+
+/* Dashboard placeholder */
+.dashboard-container {
+  @apply flex flex-1 flex-col items-center justify-center gap-4 text-center;
+}
+
+.dashboard-title {
+  @apply text-3xl font-bold;
+}
+
+.dashboard-subtitle {
+  @apply text-muted-foreground;
+}

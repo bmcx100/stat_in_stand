@@ -54,14 +54,14 @@ Before making any content, switch to a new Git branch using the `branch_name` de
 
 ## Step 4. Draft the spec content
 
-Create a markdown spec document that Plan mode can use directly and save it in the \.claude/specs folder using the `feature_slug`. Use the exact structure as defined in the spec template file here: @\.claude/specs/template.md. Do not add technical implementation details such as code examples.
+Create a markdown spec document that Plan mode can use directly and save it in the \.claude/specs folder using the next available number '\_' `feature_slug`. Use the exact structure as defined in the spec template file here: @\.claude/specs/template.md. Do not add technical implementation details such as code examples.
 
 ## Step 5. Final output to the user
 
 After the file is saved, respond to the user with a short summary in this exact format:
 
-Branch: <branch_name>
-Spec file: specs/<feature_slug>.md
+Branch: <branch*name>
+Spec file: specs/[next number]*<feature_slug>.md
 Title: <feature_title>
 
 Do not repeat the full spec in the chat output unless the user explicitly asks to see it. The main goal is to save the spec file and report where it lives and what branch name to use.

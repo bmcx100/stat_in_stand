@@ -1,39 +1,24 @@
 "use client"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { TEAMS } from "@/lib/teams"
 import { useFavorites } from "@/hooks/use-favorites"
 
-export default function Home() {
-  const router = useRouter()
+export default function AddTeams() {
   const { favorites, toggleFavorite, isFavorite } = useFavorites()
-
-  const favoriteTeams = TEAMS.filter((t) => isFavorite(t.id))
-
-  useEffect(() => {
-    if (favorites.length === 0) {
-      router.push("/add-teams")
-    }
-  }, [favorites.length, router])
-
-  if (favorites.length === 0) {
-    return null
-  }
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">My Teams</h1>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/add-teams">Add Teams</Link>
+      <div className="add-teams-header">
+        <h1 className="page-title">Add Teams</h1>
+        <Button variant="ghost" size="sm" asChild disabled={favorites.length === 0}>
+          <Link href="/">Done</Link>
         </Button>
       </div>
       <div className="team-list">
-        {favoriteTeams.map((team) => (
+        {TEAMS.map((team) => (
           <div
             key={team.id}
             className="team-card"
