@@ -31,8 +31,9 @@ export default function SchedulePage({
     return game.opponent
   }
 
+  const today = new Date().toISOString().slice(0, 10)
   const upcoming = getTeamGames(teamId)
-    .filter((g) => !g.played)
+    .filter((g) => !g.played && g.date >= today)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
   return (

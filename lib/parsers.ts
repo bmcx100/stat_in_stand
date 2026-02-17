@@ -326,6 +326,7 @@ export type DuplicateInfo = {
   index: number
   existingGame: Game
   scoreMismatch: boolean
+  scoreUpdate: boolean
 }
 
 function normalizeOpponent(name: string): string {
@@ -360,9 +361,110 @@ export function findDuplicates(
     if (match) {
       const scoreMismatch = match.played && g.played &&
         (match.teamScore !== g.teamScore || match.opponentScore !== g.opponentScore)
-      dupes.push({ index: i, existingGame: match, scoreMismatch: !!scoreMismatch })
+      const scoreUpdate = !match.played && g.played
+      dupes.push({ index: i, existingGame: match, scoreMismatch: !!scoreMismatch, scoreUpdate })
     }
   })
 
   return dupes
+}
+
+/**
+ * Map a TeamSnap game type prefix to our GameType.
+ */
+function mapTeamsnapGameType(prefix: string): GameType {
+  const lower = prefix.toLowerCase().replace(/[-\s]/g, "")
+  if (lower.includes("playdown")) return "playdowns"
+  if (lower.includes("playoff")) return "playoffs"
+  if (lower.includes("semifinal")) return "playoffs"
+  if (lower.includes("final")) return "playoffs"
+  if (lower.includes("regular")) return "regular"
+  if (lower.includes("tournament")) return "tournament"
+  if (lower.includes("exhibition")) return "exhibition"
+  if (lower.includes("provincial")) return "provincials"
+  return "unlabeled"
+}
+
+/**
+ * Parse TeamSnap game data from pasted text.
+ * Tab-separated: Date | Start | End | Arrival | Description | Venue | Address | Score?
+ * Address may be multi-line in quotes. Score format: "W 4-0", "L 0-1", "T 2-2".
+ * Games always contain "at " or "vs." in the description.
+ * Non-game entries (Practice, Fitness Lab, etc.) are filtered out.
+ */
+export function parseTeamsnapGames(
+  text: string,
+  teamId: string
+): Game[] {
+  // Join multi-line quoted addresses into single lines
+  const normalized = text.replace(/"([^]*?)"/g, (_, inner) =>
+    inner.replace(/\n/g, ", ").replace(/\s{2,}/g, " ").trim()
+  )
+
+  const lines = normalized.trim().split("\n").map((l) => l.trim()).filter(Boolean)
+  const games: Game[] = []
+
+  // Matches: optional prefix + "at" or "vs."/"vs" + opponent
+  // e.g. "at Kanata Rangers", "vs. Cornwall Typhoons",
+  //      "Semi-finals vs. Whitby Wolves", "Exhibition vs. M13AAA Olympiques"
+  const descPattern = /^(?:(.*?)\s+)?(at|vs\.?)\s+(.+)$/i
+  const scorePattern = /^([WLT])\s+(\d+)-(\d+)$/i
+
+  for (const line of lines) {
+    const parts = line.split(/\t+/).map((p) => p.trim()).filter(Boolean)
+    if (parts.length < 5) continue
+
+    const dateRaw = parts[0]
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateRaw)) continue
+
+    const startTime = parts[1]
+    const description = parts[4]
+    const venue = parts.length >= 6 ? parts[5] : ""
+
+    const descMatch = description.match(descPattern)
+    if (!descMatch) continue
+
+    const prefix = descMatch[1] ?? ""
+    const gameType = prefix ? mapTeamsnapGameType(prefix) : "unlabeled"
+    const opponent = descMatch[3].trim()
+
+    // Check last part for score
+    let teamScore: number | null = null
+    let opponentScore: number | null = null
+    let result: "W" | "L" | "T" | null = null
+    let played = false
+
+    const lastPart = parts[parts.length - 1]
+    const scoreMatch = lastPart.match(scorePattern)
+    if (scoreMatch) {
+      result = scoreMatch[1].toUpperCase() as "W" | "L" | "T"
+      const s1 = parseInt(scoreMatch[2], 10)
+      const s2 = parseInt(scoreMatch[3], 10)
+      // Score is always team-opponent from TeamSnap perspective
+      teamScore = s1
+      opponentScore = s2
+      played = true
+    }
+
+    const isoDate = normalizeDate(dateRaw)
+    const id = generateGameId(teamId, isoDate, opponent)
+
+    games.push({
+      id,
+      teamId,
+      date: isoDate,
+      time: startTime,
+      opponent,
+      location: venue,
+      teamScore,
+      opponentScore,
+      result,
+      gameType,
+      source: "teamsnap",
+      sourceGameId: "",
+      played,
+    })
+  }
+
+  return games
 }

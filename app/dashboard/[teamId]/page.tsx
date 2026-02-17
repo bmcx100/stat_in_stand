@@ -81,7 +81,7 @@ export default function Dashboard({
           <Calendar className="size-4" />
           Schedule
           <span className="game-type-badge">
-            {games.filter((g) => !g.played).length} upcoming
+            {games.filter((g) => !g.played && g.date >= new Date().toISOString().slice(0, 10)).length} upcoming
           </span>
         </Link>
       </div>

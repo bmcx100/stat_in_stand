@@ -13,6 +13,7 @@ import {
   parseOwhaGames,
   parseMhrGames,
   parseOwhaTeamList,
+  parseTeamsnapGames,
   matchOpponent,
   findDuplicates,
 } from "@/lib/parsers"
@@ -21,7 +22,7 @@ import { downloadBackup, restoreBackup } from "@/lib/backup"
 import type { Game, GameType, Opponent, StandingsRow } from "@/lib/types"
 
 type AdminTab = "import" | "games" | "opponents" | "data"
-type ImportTab = "owha-standings" | "owha-games" | "mhr-games" | "owha-teams"
+type ImportTab = "owha-standings" | "owha-games" | "mhr-games" | "teamsnap-games" | "owha-teams"
 
 const GAME_TYPE_OPTIONS: Array<{ value: GameType; label: string }> = [
   { value: "unlabeled", label: "Unlabeled" },
@@ -726,7 +727,7 @@ function ImportDataTab({
   teamAgeGroup: string
   teamLevel: string
 }) {
-  const { getTeamGames, addGames } = useGames()
+  const { getTeamGames, addGames, updateGame } = useGames()
   const { setStandings } = useStandings()
   const { getAll, addOpponents } = useOpponents()
 
@@ -746,6 +747,7 @@ function ImportDataTab({
 
   const dupeIndices = new Set(dupeInfos.map((d) => d.index))
   const scoreMismatches = dupeInfos.filter((d) => d.scoreMismatch)
+  const scoreUpdates = dupeInfos.filter((d) => d.scoreUpdate)
 
   function handleParse() {
     setImportDone(false)
@@ -770,7 +772,9 @@ function ImportDataTab({
       setExistingOwhaIds(existingIds)
       setParsedOpponents(opponents)
     } else {
-      const games = parseMhrGames(pasteText, teamId, "unlabeled")
+      const games = activeTab === "teamsnap-games"
+        ? parseTeamsnapGames(pasteText, teamId)
+        : parseMhrGames(pasteText, teamId, "unlabeled")
       const dupes = findDuplicates(getTeamGames(teamId), games)
       setParsedGames(games)
       setDupeInfos(dupes)
@@ -831,7 +835,8 @@ function ImportDataTab({
     setParsedGames(updated)
   }
 
-  const allMhrResolved = activeTab !== "mhr-games" || mhrMatches.every((m) => m.resolved)
+  const needsOpponentMatching = activeTab === "mhr-games" || activeTab === "teamsnap-games"
+  const allMhrResolved = !needsOpponentMatching || mhrMatches.every((m) => m.resolved)
 
   function handleConfirm() {
     if (activeTab === "owha-standings" && parsedStandings) {
@@ -844,7 +849,7 @@ function ImportDataTab({
     } else if (parsedGames) {
       const nonDupes = parsedGames.filter((_, i) => !dupeIndices.has(i))
 
-      if (activeTab === "mhr-games") {
+      if (needsOpponentMatching) {
         const matchMap = new Map<string, string>()
         for (const m of mhrMatches) {
           if (m.opponentId) matchMap.set(m.mhrName, m.opponentId)
@@ -852,6 +857,19 @@ function ImportDataTab({
         for (const game of nonDupes) {
           const oppId = matchMap.get(game.opponent)
           if (oppId) game.opponentId = oppId
+        }
+      }
+
+      // Auto-update scores on existing games that had no score
+      for (const dupe of dupeInfos) {
+        if (dupe.scoreUpdate) {
+          const incoming = parsedGames[dupe.index]
+          updateGame(teamId, dupe.existingGame.id, {
+            teamScore: incoming.teamScore,
+            opponentScore: incoming.opponentScore,
+            result: incoming.result,
+            played: true,
+          })
         }
       }
 
@@ -907,6 +925,13 @@ function ImportDataTab({
         >
           MHR Games
         </button>
+        <button
+          className="import-tab"
+          data-active={activeTab === "teamsnap-games"}
+          onClick={() => handleTabSwitch("teamsnap-games")}
+        >
+          TeamSnap
+        </button>
       </div>
 
       <div className="import-section">
@@ -952,6 +977,7 @@ function ImportDataTab({
                   activeTab === "owha-standings" ? "Paste OWHA standings table here..." :
                   activeTab === "owha-games" ? "Paste OWHA games table here..." :
                   activeTab === "owha-teams" ? "Paste team list (one per line, e.g. 'Team Name #1234')..." :
+                  activeTab === "teamsnap-games" ? "Paste TeamSnap schedule here..." :
                   "Paste MHR game data here..."
                 }
                 value={pasteText}
@@ -1030,10 +1056,28 @@ function ImportDataTab({
               {parsedGames.length} game{parsedGames.length !== 1 ? "s" : ""}
               {dupeInfos.length > 0 && (
                 <span className="text-yellow-600">
-                  {" "}({dupeInfos.length} duplicate{dupeInfos.length !== 1 ? "s" : ""} skipped)
+                  {" "}({dupeInfos.length} duplicate{dupeInfos.length !== 1 ? "s" : ""}
+                  {scoreUpdates.length > 0
+                    ? `, ${scoreUpdates.length} score${scoreUpdates.length !== 1 ? "s" : ""} will be updated`
+                    : " skipped"})
                 </span>
               )}
             </p>
+            {scoreUpdates.length > 0 && (
+              <div className="mt-2 rounded border border-green-500 bg-green-50 px-3 py-2 text-xs dark:bg-green-950">
+                <p className="font-medium text-green-700 dark:text-green-400">
+                  Scores will be added to existing games:
+                </p>
+                {scoreUpdates.map((d) => {
+                  const incoming = parsedGames[d.index]
+                  return (
+                    <p key={d.index} className="text-green-600 dark:text-green-500">
+                      {incoming.date} vs {incoming.opponent}: {incoming.teamScore}-{incoming.opponentScore} {incoming.result}
+                    </p>
+                  )
+                })}
+              </div>
+            )}
             {scoreMismatches.length > 0 && (
               <div className="mt-2 rounded border border-yellow-500 bg-yellow-50 px-3 py-2 text-xs dark:bg-yellow-950">
                 <p className="font-medium text-yellow-700 dark:text-yellow-400">
@@ -1052,17 +1096,20 @@ function ImportDataTab({
             <div className="mt-2 flex flex-col gap-1">
               {parsedGames.map((game, i) => {
                 const isDupe = dupeIndices.has(i)
+                const dupeInfo = dupeInfos.find((d) => d.index === i)
+                const isScoreUpdate = dupeInfo?.scoreUpdate
                 return (
                   <div
                     key={i}
-                    className={`flex items-center gap-2 text-xs ${isDupe ? "line-through text-muted-foreground" : ""}`}
+                    className={`flex items-center gap-2 text-xs ${isDupe && !isScoreUpdate ? "line-through text-muted-foreground" : isDupe ? "text-muted-foreground" : ""}`}
                   >
                     <span>
                       {game.date} vs {game.opponent}
                       {game.played ? ` (${game.teamScore}-${game.opponentScore} ${game.result})` : " (upcoming)"}
-                      {isDupe && " [duplicate]"}
+                      {isDupe && isScoreUpdate && <span className="text-green-600"> [score update]</span>}
+                      {isDupe && !isScoreUpdate && " [duplicate]"}
                     </span>
-                    {!isDupe && !importDone && activeTab === "mhr-games" && (
+                    {!isDupe && !importDone && needsOpponentMatching && (
                       <select
                         className="games-table-select"
                         value={game.gameType}
@@ -1080,8 +1127,8 @@ function ImportDataTab({
           </div>
         )}
 
-        {/* MHR Opponent Matching */}
-        {activeTab === "mhr-games" && parsedGames && !importDone && mhrMatches.length > 0 && (
+        {/* Opponent Matching */}
+        {needsOpponentMatching && parsedGames && !importDone && mhrMatches.length > 0 && (
           <div className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold">Opponent Matching</h3>
             {mhrMatches.map((ms) => {

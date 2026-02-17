@@ -7,7 +7,7 @@ export type GameType =
   | "playdowns"
   | "provincials"
 
-export type ImportSource = "owha" | "mhr" | "manual"
+export type ImportSource = "owha" | "mhr" | "teamsnap" | "manual"
 
 export type Opponent = {
   id: string
