@@ -175,9 +175,50 @@
   @apply mb-2 flex items-center justify-between;
 }
 
+/* Team layout (sticky banner + bottom nav) */
+.team-layout {
+  @apply flex flex-col overflow-hidden;
+  height: 100dvh;
+}
+
+.team-layout-banner-link {
+  @apply sticky top-0 z-20 block px-4 pt-2;
+}
+
+.team-layout-banner {
+  @apply flex w-full items-center rounded-xl border py-4 pr-4 transition-colors;
+  padding-left: 10px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.team-layout-content {
+  @apply flex-1 overflow-y-auto;
+  padding-bottom: 4.5rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.team-layout-content::-webkit-scrollbar {
+  display: none;
+}
+
+.team-layout-nav {
+  @apply fixed bottom-0 left-1/2 z-20 flex w-full max-w-[430px] -translate-x-1/2 border-t bg-background;
+}
+
+.team-layout-nav-item {
+  @apply flex flex-1 flex-col items-center gap-0.5 py-2 text-xs text-muted-foreground transition-colors;
+}
+
+.team-layout-nav-active {
+  @apply text-foreground;
+}
+
 /* Dashboard */
 .dashboard-page {
-  @apply flex flex-1 flex-col gap-4 px-4 py-6;
+  @apply flex flex-1 flex-col gap-4 px-4 py-4;
 }
 
 .dashboard-banner {
@@ -285,13 +326,139 @@
   @apply flex items-center justify-between rounded-lg border px-4 py-3;
 }
 
+.game-list-clickable {
+  @apply w-full cursor-pointer transition-colors hover:bg-accent/50;
+}
+
+.game-list-selected {
+  @apply border-primary bg-accent/30;
+}
+
 .game-type-badge {
   @apply inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground;
 }
 
+/* Results page */
+.results-page-wrap {
+  @apply flex flex-col;
+  height: 100%;
+  min-height: 0;
+}
+
+.results-header {
+  @apply shrink-0 flex flex-col gap-2 bg-background px-4 pb-2 pt-4;
+}
+
+.results-scroll-wrap {
+  @apply relative flex-1;
+  min-height: 0;
+}
+
+.results-game-list {
+  @apply absolute inset-0 overflow-y-auto px-4 py-4;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.results-game-list::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-fade-top,
+.scroll-fade-bottom {
+  @apply pointer-events-none absolute left-0 z-10 h-6 w-full opacity-0;
+  transition: opacity 0.2s;
+}
+
+.scroll-fade-top {
+  @apply top-0;
+  background: linear-gradient(to bottom, var(--color-background), transparent);
+}
+
+.scroll-fade-bottom {
+  @apply bottom-0;
+  background: linear-gradient(to top, var(--color-background), transparent);
+}
+
+.filter-toggle-btn {
+  @apply rounded-lg border px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors;
+}
+
+.filter-toggle-active {
+  @apply bg-foreground text-background;
+}
+
+.scroll-fade-visible {
+  @apply opacity-100;
+}
+
+.results-record-bar {
+  @apply flex items-center justify-center gap-3 rounded-lg border bg-card px-4 py-2 shadow-md;
+}
+
+.results-standings-mini {
+  @apply overflow-x-auto rounded-lg border;
+}
+
+.standings-table-mini {
+  @apply w-full text-xs;
+}
+
+.standings-table-mini th {
+  @apply px-2 py-1 text-left text-muted-foreground;
+}
+
+.standings-table-mini td {
+  @apply px-2 py-1;
+}
+
+.standings-mini-highlight {
+  @apply bg-accent font-bold;
+}
+
+/* Last N card */
+.last-n-card {
+  @apply flex flex-row items-center rounded-lg border px-4 py-3;
+}
+
+.last-n-card > * {
+  @apply shrink-0;
+}
+
+.last-n-picker {
+  @apply flex flex-col items-center gap-0.5;
+}
+
+.last-n-picker-label {
+  @apply text-xs text-muted-foreground;
+}
+
+.last-n-input {
+  @apply rounded-lg border bg-background px-2 py-2 text-sm text-center font-bold;
+  width: 3.5rem;
+}
+
+.last-n-divider {
+  @apply mx-4 h-12 w-px bg-border;
+}
+
+.last-n-stats {
+  @apply flex flex-1 shrink flex-col items-center gap-2 overflow-hidden;
+}
+
+.opponent-summary-header {
+  @apply flex items-center gap-2;
+}
+
+.opponent-clear-btn {
+  @apply rounded p-1 text-white transition-colors;
+  background-color: #D33125;
+
+}
+
 /* Sub-page header */
 .sub-page-header {
-  @apply flex items-center gap-3;
+  @apply flex w-full items-center justify-between;
 }
 
 .back-link {
@@ -313,7 +480,7 @@
 
 /* Filter bar */
 .filter-bar {
-  @apply flex items-center gap-2;
+  @apply flex items-center justify-between gap-2;
 }
 
 /* Admin top-level tabs */
@@ -398,11 +565,32 @@
 }
 
 .last-ten-dots {
-  @apply flex items-center gap-1.5;
+  @apply flex flex-wrap items-center gap-1.5;
 }
 
 .last-ten-dot {
   @apply size-3 rounded-full;
+}
+
+/* Playdown title */
+.playdown-title-row {
+  @apply flex items-center gap-2;
+}
+
+.playdown-info-wrap {
+  @apply relative;
+}
+
+.playdown-info-icon {
+  @apply size-4 text-muted-foreground cursor-help;
+}
+
+.playdown-info-tooltip {
+  @apply absolute left-0 top-full mt-1 z-10 hidden w-64 rounded-lg border bg-popover p-3 text-xs text-popover-foreground shadow-md;
+}
+
+.playdown-info-wrap:hover .playdown-info-tooltip {
+  @apply block;
 }
 
 /* Playdown config row */
@@ -422,6 +610,10 @@
 /* Playdown standings */
 .playdown-standings-wrap {
   @apply overflow-x-auto;
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 .playdown-self-row {

@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useState } from "react"
+import { Fragment, use, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, ExternalLink, ChevronDown, ChevronUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -24,11 +24,11 @@ export default function StandingsPage({
   return (
     <div className="dashboard-page">
       <div className="sub-page-header">
-        <Link href={`/dashboard/${teamId}`} className="back-link">
-          <ArrowLeft className="size-4" />
-          Back
-        </Link>
         <h1 className="page-title">Standings</h1>
+        <Link href={`/dashboard/${teamId}`} className="back-link">
+          Back
+          <ArrowLeft className="size-4" />
+        </Link>
       </div>
 
       {!standings || standings.rows.length === 0 ? (
@@ -66,9 +66,8 @@ export default function StandingsPage({
               </thead>
               <tbody>
                 {standings.rows.map((row, i) => (
-                  <>
+                  <Fragment key={i}>
                     <tr
-                      key={`row-${i}`}
                       className="standings-row"
                       onClick={() => setExpandedRow(expandedRow === i ? null : i)}
                     >
@@ -86,13 +85,13 @@ export default function StandingsPage({
                       </td>
                     </tr>
                     {expandedRow === i && (
-                      <tr key={`detail-${i}`} className="standings-expandable">
+                      <tr className="standings-expandable">
                         <td colSpan={7}>
                           OTL: {row.otl} | SOL: {row.sol} | GF: {row.gf} | GA: {row.ga} | DIFF: {row.diff} | PIM: {row.pim} | Win%: {row.winPct}
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>

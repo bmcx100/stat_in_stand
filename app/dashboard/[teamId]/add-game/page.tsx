@@ -80,11 +80,11 @@ export default function AddGamePage({
   return (
     <div className="dashboard-page">
       <div className="sub-page-header">
-        <Link href={`/dashboard/${teamId}`} className="back-link">
-          <ArrowLeft className="size-4" />
-          Back
-        </Link>
         <h1 className="page-title">Add Game</h1>
+        <Link href={`/dashboard/${teamId}`} className="back-link">
+          Back
+          <ArrowLeft className="size-4" />
+        </Link>
       </div>
 
       <form onSubmit={handleSubmit} className="game-form">

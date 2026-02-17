@@ -39,11 +39,11 @@ export default function SchedulePage({
   return (
     <div className="dashboard-page">
       <div className="sub-page-header">
-        <Link href={`/dashboard/${teamId}`} className="back-link">
-          <ArrowLeft className="size-4" />
-          Back
-        </Link>
         <h1 className="page-title">Schedule</h1>
+        <Link href={`/dashboard/${teamId}`} className="back-link">
+          Back
+          <ArrowLeft className="size-4" />
+        </Link>
       </div>
 
       {upcoming.length === 0 ? (

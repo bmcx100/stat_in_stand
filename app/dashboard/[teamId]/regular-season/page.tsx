@@ -6,18 +6,8 @@ import { ArrowLeft, X } from "lucide-react"
 import { TEAMS } from "@/lib/teams"
 import { useGames } from "@/hooks/use-games"
 import { useOpponents } from "@/hooks/use-opponents"
-import type { Game, GameType } from "@/lib/types"
-
-const GAME_TYPES: Array<{ value: GameType | "all"; label: string }> = [
-  { value: "all", label: "All Types" },
-  { value: "unlabeled", label: "Unlabeled" },
-  { value: "regular", label: "Regular Season" },
-  { value: "tournament", label: "Tournament" },
-  { value: "exhibition", label: "Exhibition" },
-  { value: "playoffs", label: "Playoffs" },
-  { value: "playdowns", label: "Playdowns" },
-  { value: "provincials", label: "Provincials" },
-]
+import { useStandings } from "@/hooks/use-standings"
+import type { Game } from "@/lib/types"
 
 function ResultBadge({ result }: { result: Game["result"] }) {
   if (!result) return null
@@ -97,7 +87,7 @@ function OpponentSummary({ games, opponentName, onClose }: { games: Game[]; oppo
   )
 }
 
-export default function ResultsPage({
+export default function RegularSeasonPage({
   params,
 }: {
   params: Promise<{ teamId: string }>
@@ -106,9 +96,8 @@ export default function ResultsPage({
   const team = TEAMS.find((t) => t.id === teamId)
   const { getTeamGames } = useGames()
   const { getById } = useOpponents()
-  const [filter, setFilter] = useState<GameType | "all">("all")
+  const { getStandings } = useStandings()
   const [search, setSearch] = useState("")
-  const [lastN, setLastN] = useState(10)
   const [selectedOpponent, setSelectedOpponent] = useState<string | null>(null)
   const [canScrollUp, setCanScrollUp] = useState(false)
   const [canScrollDown, setCanScrollDown] = useState(false)
@@ -148,7 +137,7 @@ export default function ResultsPage({
       el.removeEventListener("scroll", check)
       ro.disconnect()
     }
-  }, [filter, search, selectedOpponent])
+  }, [search, selectedOpponent])
 
   function opponentDisplay(game: Game): string {
     if (game.opponentId) {
@@ -168,11 +157,10 @@ export default function ResultsPage({
   if (!team) return null
 
   const allPlayed = getTeamGames(teamId)
-    .filter((g) => g.played)
+    .filter((g) => g.played && g.gameType === "regular")
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const filtered = allPlayed
-    .filter((g) => filter === "all" || g.gameType === filter)
     .filter((g) => {
       if (!search) return true
       const name = opponentDisplay(g).toLowerCase()
@@ -191,7 +179,16 @@ export default function ResultsPage({
     ? allPlayed.filter((g) => opponentKey(g) === selectedOpponent)
     : []
 
-  const overallRecord = computeRecord(allPlayed)
+  const standings = getStandings(teamId)
+  const teamRow = standings?.rows.find((r) => {
+    const needle = team.organization.toLowerCase().replace(/\s+/g, "")
+    const hay = r.teamName.toLowerCase().replace(/\s+/g, "")
+    return hay.includes(needle) || needle.includes(hay)
+  })
+  const standingsRecord = teamRow
+    ? { w: teamRow.w, l: teamRow.l, t: teamRow.t, gp: teamRow.gp }
+    : null
+  const localRecord = computeRecord(allPlayed)
 
   function handleGameClick(game: Game) {
     const key = opponentKey(game)
@@ -211,7 +208,7 @@ export default function ResultsPage({
     <div ref={pageRef} className="results-page-wrap">
       <div className="results-header">
         <div className="sub-page-header">
-          <h1 className="page-title">All Games</h1>
+          <h1 className="page-title">Regular Season</h1>
           <Link href={`/dashboard/${teamId}`} className="back-link">
             Back
             <ArrowLeft className="size-4" />
@@ -219,16 +216,53 @@ export default function ResultsPage({
         </div>
 
         <div className="results-record-bar">
-          <span className="text-xs text-muted-foreground">Overall</span>
-          <span className="text-sm font-bold">{overallRecord.w}-{overallRecord.l}-{overallRecord.t}</span>
-          <span className="text-xs text-muted-foreground">{allPlayed.length} GP</span>
+          <span className="text-xs text-muted-foreground">Record</span>
+          <span className="text-sm font-bold">
+            {standingsRecord
+              ? `${standingsRecord.w}-${standingsRecord.l}-${standingsRecord.t}`
+              : `${localRecord.w}-${localRecord.l}-${localRecord.t}`
+            }
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {standingsRecord ? standingsRecord.gp : allPlayed.length} GP
+          </span>
         </div>
 
         {selectedOpponent && selectedOpponentName ? (
           <OpponentSummary games={opponentGames} opponentName={selectedOpponentName} onClose={clearOpponentFilter} />
-        ) : (
-          <LastNSummary games={allPlayed} count={lastN} onCountChange={setLastN} />
-        )}
+        ) : standings && standings.rows.length > 0 ? (
+          <div className="results-standings-mini">
+            <table className="standings-table-mini">
+              <thead>
+                <tr>
+                  <th>Team</th>
+                  <th>GP</th>
+                  <th>W</th>
+                  <th>L</th>
+                  <th>T</th>
+                  <th>PTS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standings.rows.map((row, i) => {
+                  const needle = team.organization.toLowerCase().replace(/\s+/g, "")
+                  const hay = row.teamName.toLowerCase().replace(/\s+/g, "")
+                  const isMyTeam = hay.includes(needle) || needle.includes(hay)
+                  return (
+                  <tr key={i} className={isMyTeam ? "standings-mini-highlight" : ""}>
+                    <td className="font-medium">{row.teamName}</td>
+                    <td>{row.gp}</td>
+                    <td>{row.w}</td>
+                    <td>{row.l}</td>
+                    <td>{row.t}</td>
+                    <td className="font-bold">{row.pts}</td>
+                  </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
 
         <div className="filter-bar">
           <input
@@ -238,15 +272,6 @@ export default function ResultsPage({
             value={search}
             onChange={(e) => { setSearch(e.target.value); setSelectedOpponent(null) }}
           />
-          <select
-            className="game-form-select"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as GameType | "all")}
-          >
-            {GAME_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
         </div>
       </div>
 
@@ -277,7 +302,6 @@ export default function ResultsPage({
                     </p>
                     <div className="flex items-center justify-end gap-1.5">
                       <ResultBadge result={game.result} />
-                      <span className="game-type-badge">{game.gameType}</span>
                     </div>
                   </div>
                 </button>

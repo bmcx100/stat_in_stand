@@ -2,8 +2,7 @@
 
 import { use } from "react"
 import Link from "next/link"
-import { Settings, Calendar, Trophy, Archive } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Archive } from "lucide-react"
 import { TEAMS } from "@/lib/teams"
 import { useGames } from "@/hooks/use-games"
 import { useStandings } from "@/hooks/use-standings"
@@ -53,26 +52,6 @@ export default function Dashboard({
 
   return (
     <div className="dashboard-page">
-      <div className="page-header">
-        <div />
-        <Button variant="ghost" size="icon" asChild>
-          <Link href={`/dashboard/${teamId}/import`}>
-            <Settings />
-          </Link>
-        </Button>
-      </div>
-
-      <Link href="/">
-        <div
-          className="dashboard-banner"
-          style={{ backgroundImage: `url(${team.banner})` }}
-        >
-          <span className="dashboard-banner-name">
-            {team.name}
-          </span>
-        </div>
-      </Link>
-
       <div className="dashboard-records">
         <Link href={`/dashboard/${teamId}/results`} className="dashboard-record-card">
           <p className="dashboard-record">{wins}-{losses}-{ties}</p>
@@ -80,7 +59,7 @@ export default function Dashboard({
         </Link>
 
         {teamRow && (
-          <Link href={`/dashboard/${teamId}/standings`} className="dashboard-record-card">
+          <Link href={`/dashboard/${teamId}/regular-season`} className="dashboard-record-card">
             <p className="dashboard-record">{teamRow.w}-{teamRow.l}-{teamRow.t}</p>
             <p className="dashboard-record-label">Regular Season</p>
           </Link>
@@ -94,21 +73,14 @@ export default function Dashboard({
         </Link>
       )}
 
-      <div className="dashboard-nav">
-        <Link href={`/dashboard/${teamId}/schedule`} className="dashboard-nav-link">
-          <Calendar className="size-4" />
-          Schedule
-          <span className="game-type-badge">
-            {games.filter((g) => !g.played && g.date >= new Date().toISOString().slice(0, 10)).length} upcoming
-          </span>
-        </Link>
-        {showPastEvents && (
+      {showPastEvents && (
+        <div className="dashboard-nav">
           <Link href={`/dashboard/${teamId}/past-events`} className="dashboard-nav-link">
             <Archive className="size-4" />
             Past Events
           </Link>
-        )}
-      </div>
+        </div>
+      )}
 
     </div>
   )

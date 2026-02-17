@@ -2,7 +2,7 @@
 
 import { use, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Plus, Download, Upload, Trash2, X } from "lucide-react"
+import { ArrowLeft, Plus, Download, Upload, Trash2, X, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { TEAMS } from "@/lib/teams"
 import { useGames } from "@/hooks/use-games"
@@ -1439,7 +1439,15 @@ function ModesTab({ teamId, teamOrganization }: { teamId: string; teamOrganizati
 
   return (
     <>
-      <h2 className="text-sm font-semibold">Playdowns</h2>
+      <div className="playdown-title-row">
+        <h2 className="text-sm font-semibold">Playdowns</h2>
+        <div className="playdown-info-wrap">
+          <Info className="playdown-info-icon" />
+          <p className="playdown-info-tooltip">
+            Go to OWHA &rarr; OWHA Provincial Playdowns &rarr; Age / Level &rarr; Games. Copy / Paste the list of games into the field below and click Import Games. This should update standings and organize everything.
+          </p>
+        </div>
+      </div>
 
       <div className="import-tabs">
         <button className="import-tab" data-active={subTab === "games"} onClick={() => setSubTab("games")}>
@@ -1730,11 +1738,11 @@ export default function AdminPage({
   return (
     <div className="dashboard-page">
       <div className="sub-page-header">
-        <Link href={`/dashboard/${teamId}`} className="back-link">
-          <ArrowLeft className="size-4" />
-          Back
-        </Link>
         <h1 className="page-title">Admin</h1>
+        <Link href={`/dashboard/${teamId}`} className="back-link">
+          Back
+          <ArrowLeft className="size-4" />
+        </Link>
       </div>
 
       <div className="admin-tabs">
@@ -1771,11 +1779,11 @@ export default function AdminPage({
                 <button className="import-tab" data-active={eventsSubTab === "tournaments"} onClick={() => setEventsSubTab("tournaments")}>
                   Tournaments
                 </button>
-                <button className="import-tab" data-active={eventsSubTab === "playdowns"} onClick={() => setEventsSubTab("playdowns")}>
-                  Playdowns
-                </button>
                 <button className="import-tab" data-active={eventsSubTab === "playoffs"} onClick={() => setEventsSubTab("playoffs")}>
                   Playoffs
+                </button>
+                <button className="import-tab" data-active={eventsSubTab === "playdowns"} onClick={() => setEventsSubTab("playdowns")}>
+                  Playdowns
                 </button>
               </div>
 

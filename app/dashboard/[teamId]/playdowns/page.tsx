@@ -24,11 +24,11 @@ export default function PlaydownsPage({
     return (
       <div className="dashboard-page">
         <div className="sub-page-header">
-          <Link href={`/dashboard/${teamId}`} className="back-link">
-            <ArrowLeft className="size-4" />
-            Back
-          </Link>
           <h1 className="page-title">Playdowns</h1>
+          <Link href={`/dashboard/${teamId}`} className="back-link">
+            Back
+            <ArrowLeft className="size-4" />
+          </Link>
         </div>
         <p className="dashboard-record-label">No playdowns configured yet.</p>
       </div>
