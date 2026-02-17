@@ -24,69 +24,6 @@ function computeRecord(games: Game[]) {
   return { w, l, t }
 }
 
-function LastNSummary({ games, count, onCountChange }: { games: Game[]; count: number; onCountChange: (n: number) => void }) {
-  const lastN = games.slice(0, count)
-  if (lastN.length === 0) return null
-
-  const { w, l, t } = computeRecord(lastN)
-
-  return (
-    <div className="last-n-card">
-      <div className="last-n-picker">
-        <span className="last-n-picker-label">Last</span>
-        <input
-          type="number"
-          className="last-n-input"
-          min={1}
-          max={99}
-          value={count}
-          onChange={(e) => onCountChange(Math.max(1, parseInt(e.target.value, 10) || 1))}
-        />
-        <span className="last-n-picker-label">Games</span>
-      </div>
-      <div className="last-n-divider" />
-      <div className="last-n-stats">
-        <span className="last-ten-record">{w}-{l}-{t}</span>
-        <div className="last-ten-dots">
-          {lastN.map((g) => {
-            const color = g.result === "W" ? "result-badge-w"
-              : g.result === "L" ? "result-badge-l"
-              : "result-badge-t"
-            return <span key={g.id} className={`last-ten-dot ${color}`} />
-          })}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function OpponentSummary({ games, opponentName, onClose }: { games: Game[]; opponentName: string; onClose: () => void }) {
-  if (games.length === 0) return null
-
-  const { w, l, t } = computeRecord(games)
-
-  return (
-    <div className="last-n-card">
-      <button className="opponent-clear-btn" onClick={onClose}>
-        <X className="size-4" />
-      </button>
-      <div className="last-n-divider" />
-      <div className="last-n-stats">
-        <span className="last-ten-label">vs {opponentName}</span>
-        <span className="last-ten-record">{w}-{l}-{t}</span>
-        <div className="last-ten-dots">
-          {games.slice(0, 20).map((g) => {
-            const color = g.result === "W" ? "result-badge-w"
-              : g.result === "L" ? "result-badge-l"
-              : "result-badge-t"
-            return <span key={g.id} className={`last-ten-dot ${color}`} />
-          })}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function RegularSeasonPage({
   params,
 }: {
@@ -171,13 +108,10 @@ export default function RegularSeasonPage({
       return opponentKey(g) === selectedOpponent
     })
 
-  const selectedOpponentName = selectedOpponent
-    ? opponentDisplay(filtered[0] ?? allPlayed.find((g) => opponentKey(g) === selectedOpponent)!)
+  const filteredOpponentKeys = new Set(filtered.map((g) => opponentKey(g)))
+  const singleOpponent = filteredOpponentKeys.size === 1 && filtered.length > 0
+    ? { name: opponentDisplay(filtered[0]), ...computeRecord(filtered), gp: filtered.length }
     : null
-
-  const opponentGames = selectedOpponent
-    ? allPlayed.filter((g) => opponentKey(g) === selectedOpponent)
-    : []
 
   const standings = getStandings(teamId)
   const teamRow = standings?.rows.find((r) => {
@@ -200,10 +134,6 @@ export default function RegularSeasonPage({
     }
   }
 
-  function clearOpponentFilter() {
-    setSelectedOpponent(null)
-  }
-
   return (
     <div ref={pageRef} className="results-page-wrap">
       <div className="results-header">
@@ -215,22 +145,28 @@ export default function RegularSeasonPage({
           </Link>
         </div>
 
-        <div className="results-record-bar">
-          <span className="text-xs text-muted-foreground">Record</span>
-          <span className="text-sm font-bold">
-            {standingsRecord
-              ? `${standingsRecord.w}-${standingsRecord.l}-${standingsRecord.t}`
-              : `${localRecord.w}-${localRecord.l}-${localRecord.t}`
-            }
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {standingsRecord ? standingsRecord.gp : allPlayed.length} GP
-          </span>
-        </div>
+        {singleOpponent ? (
+          <div className="results-record-bar">
+            <span className="text-xs text-muted-foreground">vs {singleOpponent.name}</span>
+            <span className="text-sm font-bold">{singleOpponent.w}-{singleOpponent.l}-{singleOpponent.t}</span>
+            <span className="text-xs text-muted-foreground">{singleOpponent.gp} GP</span>
+          </div>
+        ) : (
+          <div className="results-record-bar">
+            <span className="text-xs text-muted-foreground">Record</span>
+            <span className="text-sm font-bold">
+              {standingsRecord
+                ? `${standingsRecord.w}-${standingsRecord.l}-${standingsRecord.t}`
+                : `${localRecord.w}-${localRecord.l}-${localRecord.t}`
+              }
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {standingsRecord ? standingsRecord.gp : allPlayed.length} GP
+            </span>
+          </div>
+        )}
 
-        {selectedOpponent && selectedOpponentName ? (
-          <OpponentSummary games={opponentGames} opponentName={selectedOpponentName} onClose={clearOpponentFilter} />
-        ) : standings && standings.rows.length > 0 ? (
+        {standings && standings.rows.length > 0 && (
           <div className="results-standings-mini">
             <table className="standings-table-mini">
               <thead>
@@ -249,7 +185,16 @@ export default function RegularSeasonPage({
                   const hay = row.teamName.toLowerCase().replace(/\s+/g, "")
                   const isMyTeam = hay.includes(needle) || needle.includes(hay)
                   return (
-                  <tr key={i} className={isMyTeam ? "standings-mini-highlight" : ""}>
+                  <tr
+                    key={i}
+                    className={`${isMyTeam ? "standings-mini-highlight" : "standings-mini-clickable"}`}
+                    onClick={() => {
+                      if (!isMyTeam) {
+                        setSearch(row.teamName)
+                        setSelectedOpponent(null)
+                      }
+                    }}
+                  >
                     <td className="font-medium">{row.teamName}</td>
                     <td>{row.gp}</td>
                     <td>{row.w}</td>
@@ -262,7 +207,7 @@ export default function RegularSeasonPage({
               </tbody>
             </table>
           </div>
-        ) : null}
+        )}
 
         <div className="filter-bar">
           <input
@@ -272,6 +217,11 @@ export default function RegularSeasonPage({
             value={search}
             onChange={(e) => { setSearch(e.target.value); setSelectedOpponent(null) }}
           />
+          {search && (
+            <button className="opponent-clear-btn" onClick={() => setSearch("")}>
+              <X className="size-4" />
+            </button>
+          )}
         </div>
       </div>
 

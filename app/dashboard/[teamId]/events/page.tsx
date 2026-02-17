@@ -7,7 +7,7 @@ import { TEAMS } from "@/lib/teams"
 import { usePlaydowns } from "@/hooks/use-playdowns"
 import { computePlaydownStandings, isPlaydownExpired } from "@/lib/playdowns"
 
-export default function PastEventsPage({
+export default function EventsPage({
   params,
 }: {
   params: Promise<{ teamId: string }>
@@ -24,7 +24,7 @@ export default function PastEventsPage({
   return (
     <div className="dashboard-page">
       <div className="sub-page-header">
-        <h1 className="page-title">Past Events</h1>
+        <h1 className="page-title">Events</h1>
         <Link href={`/dashboard/${teamId}`} className="back-link">
           Back
           <ArrowLeft className="size-4" />
@@ -47,7 +47,7 @@ export default function PastEventsPage({
           </Link>
         </div>
       ) : (
-        <p className="dashboard-record-label">No past events</p>
+        <p className="dashboard-record-label">No events</p>
       )}
     </div>
   )

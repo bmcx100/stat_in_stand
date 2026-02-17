@@ -1,6 +1,7 @@
 "use client"
 
 import { use, useEffect, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, X } from "lucide-react"
 import { TEAMS } from "@/lib/teams"
@@ -103,17 +104,33 @@ export default function ResultsPage({
   params: Promise<{ teamId: string }>
 }) {
   const { teamId } = use(params)
+  const searchParams = useSearchParams()
   const team = TEAMS.find((t) => t.id === teamId)
   const { getTeamGames } = useGames()
   const { getById } = useOpponents()
   const [filter, setFilter] = useState<GameType | "all">("all")
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useState(searchParams.get("search") ?? "")
   const [lastN, setLastN] = useState(10)
   const [selectedOpponent, setSelectedOpponent] = useState<string | null>(null)
   const [canScrollUp, setCanScrollUp] = useState(false)
   const [canScrollDown, setCanScrollDown] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const initialSearch = searchParams.get("search")
+    if (!initialSearch) return
+    const allGames = getTeamGames(teamId).filter((g) => g.played)
+    const match = allGames.find((g) => {
+      const name = opponentDisplay(g).toLowerCase()
+      return name.includes(initialSearch.toLowerCase())
+    })
+    if (match) {
+      setSelectedOpponent(opponentKey(match))
+      setSearch("")
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const page = pageRef.current
@@ -230,7 +247,7 @@ export default function ResultsPage({
           <LastNSummary games={allPlayed} count={lastN} onCountChange={setLastN} />
         )}
 
-        <div className="filter-bar">
+        <div className="filter-bar justify-between">
           <input
             type="text"
             className="game-form-input"

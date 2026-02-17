@@ -55,16 +55,15 @@ export default function PlaydownsPage({
   return (
     <div className="dashboard-page">
       <div className="sub-page-header">
-        <Link href={`/dashboard/${teamId}`} className="back-link">
-          <ArrowLeft className="size-4" />
-          Back
-        </Link>
         <h1 className="page-title">Playdowns</h1>
+        <Link href={`/dashboard/${teamId}`} className="back-link">
+          Back
+          <ArrowLeft className="size-4" />
+        </Link>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        {config.teams.length} teams — top {config.qualifyingSpots} qualify for Provincials
-        {config.gamesPerMatchup > 1 && ` — ${config.gamesPerMatchup} games per matchup`}
+      <p className="text-sm text-center text-muted-foreground">
+        {config.totalTeams} Teams - {config.qualifyingSpots} Qualifiers - {config.gamesPerMatchup} Games per Matchup
       </p>
 
       {/* Standings */}

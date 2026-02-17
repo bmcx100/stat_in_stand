@@ -221,6 +221,10 @@
   @apply flex flex-1 flex-col gap-4 px-4 py-4;
 }
 
+.dashboard-page-full {
+  @apply h-full min-h-0;
+}
+
 .dashboard-banner {
   @apply flex w-full items-center rounded-xl border py-4 px-4 transition-colors cursor-pointer hover:opacity-90;
   background-size: cover;
@@ -230,6 +234,25 @@
 
 .dashboard-banner-name {
   @apply ml-auto text-lg font-semibold text-white;
+}
+
+.dashboard-section-heading {
+  @apply text-sm font-semibold text-muted-foreground;
+}
+
+.dashboard-section-link {
+  @apply transition-colors hover:text-foreground;
+}
+
+.dashboard-schedule-wrap {
+  @apply relative min-h-0;
+  height: 30vh;
+}
+
+.dashboard-schedule-list {
+  @apply absolute inset-0 overflow-y-auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 }
 
 .dashboard-records {
@@ -416,6 +439,10 @@
   @apply bg-accent font-bold;
 }
 
+.standings-mini-clickable {
+  @apply cursor-pointer transition-colors hover:bg-accent/50;
+}
+
 /* Last N card */
 .last-n-card {
   @apply flex flex-row items-center rounded-lg border px-4 py-3;
@@ -480,7 +507,7 @@
 
 /* Filter bar */
 .filter-bar {
-  @apply flex items-center justify-between gap-2;
+  @apply flex items-center gap-2;
 }
 
 /* Admin top-level tabs */
@@ -544,7 +571,7 @@
 }
 
 .result-badge-l {
-  @apply bg-red-600;
+  background-color: #D33125;
 }
 
 .result-badge-t {
