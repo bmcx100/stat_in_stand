@@ -404,3 +404,30 @@
 .last-ten-dot {
   @apply size-3 rounded-full;
 }
+
+/* Playdown config row */
+.playdown-config-row {
+  @apply flex items-end justify-between;
+}
+
+.playdown-config-field {
+  @apply flex flex-col items-center gap-1 text-center;
+}
+
+.playdown-config-input {
+  @apply rounded-lg border bg-background px-2 py-2 text-sm text-center;
+  width: 3.5rem;
+}
+
+/* Playdown standings */
+.playdown-standings-wrap {
+  @apply overflow-x-auto;
+}
+
+.playdown-self-row {
+  @apply font-bold bg-accent/30;
+}
+
+.playdown-cutoff {
+  @apply border-b-2 border-green-600;
+}

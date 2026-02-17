@@ -1,4 +1,4 @@
-import type { Game, Opponent, StandingsRow, GameType } from "./types"
+import type { Game, Opponent, StandingsRow, GameType, PlaydownGame } from "./types"
 import { parseMonth, inferYear } from "./season"
 
 /**
@@ -467,4 +467,94 @@ export function parseTeamsnapGames(
   }
 
   return games
+}
+
+/**
+ * Parse OWHA playdown game data into PlaydownGame[].
+ * Format: GameID \t DateTime \t Location \t Home#ID(score) \t Away#ID(score)
+ * DateTime combines date + time in one field (e.g. "Wed, Feb. 18, 2026 7:45 PM").
+ * Some rows wrap to a second line (e.g. "No Curfew") — these get joined back.
+ */
+export function parsePlaydownGames(
+  text: string,
+  teamId: string
+): { games: PlaydownGame[]; teamNames: string[] } {
+  // Pre-process: join continuation lines (lines not starting with a game number)
+  const rawLines = text.trim().split("\n")
+  const joined: string[] = []
+  for (const line of rawLines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    if (/^\d{4,}/.test(trimmed)) {
+      joined.push(trimmed)
+    } else if (joined.length > 0) {
+      joined[joined.length - 1] += "\t" + trimmed
+    }
+  }
+
+  const games: PlaydownGame[] = []
+  const teamNamesSet = new Set<string>()
+
+  for (const line of joined) {
+    const parts = line.split(/\t+/).map((p) => p.trim()).filter(Boolean)
+    // Filter out noise like "No Curfew"
+    const filtered = parts.filter((p) => !/^no curfew$/i.test(p))
+    if (filtered.length < 4) continue
+
+    const gameNumMatch = filtered[0].match(/^(\d+)$/)
+    if (!gameNumMatch) continue
+
+    // DateTime is the second field — split into date and time
+    const dateTimeRaw = filtered[1]
+    const timeMatch = dateTimeRaw.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*$/i)
+    let timeStr = ""
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1], 10)
+      const minutes = timeMatch[2]
+      const ampm = timeMatch[3].toUpperCase()
+      if (ampm === "PM" && hours !== 12) hours += 12
+      if (ampm === "AM" && hours === 12) hours = 0
+      timeStr = `${String(hours).padStart(2, "0")}:${minutes}`
+    }
+    const dateStr = timeMatch
+      ? dateTimeRaw.slice(0, timeMatch.index).trim()
+      : dateTimeRaw
+
+    // Remaining fields: Location, Home, Away
+    const location = filtered[2] ?? ""
+    const homeRaw = filtered[3] ?? ""
+    const visitorRaw = filtered[4] ?? ""
+
+    const parseTeamScore = (raw: string) => {
+      const scoreMatch = raw.match(/\((\d+)\)\s*$/)
+      const score = scoreMatch ? parseInt(scoreMatch[1], 10) : null
+      const name = raw.replace(/\(\d+\)\s*$/, "").replace(/#\d+/, "").trim()
+      return { name, score }
+    }
+
+    const home = parseTeamScore(homeRaw)
+    const visitor = parseTeamScore(visitorRaw)
+
+    if (home.name) teamNamesSet.add(home.name)
+    if (visitor.name) teamNamesSet.add(visitor.name)
+
+    const played = home.score !== null && visitor.score !== null
+    const isoDate = normalizeDate(dateStr)
+    const id = `pd-g-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+
+    games.push({
+      id,
+      teamId,
+      date: isoDate,
+      time: timeStr,
+      homeTeam: home.name,
+      awayTeam: visitor.name,
+      homeScore: home.score,
+      awayScore: visitor.score,
+      location,
+      played,
+    })
+  }
+
+  return { games, teamNames: Array.from(teamNamesSet) }
 }

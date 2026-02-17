@@ -1,4 +1,4 @@
-const STORAGE_KEYS = ["favorite-teams", "team-games", "team-standings", "opponents"]
+const STORAGE_KEYS = ["favorite-teams", "team-games", "team-standings", "opponents", "team-playdowns"]
 
 export type BackupData = {
   version: 1

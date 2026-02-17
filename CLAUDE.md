@@ -43,3 +43,4 @@ Components are placed in `components/ui/` and use `class-variance-authority` for
 - Do NOT apply tailwind classes directly in component templates unless essential or just 1 at most. If an element needs more than a single Tailwind class, combine them into a custom class using the `@apply` directive.
 - Use minimal project dependencies where possible.
 - Use `the git switch -c` command to switch to new branches, not `git checkout`.
+- WHEN PLANNING FROM AN EXISTING SPEC DOCUMENT PLAN AND THEN STOP. DO NOT IMPLEMENT WITHOUT USER SPECIFICALLY REQUESTING TO IMPLEMENT PLAN.

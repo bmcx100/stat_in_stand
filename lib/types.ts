@@ -60,3 +60,51 @@ export type StandingsData = {
   sourceUrl: string
   rows: StandingsRow[]
 }
+
+// === Playdowns ===
+
+export type PlaydownTeam = {
+  id: string
+  name: string
+  opponentId?: string
+}
+
+export type PlaydownConfig = {
+  teamId: string
+  totalTeams: number
+  qualifyingSpots: number
+  gamesPerMatchup: number
+  teams: PlaydownTeam[]
+}
+
+export type PlaydownGame = {
+  id: string
+  teamId: string
+  date: string
+  time: string
+  homeTeam: string
+  awayTeam: string
+  homeScore: number | null
+  awayScore: number | null
+  location: string
+  played: boolean
+}
+
+export type PlaydownStandingsRow = {
+  teamId: string
+  teamName: string
+  gp: number
+  w: number
+  l: number
+  t: number
+  pts: number
+  gf: number
+  ga: number
+  diff: number
+  qualifies: boolean
+}
+
+export type PlaydownData = {
+  config: PlaydownConfig
+  games: PlaydownGame[]
+}

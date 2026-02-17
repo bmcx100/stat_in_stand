@@ -2,11 +2,13 @@
 
 import { use } from "react"
 import Link from "next/link"
-import { Settings, Calendar } from "lucide-react"
+import { Settings, Calendar, Trophy, Archive } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { TEAMS } from "@/lib/teams"
 import { useGames } from "@/hooks/use-games"
 import { useStandings } from "@/hooks/use-standings"
+import { usePlaydowns } from "@/hooks/use-playdowns"
+import { isPlaydownActive, isPlaydownExpired, computePlaydownStandings } from "@/lib/playdowns"
 
 export default function Dashboard({
   params,
@@ -17,6 +19,7 @@ export default function Dashboard({
   const team = TEAMS.find((t) => t.id === teamId)
   const { getTeamGames } = useGames()
   const { getStandings } = useStandings()
+  const { getPlaydown } = usePlaydowns()
 
   if (!team) {
     return (
@@ -39,6 +42,14 @@ export default function Dashboard({
     const hay = r.teamName.toLowerCase().replace(/\s+/g, "")
     return hay.includes(needle) || needle.includes(hay)
   })
+
+  const playdown = getPlaydown(teamId)
+  const showPlaydownCard = playdown && isPlaydownActive(playdown.config, playdown.games)
+  const showPastEvents = playdown && isPlaydownExpired(playdown.config, playdown.games)
+
+  const playdownSelf = playdown
+    ? computePlaydownStandings(playdown.config, playdown.games).find((r) => r.teamId === "self")
+    : null
 
   return (
     <div className="dashboard-page">
@@ -76,6 +87,13 @@ export default function Dashboard({
         )}
       </div>
 
+      {showPlaydownCard && playdownSelf && (
+        <Link href={`/dashboard/${teamId}/playdowns`} className="dashboard-record-card">
+          <p className="dashboard-record">{playdownSelf.w}-{playdownSelf.l}-{playdownSelf.t}</p>
+          <p className="dashboard-record-label">Playdowns</p>
+        </Link>
+      )}
+
       <div className="dashboard-nav">
         <Link href={`/dashboard/${teamId}/schedule`} className="dashboard-nav-link">
           <Calendar className="size-4" />
@@ -84,6 +102,12 @@ export default function Dashboard({
             {games.filter((g) => !g.played && g.date >= new Date().toISOString().slice(0, 10)).length} upcoming
           </span>
         </Link>
+        {showPastEvents && (
+          <Link href={`/dashboard/${teamId}/past-events`} className="dashboard-nav-link">
+            <Archive className="size-4" />
+            Past Events
+          </Link>
+        )}
       </div>
 
     </div>

@@ -14,14 +14,21 @@ import {
   parseMhrGames,
   parseOwhaTeamList,
   parseTeamsnapGames,
+  parsePlaydownGames,
   matchOpponent,
   findDuplicates,
 } from "@/lib/parsers"
 import type { DuplicateInfo } from "@/lib/parsers"
 import { downloadBackup, restoreBackup } from "@/lib/backup"
-import type { Game, GameType, Opponent, StandingsRow } from "@/lib/types"
+import { usePlaydowns } from "@/hooks/use-playdowns"
+import { computePlaydownStandings } from "@/lib/playdowns"
+import type { Game, GameType, Opponent, StandingsRow, PlaydownConfig, PlaydownGame, PlaydownTeam } from "@/lib/types"
 
-type AdminTab = "import" | "games" | "opponents" | "data"
+type AdminTab = "config" | "data"
+type ConfigSubTab = "events" | "blank"
+type EventsSubTab = "tournaments" | "playdowns" | "playoffs"
+type DataSubTab = "import" | "edit" | "backup"
+type EditSubTab = "games" | "opponents"
 type ImportTab = "owha-standings" | "owha-games" | "mhr-games" | "teamsnap-games" | "owha-teams"
 
 const GAME_TYPE_OPTIONS: Array<{ value: GameType; label: string }> = [
@@ -731,7 +738,7 @@ function ImportDataTab({
   const { setStandings } = useStandings()
   const { getAll, addOpponents } = useOpponents()
 
-  const [activeTab, setActiveTab] = useState<ImportTab>("owha-teams")
+  const [activeTab, setActiveTab] = useState<ImportTab>("teamsnap-games")
   const [pasteText, setPasteText] = useState("")
   const [sourceUrl, setSourceUrl] = useState("")
   const [gameType, setGameType] = useState<GameType>("regular")
@@ -899,10 +906,10 @@ function ImportDataTab({
       <div className="import-tabs">
         <button
           className="import-tab"
-          data-active={activeTab === "owha-teams"}
-          onClick={() => handleTabSwitch("owha-teams")}
+          data-active={activeTab === "teamsnap-games"}
+          onClick={() => handleTabSwitch("teamsnap-games")}
         >
-          OWHA Teams
+          TeamSnap
         </button>
         <button
           className="import-tab"
@@ -927,10 +934,10 @@ function ImportDataTab({
         </button>
         <button
           className="import-tab"
-          data-active={activeTab === "teamsnap-games"}
-          onClick={() => handleTabSwitch("teamsnap-games")}
+          data-active={activeTab === "owha-teams"}
+          onClick={() => handleTabSwitch("owha-teams")}
         >
-          TeamSnap
+          OWHA Teams
         </button>
       </div>
 
@@ -1176,6 +1183,533 @@ function ImportDataTab({
   )
 }
 
+// === Modes Tab (Playdowns) ===
+
+type PlaydownSubTab = "setup" | "standings" | "games"
+
+function ModesTab({ teamId, teamOrganization }: { teamId: string; teamOrganization: string }) {
+  const { getPlaydown, setConfig, setGames, addGame, updateGame, removeGame, clearPlaydown } = usePlaydowns()
+  const [subTab, setSubTab] = useState<PlaydownSubTab>("games")
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
+
+  const playdown = getPlaydown(teamId)
+  const config = playdown?.config
+  const games = playdown?.games ?? []
+  const standings = config ? computePlaydownStandings(config, games) : []
+
+  // Setup form state
+  const [totalTeams, setTotalTeams] = useState(config?.totalTeams ?? 4)
+  const [qualifyingSpots, setQualifyingSpots] = useState(config?.qualifyingSpots ?? 2)
+  const [gamesPerMatchup, setGamesPerMatchup] = useState(config?.gamesPerMatchup ?? 2)
+
+  // Import state
+  const [standingsText, setStandingsText] = useState("")
+  const [gamesText, setGamesText] = useState("")
+
+  // New game form state
+  const [showAddGame, setShowAddGame] = useState(false)
+  const [newGameDate, setNewGameDate] = useState("")
+  const [newGameTime, setNewGameTime] = useState("")
+  const [newGameHome, setNewGameHome] = useState("")
+  const [newGameAway, setNewGameAway] = useState("")
+  const [newGameLocation, setNewGameLocation] = useState("")
+
+  function handleSaveConfig() {
+    const newConfig: PlaydownConfig = {
+      teamId,
+      totalTeams,
+      qualifyingSpots,
+      gamesPerMatchup,
+      teams: config?.teams ?? [],
+    }
+    setConfig(teamId, newConfig)
+  }
+
+  function handleImportStandings() {
+    const lines = standingsText.trim().split("\n").filter((l) => l.trim())
+    if (lines.length === 0) return
+
+    const teams: PlaydownTeam[] = []
+    const games: PlaydownGame[] = []
+    let gameIndex = 0
+
+    for (const line of lines) {
+      const cols = line.split("\t").map((c) => c.trim())
+      // Find team name — first column that isn't purely numeric
+      const nameCol = cols.find((c) => c && !/^\d+$/.test(c) && !/^\d+\.\d+$/.test(c))
+      if (!nameCol) continue
+
+      // Try to extract W, L, T — look for 3+ consecutive numeric columns
+      const numericCols = cols.filter((c) => /^\d+$/.test(c)).map(Number)
+      // Expect at least: GP W L T
+      const gp = numericCols.length >= 4 ? numericCols[0] : 0
+      const w = numericCols.length >= 4 ? numericCols[1] : 0
+      const l = numericCols.length >= 4 ? numericCols[2] : 0
+      const t = numericCols.length >= 4 ? numericCols[3] : 0
+
+      const id = `pd-team-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      teams.push({ id, name: nameCol })
+
+      // Create synthetic games for the record
+      for (let i = 0; i < w; i++) {
+        games.push({
+          id: `pd-g-import-${gameIndex++}`,
+          teamId,
+          date: "",
+          time: "",
+          homeTeam: id,
+          awayTeam: "unknown",
+          homeScore: 1,
+          awayScore: 0,
+          location: "",
+          played: true,
+        })
+      }
+      for (let i = 0; i < l; i++) {
+        games.push({
+          id: `pd-g-import-${gameIndex++}`,
+          teamId,
+          date: "",
+          time: "",
+          homeTeam: id,
+          awayTeam: "unknown",
+          homeScore: 0,
+          awayScore: 1,
+          location: "",
+          played: true,
+        })
+      }
+      for (let i = 0; i < t; i++) {
+        games.push({
+          id: `pd-g-import-${gameIndex++}`,
+          teamId,
+          date: "",
+          time: "",
+          homeTeam: id,
+          awayTeam: "unknown",
+          homeScore: 0,
+          awayScore: 0,
+          location: "",
+          played: true,
+        })
+      }
+    }
+
+    if (teams.length === 0) return
+
+    const newConfig: PlaydownConfig = {
+      teamId,
+      totalTeams: teams.length,
+      qualifyingSpots,
+      gamesPerMatchup,
+      teams,
+    }
+    setConfig(teamId, newConfig)
+    setGames(teamId, games)
+    setTotalTeams(teams.length)
+    setStandingsText("")
+  }
+
+  function handleImportGames() {
+    const { games: parsed } = parsePlaydownGames(gamesText, teamId)
+    if (parsed.length === 0) return
+
+    // Find the user's team by matching organization name
+    const needle = teamOrganization.toLowerCase()
+    const allTeamNames = new Set<string>()
+    for (const g of parsed) {
+      allTeamNames.add(g.homeTeam)
+      allTeamNames.add(g.awayTeam)
+    }
+    const selfName = Array.from(allTeamNames).find((n) =>
+      n.toLowerCase().includes(needle) || needle.includes(n.toLowerCase())
+    )
+
+    // Build adjacency graph to find the loop
+    const adj = new Map<string, Set<string>>()
+    for (const g of parsed) {
+      if (!adj.has(g.homeTeam)) adj.set(g.homeTeam, new Set())
+      if (!adj.has(g.awayTeam)) adj.set(g.awayTeam, new Set())
+      adj.get(g.homeTeam)!.add(g.awayTeam)
+      adj.get(g.awayTeam)!.add(g.homeTeam)
+    }
+
+    // BFS from user's team to find all connected teams in the loop
+    const loopTeams = new Set<string>()
+    if (selfName) {
+      const queue = [selfName]
+      loopTeams.add(selfName)
+      while (queue.length > 0) {
+        const current = queue.shift()!
+        for (const neighbor of adj.get(current) ?? []) {
+          if (!loopTeams.has(neighbor)) {
+            loopTeams.add(neighbor)
+            queue.push(neighbor)
+          }
+        }
+      }
+    }
+
+    // Filter games to only those between loop teams
+    const loopGames = selfName
+      ? parsed.filter((g) => loopTeams.has(g.homeTeam) && loopTeams.has(g.awayTeam))
+      : parsed
+
+    // Build team list, marking user's team as "self"
+    const existingNames = new Set((config?.teams ?? []).map((t) => t.name))
+    const newTeams: PlaydownTeam[] = [...(config?.teams ?? [])]
+    const loopTeamNames = selfName ? Array.from(loopTeams) : Array.from(allTeamNames)
+    for (const name of loopTeamNames) {
+      if (!existingNames.has(name)) {
+        const isSelf = name === selfName
+        const id = isSelf ? "self" : `pd-team-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+        newTeams.push({ id, name })
+        existingNames.add(name)
+      }
+    }
+
+    // Map team names to IDs in games
+    const nameToId = new Map(newTeams.map((t) => [t.name, t.id]))
+    const mappedGames = loopGames.map((g) => ({
+      ...g,
+      homeTeam: nameToId.get(g.homeTeam) ?? g.homeTeam,
+      awayTeam: nameToId.get(g.awayTeam) ?? g.awayTeam,
+    }))
+
+    // Deduplicate against existing games (match by date + home + away)
+    const existingKeys = new Set(
+      games.map((g) => `${g.date}|${g.homeTeam}|${g.awayTeam}`)
+    )
+    const newGames = mappedGames.filter((g) =>
+      !existingKeys.has(`${g.date}|${g.homeTeam}|${g.awayTeam}`)
+    )
+
+    const newConfig: PlaydownConfig = {
+      teamId,
+      totalTeams: newTeams.length,
+      qualifyingSpots,
+      gamesPerMatchup,
+      teams: newTeams,
+    }
+    setConfig(teamId, newConfig)
+    setGames(teamId, [...games, ...newGames])
+    setTotalTeams(newTeams.length)
+    setGamesText("")
+  }
+
+  function handleAddGame() {
+    if (!newGameDate || !newGameHome || !newGameAway) return
+    const id = `pd-g-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    addGame(teamId, {
+      id,
+      teamId,
+      date: newGameDate,
+      time: newGameTime,
+      homeTeam: newGameHome,
+      awayTeam: newGameAway,
+      homeScore: null,
+      awayScore: null,
+      location: newGameLocation,
+      played: false,
+    })
+    setNewGameDate("")
+    setNewGameTime("")
+    setNewGameHome("")
+    setNewGameAway("")
+    setNewGameLocation("")
+    setShowAddGame(false)
+  }
+
+  function handleScoreUpdate(gameId: string, homeScore: string, awayScore: string) {
+    const hs = homeScore === "" ? null : parseInt(homeScore, 10)
+    const as_ = awayScore === "" ? null : parseInt(awayScore, 10)
+    const played = hs !== null && as_ !== null && !isNaN(hs) && !isNaN(as_)
+    updateGame(teamId, gameId, {
+      homeScore: played ? hs : null,
+      awayScore: played ? as_ : null,
+      played,
+    })
+  }
+
+  function teamName(id: string): string {
+    const t = config?.teams.find((t) => t.id === id)
+    return t?.name ?? id
+  }
+
+  return (
+    <>
+      <h2 className="text-sm font-semibold">Playdowns</h2>
+
+      <div className="import-tabs">
+        <button className="import-tab" data-active={subTab === "games"} onClick={() => setSubTab("games")}>
+          Games
+        </button>
+        <button className="import-tab" data-active={subTab === "standings"} onClick={() => setSubTab("standings")}>
+          Standings
+        </button>
+        <button className="import-tab" data-active={subTab === "setup"} onClick={() => setSubTab("setup")}>
+          Edit
+        </button>
+      </div>
+
+      {/* Setup */}
+      {subTab === "setup" && (
+        <div className="import-section">
+          <div className="playdown-config-row">
+            <div className="playdown-config-field">
+              <label className="game-form-label">Teams</label>
+              <input type="number" className="playdown-config-input" min={2} value={totalTeams} onChange={(e) => setTotalTeams(parseInt(e.target.value, 10) || 2)} />
+            </div>
+            <div className="playdown-config-field">
+              <label className="game-form-label">Qualifiers</label>
+              <input type="number" className="playdown-config-input" min={1} value={qualifyingSpots} onChange={(e) => setQualifyingSpots(parseInt(e.target.value, 10) || 1)} />
+            </div>
+            <div className="playdown-config-field">
+              <label className="game-form-label">Games per Matchup</label>
+              <input type="number" className="playdown-config-input" min={1} value={gamesPerMatchup} onChange={(e) => setGamesPerMatchup(parseInt(e.target.value, 10) || 1)} />
+            </div>
+          </div>
+
+          <Button onClick={handleSaveConfig}>
+            {config ? "Update Config" : "Save Config"}
+          </Button>
+
+          {config && (
+            confirmDeleteAll ? (
+              <div className="flex items-center gap-2">
+                <Button variant="destructive" size="sm" onClick={() => { clearPlaydown(teamId); setConfirmDeleteAll(false) }}>
+                  Confirm Delete
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteAll(false)}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" className="text-destructive" onClick={() => setConfirmDeleteAll(true)}>
+                Delete Playdowns
+              </Button>
+            )
+          )}
+        </div>
+      )}
+
+      {/* Standings */}
+      {subTab === "standings" && (
+        <div className="import-section">
+          {config && (
+            <p className="text-sm text-muted-foreground">
+              {config.teams.length} teams — top {config.qualifyingSpots} qualify for Provincials
+            </p>
+          )}
+          {standings.length > 0 ? (
+            <table className="standings-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Team</th>
+                  <th>GP</th>
+                  <th>W</th>
+                  <th>L</th>
+                  <th>T</th>
+                  <th>PTS</th>
+                  <th>GF</th>
+                  <th>GA</th>
+                  <th>DIFF</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standings.map((row, i) => (
+                  <tr
+                    key={row.teamId}
+                    className={`standings-row ${row.teamId === "self" ? "font-bold" : ""} ${config && i === config.qualifyingSpots - 1 ? "playdown-cutoff" : ""}`}
+                  >
+                    <td>
+                      <span className={`text-xs ${row.qualifies ? "text-green-600" : "text-muted-foreground"}`}>
+                        {i + 1}
+                      </span>
+                    </td>
+                    <td>{row.teamName}</td>
+                    <td>{row.gp}</td>
+                    <td>{row.w}</td>
+                    <td>{row.l}</td>
+                    <td>{row.t}</td>
+                    <td className="font-bold">{row.pts}</td>
+                    <td>{row.gf}</td>
+                    <td>{row.ga}</td>
+                    <td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="dashboard-record-label">No games played yet</p>
+          )}
+
+          <div className="game-form-field">
+            <label className="game-form-label">Import Standings</label>
+            <textarea
+              className="import-textarea"
+              placeholder="Paste playdown standings table here (tab-separated)..."
+              value={standingsText}
+              onChange={(e) => setStandingsText(e.target.value)}
+            />
+            <Button variant="outline" disabled={!standingsText.trim()} onClick={handleImportStandings}>
+              Import Standings
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Games */}
+      {subTab === "games" && (
+        <div className="import-section">
+          <Button size="sm" variant="outline" onClick={() => setShowAddGame(!showAddGame)}>
+            <Plus className="size-3.5" /> Add Game
+          </Button>
+
+          {showAddGame && (
+            <div className="import-preview">
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <input type="date" className="game-form-input" value={newGameDate} onChange={(e) => setNewGameDate(e.target.value)} />
+                  <input type="time" className="game-form-input" value={newGameTime} onChange={(e) => setNewGameTime(e.target.value)} />
+                </div>
+                <div className="flex gap-2">
+                  <select className="game-form-select" value={newGameHome} onChange={(e) => setNewGameHome(e.target.value)}>
+                    <option value="">Home Team</option>
+                    {(config?.teams ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  <select className="game-form-select" value={newGameAway} onChange={(e) => setNewGameAway(e.target.value)}>
+                    <option value="">Away Team</option>
+                    {(config?.teams ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+                <input type="text" className="game-form-input" placeholder="Location" value={newGameLocation} onChange={(e) => setNewGameLocation(e.target.value)} />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleAddGame} disabled={!newGameDate || !newGameHome || !newGameAway}>
+                    Save Game
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setShowAddGame(false)}>Cancel</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {games.length === 0 ? (
+            <p className="dashboard-record-label">No playdown games yet</p>
+          ) : (
+            <div className="games-table-wrap">
+              <table className="games-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Home</th>
+                    <th>Away</th>
+                    <th>H</th>
+                    <th>A</th>
+                    <th>Location</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {games
+                    .slice()
+                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                    .map((game) => (
+                    <tr key={game.id}>
+                      <td>
+                        <input
+                          type="date"
+                          className="games-table-input"
+                          defaultValue={game.date}
+                          onBlur={(e) => {
+                            if (e.target.value !== game.date) updateGame(teamId, game.id, { date: e.target.value })
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="time"
+                          className="games-table-input"
+                          defaultValue={game.time}
+                          onBlur={(e) => {
+                            if (e.target.value !== game.time) updateGame(teamId, game.id, { time: e.target.value })
+                          }}
+                        />
+                      </td>
+                      <td><span className="text-xs">{teamName(game.homeTeam)}</span></td>
+                      <td><span className="text-xs">{teamName(game.awayTeam)}</span></td>
+                      <td>
+                        <input
+                          type="number"
+                          className="games-table-input"
+                          style={{ width: "40px" }}
+                          defaultValue={game.homeScore ?? ""}
+                          onBlur={(e) => handleScoreUpdate(game.id, e.target.value, String(game.awayScore ?? ""))}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          className="games-table-input"
+                          style={{ width: "40px" }}
+                          defaultValue={game.awayScore ?? ""}
+                          onBlur={(e) => handleScoreUpdate(game.id, String(game.homeScore ?? ""), e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="games-table-input"
+                          defaultValue={game.location}
+                          onBlur={(e) => {
+                            if (e.target.value !== game.location) updateGame(teamId, game.id, { location: e.target.value })
+                          }}
+                        />
+                      </td>
+                      <td>
+                        {confirmDeleteId === game.id ? (
+                          <div className="flex gap-1">
+                            <button className="games-table-delete" onClick={() => { removeGame(teamId, game.id); setConfirmDeleteId(null) }}>
+                              <Trash2 className="size-3.5 text-destructive" />
+                            </button>
+                            <button className="games-table-delete" onClick={() => setConfirmDeleteId(null)}>
+                              <X className="size-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button className="games-table-delete" onClick={() => setConfirmDeleteId(game.id)}>
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="game-form-field">
+            <label className="game-form-label">Import Games</label>
+            <textarea
+              className="import-textarea"
+              placeholder="Paste OWHA game data here (tab-separated)..."
+              value={gamesText}
+              onChange={(e) => setGamesText(e.target.value)}
+            />
+            <Button variant="outline" disabled={!gamesText.trim()} onClick={handleImportGames}>
+              Import Games
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // === Admin Page ===
 
 export default function AdminPage({
@@ -1185,7 +1719,11 @@ export default function AdminPage({
 }) {
   const { teamId } = use(params)
   const team = TEAMS.find((t) => t.id === teamId)
-  const [adminTab, setAdminTab] = useState<AdminTab>("import")
+  const [adminTab, setAdminTab] = useState<AdminTab>("config")
+  const [configSubTab, setConfigSubTab] = useState<ConfigSubTab>("events")
+  const [eventsSubTab, setEventsSubTab] = useState<EventsSubTab>("playdowns")
+  const [dataSubTab, setDataSubTab] = useState<DataSubTab>("import")
+  const [editSubTab, setEditSubTab] = useState<EditSubTab>("games")
 
   if (!team) return null
 
@@ -1202,24 +1740,10 @@ export default function AdminPage({
       <div className="admin-tabs">
         <button
           className="admin-tab"
-          data-active={adminTab === "import"}
-          onClick={() => setAdminTab("import")}
+          data-active={adminTab === "config"}
+          onClick={() => setAdminTab("config")}
         >
-          Import
-        </button>
-        <button
-          className="admin-tab"
-          data-active={adminTab === "games"}
-          onClick={() => setAdminTab("games")}
-        >
-          Games
-        </button>
-        <button
-          className="admin-tab"
-          data-active={adminTab === "opponents"}
-          onClick={() => setAdminTab("opponents")}
-        >
-          Opponents
+          Config
         </button>
         <button
           className="admin-tab"
@@ -1230,19 +1754,83 @@ export default function AdminPage({
         </button>
       </div>
 
-      {adminTab === "import" ? (
-        <ImportDataTab
-          teamId={teamId}
-          teamOrganization={team.organization}
-          teamAgeGroup={team.ageGroup}
-          teamLevel={team.level}
-        />
-      ) : adminTab === "games" ? (
-        <GamesTab teamId={teamId} />
-      ) : adminTab === "opponents" ? (
-        <OpponentsTab />
+      {adminTab === "config" ? (
+        <>
+          <div className="import-tabs">
+            <button className="import-tab" data-active={configSubTab === "events"} onClick={() => setConfigSubTab("events")}>
+              Events
+            </button>
+            <button className="import-tab" data-active={configSubTab === "blank"} onClick={() => setConfigSubTab("blank")}>
+              &nbsp;
+            </button>
+          </div>
+
+          {configSubTab === "events" ? (
+            <>
+              <div className="import-tabs">
+                <button className="import-tab" data-active={eventsSubTab === "tournaments"} onClick={() => setEventsSubTab("tournaments")}>
+                  Tournaments
+                </button>
+                <button className="import-tab" data-active={eventsSubTab === "playdowns"} onClick={() => setEventsSubTab("playdowns")}>
+                  Playdowns
+                </button>
+                <button className="import-tab" data-active={eventsSubTab === "playoffs"} onClick={() => setEventsSubTab("playoffs")}>
+                  Playoffs
+                </button>
+              </div>
+
+              {eventsSubTab === "playdowns" ? (
+                <ModesTab teamId={teamId} teamOrganization={team.organization} />
+              ) : (
+                <p className="text-sm text-muted-foreground">Coming soon</p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Coming soon</p>
+          )}
+        </>
       ) : (
-        <DataTab teamId={teamId} teamName={team.name} />
+        <>
+          <div className="import-tabs">
+            <button className="import-tab" data-active={dataSubTab === "import"} onClick={() => setDataSubTab("import")}>
+              Import
+            </button>
+            <button className="import-tab" data-active={dataSubTab === "edit"} onClick={() => setDataSubTab("edit")}>
+              Edit
+            </button>
+            <button className="import-tab" data-active={dataSubTab === "backup"} onClick={() => setDataSubTab("backup")}>
+              Backup
+            </button>
+          </div>
+
+          {dataSubTab === "import" ? (
+            <ImportDataTab
+              teamId={teamId}
+              teamOrganization={team.organization}
+              teamAgeGroup={team.ageGroup}
+              teamLevel={team.level}
+            />
+          ) : dataSubTab === "edit" ? (
+            <>
+              <div className="import-tabs">
+                <button className="import-tab" data-active={editSubTab === "games"} onClick={() => setEditSubTab("games")}>
+                  Games
+                </button>
+                <button className="import-tab" data-active={editSubTab === "opponents"} onClick={() => setEditSubTab("opponents")}>
+                  Opponents
+                </button>
+              </div>
+
+              {editSubTab === "games" ? (
+                <GamesTab teamId={teamId} />
+              ) : (
+                <OpponentsTab />
+              )}
+            </>
+          ) : (
+            <DataTab teamId={teamId} teamName={team.name} />
+          )}
+        </>
       )}
     </div>
   )
