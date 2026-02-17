@@ -44,7 +44,8 @@ export default function PlaydownsPage({
     alive: qualification.filter((r) => r.status === "alive").length,
     out: qualification.filter((r) => r.status === "out").length,
   }
-  const maxScale = Math.max(...qualification.map((r) => r.maxPts), 1)
+  const totalMaxPts = (config.totalTeams - 1) * config.gamesPerMatchup * 2
+  const maxScale = Math.max(totalMaxPts, 1)
   const cutoffPts = qualification.length >= config.qualifyingSpots
     ? qualification[config.qualifyingSpots - 1].pts
     : 0
@@ -209,99 +210,9 @@ export default function PlaydownsPage({
 
       {tab === "graphs" && qualification.length > 0 && (
         <>
-          {/* Status Counter Strip */}
-          <div className="qual-status-strip">
-            <div className="qual-status-segment" data-status="out">
-              <span className="qual-status-count">{statusCounts.out}</span>
-              <span className="qual-status-label">OUT</span>
-            </div>
-            <div className="qual-status-segment" data-status="alive">
-              <span className="qual-status-count">{statusCounts.alive}</span>
-              <span className="qual-status-label">ALIVE</span>
-            </div>
-            <div className="qual-status-segment" data-status="locked">
-              <span className="qual-status-count">{statusCounts.locked}</span>
-              <span className="qual-status-label">LOCKED</span>
-            </div>
-          </div>
-
-          {/* Standings with Progress Bars */}
-          <div className="qual-standings-list">
-            <p className="qual-standings-header"># | Team Name | Record | Games Played / Games Remaining</p>
-            {qualification.map((row, i) => {
-              const barWidth = maxScale > 0 ? (row.maxPts / maxScale) * 100 : 0
-              const fillWidth = row.maxPts > 0 ? (row.pts / row.maxPts) * 100 : 0
-              return (
-                <div key={row.teamId} className={`qual-standings-row ${row.teamId === "self" ? "playdown-self-row" : ""}`}>
-                  <div className="qual-standings-top">
-                    <span className="qual-standings-rank">{i + 1}</span>
-                    <span className="qual-standings-name">
-                      {row.teamName || teamName(row.teamId)}
-                      {row.tiedUnresolved && (
-                        <span className="qual-tie-warn-wrap">
-                          <AlertCircle className="qual-tie-warn-icon" />
-                          <span className="qual-tie-warn-tooltip">
-                            Cannot be calculated with current info !!!
-                            <br />5. Most periods won in round-robin play
-                            <br />6. Fewest penalty minutes in round-robin play
-                            <br />7. First goal scored in the series
-                            <br />8. Flip of a coin
-                          </span>
-                        </span>
-                      )}
-                    </span>
-                    <span className="qual-standings-record">{row.w}-{row.l}-{row.t}</span>
-                    <span className="qual-standings-games">{row.gp}/{row.gp + row.gamesRemaining}</span>
-                  </div>
-                  <div className="qual-standings-bottom">
-                    <div className="qual-progress-wrap">
-                      <div className="qual-progress-track" style={{ width: `${barWidth}%` }}>
-                        <div className="qual-progress-fill" data-status={row.status} style={{ width: `${fillWidth}%` }} />
-                      </div>
-                      <span className="qual-progress-label">{row.pts}/{row.maxPts} pts</span>
-                    </div>
-                    <span className="qual-standings-divider" />
-                    <span className="qual-status-badge" data-status={row.status}>
-                      {row.status === "locked" ? "IN" : row.status === "out" ? "OUT" : "ALIVE"}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Qualification Number Line */}
-          <div className="qual-number-line-wrap">
-            <div className="qual-number-line">
-              <div
-                className="qual-cutoff-line"
-                style={{ left: `${(cutoffPts / maxScale) * 100}%` }}
-              />
-              <span className="qual-zone-label" data-zone="outside">Outside</span>
-              <span className="qual-zone-label" data-zone="qualifying">Qualifying Zone</span>
-              {qualification.map((row, i) => (
-                <div
-                  key={row.teamId}
-                  className="qual-team-dot-wrap"
-                  style={{ left: `${maxScale > 0 ? (row.pts / maxScale) * 100 : 0}%` }}
-                >
-                  <div className="qual-team-dot" data-status={row.status}>
-                    {i + 1}
-                  </div>
-                  <div className="qual-team-tooltip">
-                    {row.teamName || teamName(row.teamId)}: {row.pts} pts ({row.w}-{row.l}-{row.t})
-                  </div>
-                </div>
-              ))}
-              <span className="qual-axis-label" data-pos="start">0</span>
-              <span className="qual-axis-label" data-pos="end">{maxScale}</span>
-            </div>
-          </div>
-
           {/* Tiebreaker Cards */}
           {tiebreakers.length > 0 && (
             <div className="qual-tiebreaker-section">
-              <h2 className="qual-tiebreaker-heading">Tiebreaker Resolutions</h2>
               {tiebreakers.map((tb, i) => (
                 <details key={i} className="qual-tiebreaker-card">
                   <summary className="qual-tiebreaker-summary">
@@ -334,6 +245,110 @@ export default function PlaydownsPage({
               ))}
             </div>
           )}
+
+          {/* Standings with Progress Bars */}
+          <div className="qual-standings-list">
+            <p className="qual-standings-header"># | Team Name | Record | Games Played / Games Remaining</p>
+            {qualification.map((row, i) => {
+              const fillWidth = maxScale > 0 ? (row.pts / maxScale) * 100 : 0
+              const potentialWidth = maxScale > 0 ? (row.maxPts / maxScale) * 100 : 0
+              return (
+                <div key={row.teamId} className={`qual-standings-row ${row.teamId === "self" ? "playdown-self-row" : ""}`}>
+                  <div className="qual-standings-top">
+                    <span className="qual-standings-rank">{i + 1}</span>
+                    <span className="qual-standings-name">
+                      {row.teamName || teamName(row.teamId)}
+                      {row.tiedUnresolved && (
+                        <span className="qual-tie-warn-wrap">
+                          <AlertCircle className="qual-tie-warn-icon" />
+                          <span className="qual-tie-warn-tooltip">
+                            Cannot be calculated with current info !!!
+                            <br />5. Most periods won in round-robin play
+                            <br />6. Fewest penalty minutes in round-robin play
+                            <br />7. First goal scored in the series
+                            <br />8. Flip of a coin
+                          </span>
+                        </span>
+                      )}
+                    </span>
+                    <span className="qual-standings-record">{row.w}-{row.l}-{row.t}</span>
+                    <span className="qual-standings-games">{row.gp}/{row.gp + row.gamesRemaining}</span>
+                  </div>
+                  <div className="qual-standings-bottom">
+                    <div className="qual-progress-wrap">
+                      <div className="qual-progress-track">
+                        <div className="qual-progress-potential" style={{ width: `${potentialWidth}%` }} />
+                        <div className="qual-progress-fill" data-status={row.status} style={{ width: `${fillWidth}%` }} />
+                      </div>
+                      <span className="qual-progress-label">{row.pts}/{totalMaxPts} pts</span>
+                    </div>
+                    <span className="qual-standings-divider" />
+                    <span className="qual-status-badge" data-status={row.status}>
+                      {row.status === "locked" ? "IN" : row.status === "out" ? "OUT" : "ALIVE"}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Qualification Number Line */}
+          <div className="qual-number-line-wrap">
+            <div className="qual-number-line">
+              <div
+                className="qual-cutoff-line"
+                style={{ left: `${(cutoffPts / maxScale) * 100}%` }}
+              />
+              <span className="qual-zone-label" data-zone="outside">Outside</span>
+              <span className="qual-zone-label" data-zone="qualifying">Qualifying Zone</span>
+              {qualification.map((row, i) => {
+                const sameGroup = qualification.filter((r) => r.pts === row.pts)
+                const groupIdx = sameGroup.findIndex((r) => r.teamId === row.teamId)
+                const reversedIdx = sameGroup.length - 1 - groupIdx
+                const offset = (reversedIdx - (sameGroup.length - 1) / 2) * 30
+                return (
+                  <div
+                    key={row.teamId}
+                    className="qual-team-dot-wrap"
+                    style={{ left: `${maxScale > 0 ? (row.pts / maxScale) * 100 : 0}%`, marginLeft: `${offset}px` }}
+                  >
+                    <div className="qual-team-dot" data-status={row.status}>
+                      {i + 1}
+                    </div>
+                    <div className="qual-team-tooltip">
+                      {row.teamName || teamName(row.teamId)}: {row.pts} pts ({row.w}-{row.l}-{row.t})
+                    </div>
+                  </div>
+                )
+              })}
+              {Array.from({ length: maxScale + 1 }, (_, n) => (
+                <span
+                  key={n}
+                  className="qual-axis-tick"
+                  style={{ left: `${maxScale > 0 ? (n / maxScale) * 100 : 0}%` }}
+                >
+                  {n}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Status Counter Strip */}
+          <div className="qual-status-strip">
+            <div className="qual-status-segment" data-status="out">
+              <span className="qual-status-count">{statusCounts.out}</span>
+              <span className="qual-status-label">OUT</span>
+            </div>
+            <div className="qual-status-segment" data-status="alive">
+              <span className="qual-status-count">{statusCounts.alive}</span>
+              <span className="qual-status-label">ALIVE</span>
+            </div>
+            <div className="qual-status-segment" data-status="locked">
+              <span className="qual-status-count">{statusCounts.locked}</span>
+              <span className="qual-status-label">LOCKED</span>
+            </div>
+          </div>
+
         </>
       )}
     </div>

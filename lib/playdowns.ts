@@ -314,32 +314,70 @@ export function computeQualificationStatus(
 
   const allDone = rows.every((r) => r.gamesRemaining === 0)
 
-  for (let idx = 0; idx < rows.length; idx++) {
-    const row = rows[idx]
+  // Run in multiple passes — when a team is marked OUT or LOCKED, it can
+  // cascade: an OUT team no longer competes for a spot, which may LOCK others.
+  // A LOCKED team occupies a spot, which may push others OUT.
+  let changed = true
+  while (changed) {
+    changed = false
+    for (let idx = 0; idx < rows.length; idx++) {
+      const row = rows[idx]
+      if (row.status !== "alive") continue
 
-    // When all games are done and tiebreakers resolved this team's position, use sorted order
-    if (allDone && !row.tiedUnresolved) {
-      row.status = idx < K ? "locked" : "out"
-      continue
-    }
+      // When all games are done and tiebreakers resolved, use sorted order
+      if (allDone && !row.tiedUnresolved) {
+        row.status = idx < K ? "locked" : "out"
+        changed = true
+        continue
+      }
 
-    // If this team has an unresolved tie, it can't be confidently LOCKED or OUT
-    if (row.tiedUnresolved) continue
+      // If this team has an unresolved tie, it can't be confidently LOCKED or OUT
+      if (row.tiedUnresolved) continue
 
-    const teamsWhoseCeilingIsBelow = rows.filter(
-      (other) => other.teamId !== row.teamId && other.maxPts < row.pts
-    ).length
-    if (teamsWhoseCeilingIsBelow >= config.totalTeams - K) {
-      row.status = "locked"
-      continue
-    }
+      // Teams already OUT don't compete for spots
+      const activeTeams = rows.filter((r) => r.status !== "out").length
 
-    const teamsGuaranteedAbove = rows.filter(
-      (other) => other.teamId !== row.teamId && other.pts > row.maxPts
-    ).length
-    if (teamsGuaranteedAbove >= K) {
-      row.status = "out"
-      continue
+      // Count teams guaranteed to finish below this team:
+      // - teams already OUT
+      // - teams whose max possible pts is strictly less than this team's current pts
+      // - teams who are done, tied on pts, but sorted below by tiebreakers
+      const teamsGuaranteedBelow = rows.filter((other) => {
+        if (other.teamId === row.teamId) return false
+        if (other.status === "out") return true
+        if (other.maxPts < row.pts) return true
+        if (row.gamesRemaining === 0 && other.gamesRemaining === 0
+          && other.pts === row.pts && !other.tiedUnresolved) {
+          const otherIdx = rows.findIndex((r) => r.teamId === other.teamId)
+          return otherIdx > idx
+        }
+        return false
+      }).length
+      if (teamsGuaranteedBelow >= config.totalTeams - K) {
+        row.status = "locked"
+        changed = true
+        continue
+      }
+
+      // Count teams guaranteed to finish above this team:
+      // - teams already LOCKED
+      // - teams whose current pts is strictly greater than this team's max
+      // - When this team is DONE: any team with pts >= this team's pts is guaranteed
+      //   to stay at or above, because points can never decrease
+      const teamsGuaranteedAbove = rows.filter((other) => {
+        if (other.teamId === row.teamId) return false
+        if (other.status === "locked") return true
+        if (other.pts > row.maxPts) return true
+        if (row.gamesRemaining === 0 && other.pts >= row.pts && !other.tiedUnresolved) {
+          const otherIdx = rows.findIndex((r) => r.teamId === other.teamId)
+          return otherIdx < idx
+        }
+        return false
+      }).length
+      if (teamsGuaranteedAbove >= K) {
+        row.status = "out"
+        changed = true
+        continue
+      }
     }
   }
 

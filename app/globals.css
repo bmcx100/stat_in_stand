@@ -777,7 +777,7 @@ details[open] > .qual-tiebreaker-summary::after {
 }
 
 .qual-standings-row {
-  @apply flex flex-col gap-1 rounded-lg border p-2;
+  @apply flex flex-col gap-1 rounded-lg border px-2 pb-2 pt-3;
 }
 
 .qual-standings-top {
@@ -793,15 +793,15 @@ details[open] > .qual-tiebreaker-summary::after {
 }
 
 .qual-standings-name {
-  @apply text-sm font-medium truncate max-w-32 shrink;
+  @apply text-sm truncate max-w-32 shrink;
 }
 
 .qual-standings-record {
-  @apply text-base font-medium text-muted-foreground shrink-0;
+  @apply text-sm shrink-0 px-3;
 }
 
 .qual-standings-games {
-  @apply text-base font-medium text-muted-foreground shrink-0;
+  @apply text-sm shrink-0 px-3;
 }
 
 .qual-standings-divider {
@@ -817,8 +817,12 @@ details[open] > .qual-tiebreaker-summary::after {
   @apply relative h-3 rounded-full bg-muted overflow-hidden flex-1;
 }
 
+.qual-progress-potential {
+  @apply absolute inset-y-0 left-0 rounded-full bg-foreground/20 transition-all;
+}
+
 .qual-progress-fill {
-  @apply absolute inset-y-0 left-0 rounded-full transition-all;
+  @apply absolute inset-y-0 left-0 rounded-full transition-all z-10;
 }
 
 .qual-progress-fill[data-status="locked"] {
@@ -856,20 +860,22 @@ details[open] > .qual-tiebreaker-summary::after {
 
 /* Qualification number line */
 .qual-number-line-wrap {
-  @apply relative rounded-lg border p-4 pt-6;
+  @apply relative rounded-lg border px-4 py-8;
 }
 
 .qual-number-line {
-  @apply relative h-16 bg-muted/50 rounded-full;
+  @apply relative h-5 bg-foreground/20 rounded-full my-4;
 }
 
 .qual-cutoff-line {
-  @apply absolute top-0 bottom-0 w-0.5 border-l-2 border-dashed border-green-600 z-10;
+  @apply absolute w-0.5 border-l-2 border-dashed border-green-600 z-10;
+  top: -100%;
+  bottom: -100%;
 }
 
 .qual-zone-label {
   @apply absolute text-xs text-muted-foreground;
-  top: -1.25rem;
+  top: -2rem;
 }
 
 .qual-zone-label[data-zone="outside"] {
@@ -908,15 +914,7 @@ details[open] > .qual-tiebreaker-summary::after {
   @apply block;
 }
 
-.qual-axis-label {
-  @apply absolute text-xs text-muted-foreground;
+.qual-axis-tick {
+  @apply absolute text-xs text-muted-foreground -translate-x-1/2;
   top: calc(100% + 0.25rem);
-}
-
-.qual-axis-label[data-pos="start"] {
-  @apply left-1;
-}
-
-.qual-axis-label[data-pos="end"] {
-  @apply right-1;
 }
