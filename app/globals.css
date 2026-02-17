@@ -252,7 +252,9 @@
 .dashboard-schedule-list {
   @apply absolute inset-0 overflow-y-auto;
   scrollbar-width: none;
-  &::-webkit-scrollbar { display: none; }
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .dashboard-records {
@@ -479,8 +481,7 @@
 
 .opponent-clear-btn {
   @apply rounded p-1 text-white transition-colors;
-  background-color: #D33125;
-
+  background-color: #d33125;
 }
 
 /* Sub-page header */
@@ -571,7 +572,7 @@
 }
 
 .result-badge-l {
-  background-color: #D33125;
+  background-color: #d33125;
 }
 
 .result-badge-t {
@@ -592,11 +593,11 @@
 }
 
 .last-ten-dots {
-  @apply flex flex-wrap items-center gap-1.5;
+  @apply flex flex-wrap items-center justify-center gap-1.5;
 }
 
 .last-ten-dot {
-  @apply size-3 rounded-full;
+  @apply size-3 rounded-full border-0 p-0 cursor-pointer;
 }
 
 /* Playdown title */

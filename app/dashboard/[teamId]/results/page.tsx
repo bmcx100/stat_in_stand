@@ -59,11 +59,11 @@ function LastNSummary({ games, count, onCountChange }: { games: Game[]; count: n
       <div className="last-n-stats">
         <span className="last-ten-record">{w}-{l}-{t}</span>
         <div className="last-ten-dots">
-          {lastN.map((g) => {
+          {lastN.map((g, i) => {
             const color = g.result === "W" ? "result-badge-w"
               : g.result === "L" ? "result-badge-l"
               : "result-badge-t"
-            return <span key={g.id} className={`last-ten-dot ${color}`} />
+            return <button key={g.id} className={`last-ten-dot ${color}`} onClick={() => onCountChange(i + 1)} />
           })}
         </div>
       </div>
