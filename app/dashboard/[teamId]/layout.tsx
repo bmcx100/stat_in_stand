@@ -39,7 +39,7 @@ export default function TeamLayout({
         </div>
       </Link>
 
-      <div className="team-layout-content">
+      <div className={`team-layout-content ${pathname.includes("/import") ? "team-layout-wide" : ""}`}>
         {children}
       </div>
 

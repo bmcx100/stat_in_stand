@@ -125,9 +125,15 @@
   }
 }
 
-/* App shell — mobile-width constraint */
+/* App shell — mobile-width constraint, wider on desktop for admin */
 .app-shell {
   @apply mx-auto flex min-h-screen w-full max-w-[430px] flex-col;
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 1200px;
+  }
 }
 
 /* Page layout */
@@ -182,7 +188,7 @@
 }
 
 .team-layout-banner-link {
-  @apply sticky top-0 z-20 block px-4 pt-2;
+  @apply sticky top-0 z-20 block px-4 pt-2 mx-auto w-full max-w-[430px];
 }
 
 .team-layout-banner {
@@ -194,10 +200,14 @@
 }
 
 .team-layout-content {
-  @apply flex-1 overflow-y-auto;
+  @apply flex-1 overflow-y-auto mx-auto w-full max-w-[430px];
   padding-bottom: 4.5rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.team-layout-content.team-layout-wide {
+  max-width: 1200px;
 }
 
 .team-layout-content::-webkit-scrollbar {
@@ -524,18 +534,13 @@
   @apply bg-background shadow-sm;
 }
 
-/* Games management table — breaks out of the 430px app shell */
+/* Games management table */
 .games-table-wrap {
   @apply overflow-x-auto;
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  padding-left: 1rem;
-  padding-right: 1rem;
 }
 
 .games-table {
   @apply w-full text-xs;
-  min-width: 600px;
 }
 
 .games-table th {
@@ -642,4 +647,171 @@
 
 .playdown-cutoff {
   @apply border-b-2 border-green-600;
+}
+
+/* Qualification tracker */
+.qual-status-strip {
+  @apply flex rounded-lg overflow-hidden text-center text-sm font-semibold;
+}
+
+.qual-status-segment {
+  @apply flex-1 py-2 flex flex-col items-center gap-0.5;
+}
+
+.qual-status-segment[data-status="out"] {
+  background-color: #d33125;
+  color: white;
+}
+
+.qual-status-segment[data-status="alive"] {
+  @apply bg-yellow-500 text-black;
+}
+
+.qual-status-segment[data-status="locked"] {
+  background-color: #00b341;
+  color: white;
+}
+
+.qual-status-count {
+  @apply text-lg leading-none;
+}
+
+.qual-status-label {
+  @apply text-xs opacity-80;
+}
+
+/* Qualification standings list */
+.qual-standings-list {
+  @apply flex flex-col gap-2;
+}
+
+.qual-standings-row {
+  @apply flex items-center gap-2 rounded-lg border p-2;
+}
+
+.qual-standings-info {
+  @apply flex items-center gap-1.5 min-w-0 shrink-0;
+}
+
+.qual-standings-rank {
+  @apply text-xs font-bold text-muted-foreground w-4 text-right;
+}
+
+.qual-standings-name {
+  @apply text-sm font-medium truncate max-w-24;
+}
+
+.qual-standings-record {
+  @apply text-xs text-muted-foreground;
+}
+
+.qual-progress-wrap {
+  @apply flex-1 flex items-center gap-2 min-w-0;
+}
+
+.qual-progress-track {
+  @apply relative h-3 rounded-full bg-muted overflow-hidden flex-1;
+}
+
+.qual-progress-fill {
+  @apply absolute inset-y-0 left-0 rounded-full transition-all;
+}
+
+.qual-progress-fill[data-status="locked"] {
+  background-color: #00b341;
+}
+
+.qual-progress-fill[data-status="alive"] {
+  @apply bg-yellow-500;
+}
+
+.qual-progress-fill[data-status="out"] {
+  background-color: #d33125;
+}
+
+.qual-progress-label {
+  @apply text-xs text-muted-foreground whitespace-nowrap;
+}
+
+.qual-status-badge {
+  @apply text-xs font-bold px-1.5 py-0.5 rounded shrink-0;
+}
+
+.qual-status-badge[data-status="locked"] {
+  @apply bg-green-600/15 text-green-600;
+}
+
+.qual-status-badge[data-status="alive"] {
+  @apply bg-yellow-500/15 text-yellow-600;
+}
+
+.qual-status-badge[data-status="out"] {
+  @apply bg-red-600/15 text-red-600;
+}
+
+/* Qualification number line */
+.qual-number-line-wrap {
+  @apply relative rounded-lg border p-4 pt-6;
+}
+
+.qual-number-line {
+  @apply relative h-16 bg-muted/50 rounded-full;
+}
+
+.qual-cutoff-line {
+  @apply absolute top-0 bottom-0 w-0.5 border-l-2 border-dashed border-green-600 z-10;
+}
+
+.qual-zone-label {
+  @apply absolute text-xs text-muted-foreground;
+  top: -1.25rem;
+}
+
+.qual-zone-label[data-zone="outside"] {
+  @apply left-0;
+}
+
+.qual-zone-label[data-zone="qualifying"] {
+  @apply right-0;
+}
+
+.qual-team-dot-wrap {
+  @apply absolute top-1/2 -translate-x-1/2 -translate-y-1/2;
+}
+
+.qual-team-dot {
+  @apply size-7 rounded-full flex items-center justify-center text-xs font-bold text-white cursor-help;
+}
+
+.qual-team-dot[data-status="locked"] {
+  background-color: #00b341;
+}
+
+.qual-team-dot[data-status="alive"] {
+  @apply bg-yellow-500 text-black;
+}
+
+.qual-team-dot[data-status="out"] {
+  background-color: #d33125;
+}
+
+.qual-team-tooltip {
+  @apply absolute left-1/2 -translate-x-1/2 top-full mt-1 z-20 hidden whitespace-nowrap rounded border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md;
+}
+
+.qual-team-dot-wrap:hover .qual-team-tooltip {
+  @apply block;
+}
+
+.qual-axis-label {
+  @apply absolute text-xs text-muted-foreground;
+  top: calc(100% + 0.25rem);
+}
+
+.qual-axis-label[data-pos="start"] {
+  @apply left-1;
+}
+
+.qual-axis-label[data-pos="end"] {
+  @apply right-1;
 }

@@ -1426,8 +1426,8 @@ function ModesTab({ teamId, teamOrganization }: { teamId: string; teamOrganizati
     const as_ = awayScore === "" ? null : parseInt(awayScore, 10)
     const played = hs !== null && as_ !== null && !isNaN(hs) && !isNaN(as_)
     updateGame(teamId, gameId, {
-      homeScore: played ? hs : null,
-      awayScore: played ? as_ : null,
+      homeScore: hs !== null && !isNaN(hs) ? hs : null,
+      awayScore: as_ !== null && !isNaN(as_) ? as_ : null,
       played,
     })
   }
@@ -1631,6 +1631,7 @@ function ModesTab({ teamId, teamOrganization }: { teamId: string; teamOrganizati
                         <input
                           type="date"
                           className="games-table-input"
+                          style={{ width: "115px" }}
                           defaultValue={game.date}
                           onBlur={(e) => {
                             if (e.target.value !== game.date) updateGame(teamId, game.id, { date: e.target.value })
@@ -1641,6 +1642,7 @@ function ModesTab({ teamId, teamOrganization }: { teamId: string; teamOrganizati
                         <input
                           type="time"
                           className="games-table-input"
+                          style={{ width: "80px" }}
                           defaultValue={game.time}
                           onBlur={(e) => {
                             if (e.target.value !== game.time) updateGame(teamId, game.id, { time: e.target.value })
@@ -1671,6 +1673,7 @@ function ModesTab({ teamId, teamOrganization }: { teamId: string; teamOrganizati
                         <input
                           type="text"
                           className="games-table-input"
+                          style={{ width: "120px" }}
                           defaultValue={game.location}
                           onBlur={(e) => {
                             if (e.target.value !== game.location) updateGame(teamId, game.id, { location: e.target.value })

@@ -1,4 +1,4 @@
-import type { PlaydownConfig, PlaydownGame, PlaydownStandingsRow } from "./types"
+import type { PlaydownConfig, PlaydownGame, PlaydownStandingsRow, QualificationRow, QualificationStatus } from "./types"
 
 /**
  * Compute playdown standings from config and games.
@@ -158,4 +158,44 @@ export function isPlaydownExpired(config: PlaydownConfig, games: PlaydownGame[] 
   const oneWeekAfter = new Date(end)
   oneWeekAfter.setDate(oneWeekAfter.getDate() + 7)
   return new Date() > oneWeekAfter
+}
+
+/**
+ * Compute qualification status for each team.
+ * LOCKED = mathematically guaranteed to qualify
+ * OUT = mathematically eliminated
+ * ALIVE = still in contention
+ */
+export function computeQualificationStatus(
+  standings: PlaydownStandingsRow[],
+  config: PlaydownConfig
+): QualificationRow[] {
+  const K = config.qualifyingSpots
+  const expectedGames = (config.totalTeams - 1) * config.gamesPerMatchup
+
+  const rows: QualificationRow[] = standings.map((row) => {
+    const gamesRemaining = Math.max(0, expectedGames - row.gp)
+    const maxPts = row.pts + 2 * gamesRemaining
+    return { ...row, maxPts, gamesRemaining, status: "alive" as QualificationStatus }
+  })
+
+  for (const row of rows) {
+    const teamsWhoseCeilingIsBelow = rows.filter(
+      (other) => other.teamId !== row.teamId && other.maxPts < row.pts
+    ).length
+    if (teamsWhoseCeilingIsBelow >= config.totalTeams - K) {
+      row.status = "locked"
+      continue
+    }
+
+    const teamsGuaranteedAbove = rows.filter(
+      (other) => other.teamId !== row.teamId && other.pts > row.maxPts
+    ).length
+    if (teamsGuaranteedAbove >= K) {
+      row.status = "out"
+      continue
+    }
+  }
+
+  return rows
 }

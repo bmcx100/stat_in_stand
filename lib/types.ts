@@ -108,3 +108,11 @@ export type PlaydownData = {
   config: PlaydownConfig
   games: PlaydownGame[]
 }
+
+export type QualificationStatus = "locked" | "alive" | "out"
+
+export type QualificationRow = PlaydownStandingsRow & {
+  maxPts: number
+  gamesRemaining: number
+  status: QualificationStatus
+}
