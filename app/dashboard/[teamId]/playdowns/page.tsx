@@ -1,6 +1,6 @@
 "use client"
 
-import { use } from "react"
+import { use, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { TEAMS } from "@/lib/teams"
@@ -15,6 +15,7 @@ export default function PlaydownsPage({
   const { teamId } = use(params)
   const team = TEAMS.find((t) => t.id === teamId)
   const { getPlaydown } = usePlaydowns()
+  const [tab, setTab] = useState<"standings" | "graphs">("standings")
 
   if (!team) return null
 
@@ -66,104 +67,121 @@ export default function PlaydownsPage({
         {config.totalTeams} Teams - {config.qualifyingSpots} Qualifiers - {config.gamesPerMatchup} Games per Matchup
       </p>
 
-      {/* Standings */}
-      {standings.length > 0 && (
-        <div className="playdown-standings-wrap">
-          <table className="standings-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Team</th>
-                <th>GP</th>
-                <th>W</th>
-                <th>L</th>
-                <th>T</th>
-                <th>PTS</th>
-                <th>GF</th>
-                <th>GA</th>
-                <th>DIFF</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standings.map((row, i) => (
-                <tr
-                  key={row.teamId}
-                  className={`standings-row ${row.teamId === "self" ? "playdown-self-row" : ""} ${i === config.qualifyingSpots - 1 ? "playdown-cutoff" : ""}`}
-                >
-                  <td>
-                    <span className={`text-xs font-bold ${row.qualifies ? "text-green-600" : "text-muted-foreground"}`}>
-                      {i + 1}
-                    </span>
-                  </td>
-                  <td>{row.teamName}</td>
-                  <td>{row.gp}</td>
-                  <td>{row.w}</td>
-                  <td>{row.l}</td>
-                  <td>{row.t}</td>
-                  <td className="font-bold">{row.pts}</td>
-                  <td>{row.gf}</td>
-                  <td>{row.ga}</td>
-                  <td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="import-tabs">
+        <button className="import-tab" data-active={tab === "standings"} onClick={() => setTab("standings")}>
+          Standings / Schedule
+        </button>
+        <button className="import-tab" data-active={tab === "graphs"} onClick={() => setTab("graphs")}>
+          Graphs
+        </button>
+      </div>
 
-      {/* Completed Games */}
-      {completed.length > 0 && (
+      {tab === "standings" && (
         <>
-          <h2 className="text-sm font-semibold">Results</h2>
-          <div className="dashboard-nav">
-            {completed.map((game) => (
-              <div key={game.id} className="game-list-item">
-                <div>
-                  <p className="text-sm font-medium">
-                    {teamName(game.homeTeam)} vs {teamName(game.awayTeam)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {game.date}{game.time ? ` at ${game.time}` : ""}
-                  </p>
-                  {game.location && (
-                    <p className="text-xs text-muted-foreground">{game.location}</p>
-                  )}
-                </div>
-                <p className="text-sm font-bold">
-                  {game.homeScore} - {game.awayScore}
-                </p>
+          {/* Standings */}
+          {standings.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="standings-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Team</th>
+                    <th>PTS</th>
+                    <th>GP</th>
+                    <th>W</th>
+                    <th>L</th>
+                    <th>T</th>
+                    <th>GF</th>
+                    <th>GA</th>
+                    <th>DIFF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {standings.map((row, i) => (
+                    <tr
+                      key={row.teamId}
+                      className={`standings-row ${row.teamId === "self" ? "playdown-self-row" : ""} ${i === config.qualifyingSpots - 1 ? "playdown-cutoff" : ""}`}
+                    >
+                      <td>
+                        <span className={`text-xs font-bold ${row.qualifies ? "text-green-600" : "text-muted-foreground"}`}>
+                          {i + 1}
+                        </span>
+                      </td>
+                      <td className="font-medium">{row.teamName || teamName(row.teamId)}</td>
+                      <td className="font-bold">{row.pts}</td>
+                      <td>{row.gp}</td>
+                      <td>{row.w}</td>
+                      <td>{row.l}</td>
+                      <td>{row.t}</td>
+                      <td>{row.gf}</td>
+                      <td>{row.ga}</td>
+                      <td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Completed Games */}
+          {completed.length > 0 && (
+            <>
+              <h2 className="text-sm font-semibold">Results</h2>
+              <div className="dashboard-nav">
+                {completed.map((game) => (
+                  <div key={game.id} className="game-list-item">
+                    <div>
+                      <p className="text-sm font-medium">
+                        {teamName(game.homeTeam)} vs {teamName(game.awayTeam)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {game.date}{game.time ? ` at ${game.time}` : ""}
+                      </p>
+                      {game.location && (
+                        <p className="text-xs text-muted-foreground">{game.location}</p>
+                      )}
+                    </div>
+                    <p className="text-sm font-bold">
+                      {game.homeScore} - {game.awayScore}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
+
+          {/* Upcoming Games */}
+          {upcoming.length > 0 && (
+            <>
+              <h2 className="text-sm font-semibold">Upcoming</h2>
+              <div className="dashboard-nav">
+                {upcoming.map((game) => (
+                  <div key={game.id} className="game-list-item">
+                    <div>
+                      <p className="text-sm font-medium">
+                        {teamName(game.homeTeam)} vs {teamName(game.awayTeam)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {game.date}{game.time ? ` at ${game.time}` : ""}
+                      </p>
+                      {game.location && (
+                        <p className="text-xs text-muted-foreground">{game.location}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {completed.length === 0 && upcoming.length === 0 && (
+            <p className="dashboard-record-label">No playdown games scheduled yet.</p>
+          )}
         </>
       )}
 
-      {/* Upcoming Games */}
-      {upcoming.length > 0 && (
-        <>
-          <h2 className="text-sm font-semibold">Upcoming</h2>
-          <div className="dashboard-nav">
-            {upcoming.map((game) => (
-              <div key={game.id} className="game-list-item">
-                <div>
-                  <p className="text-sm font-medium">
-                    {teamName(game.homeTeam)} vs {teamName(game.awayTeam)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {game.date}{game.time ? ` at ${game.time}` : ""}
-                  </p>
-                  {game.location && (
-                    <p className="text-xs text-muted-foreground">{game.location}</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {completed.length === 0 && upcoming.length === 0 && (
-        <p className="dashboard-record-label">No playdown games scheduled yet.</p>
+      {tab === "graphs" && (
+        <p className="dashboard-record-label">Graphs coming soon.</p>
       )}
     </div>
   )

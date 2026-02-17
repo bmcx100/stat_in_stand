@@ -636,14 +636,6 @@
 }
 
 /* Playdown standings */
-.playdown-standings-wrap {
-  @apply overflow-x-auto;
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  padding-left: 1rem;
-  padding-right: 1rem;
-}
-
 .playdown-self-row {
   @apply font-bold bg-accent/30;
 }
