@@ -175,15 +175,232 @@
   @apply mb-2 flex items-center justify-between;
 }
 
-/* Dashboard placeholder */
-.dashboard-container {
-  @apply flex flex-1 flex-col items-center justify-center gap-4 text-center;
+/* Dashboard */
+.dashboard-page {
+  @apply flex flex-1 flex-col gap-4 px-4 py-6;
 }
 
-.dashboard-title {
-  @apply text-3xl font-bold;
+.dashboard-banner {
+  @apply flex w-full items-center rounded-xl border py-4 px-4 transition-colors cursor-pointer hover:opacity-90;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
-.dashboard-subtitle {
-  @apply text-muted-foreground;
+.dashboard-banner-name {
+  @apply ml-auto text-lg font-semibold text-white;
+}
+
+.dashboard-records {
+  @apply flex gap-2;
+}
+
+.dashboard-record-card {
+  @apply flex-1 block text-center rounded-lg border border-input bg-background px-4 py-3 shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer;
+}
+
+.dashboard-record {
+  @apply text-2xl font-bold tracking-tight;
+}
+
+.dashboard-record-label {
+  @apply text-xs text-muted-foreground;
+}
+
+.dashboard-nav {
+  @apply flex flex-col gap-2;
+}
+
+.dashboard-nav-link {
+  @apply flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium transition-colors hover:bg-accent;
+}
+
+.gear-button {
+  @apply absolute right-4 top-4;
+}
+
+/* Standings table */
+.standings-table {
+  @apply w-full text-sm;
+}
+
+.standings-table th {
+  @apply px-2 py-2 text-left font-medium text-muted-foreground;
+}
+
+.standings-table td {
+  @apply px-2 py-2;
+}
+
+.standings-row {
+  @apply border-b transition-colors hover:bg-accent/50;
+}
+
+.standings-expandable {
+  @apply border-b bg-muted/30;
+}
+
+.standings-expandable td {
+  @apply px-2 py-2 text-xs text-muted-foreground;
+}
+
+/* Import page */
+.import-section {
+  @apply flex flex-col gap-3;
+}
+
+.import-textarea {
+  @apply w-full rounded-lg border bg-background px-3 py-2 text-sm font-mono;
+  min-height: 120px;
+  resize: vertical;
+}
+
+.import-preview {
+  @apply rounded-lg border bg-muted/30 p-3 text-sm;
+}
+
+/* Game form */
+.game-form {
+  @apply flex flex-col gap-4;
+}
+
+.game-form-field {
+  @apply flex flex-col gap-1;
+}
+
+.game-form-label {
+  @apply text-sm font-medium;
+}
+
+.game-form-input {
+  @apply rounded-lg border bg-background px-3 py-2 text-sm;
+}
+
+.game-form-select {
+  @apply rounded-lg border bg-background px-3 py-2 text-sm;
+}
+
+/* Game list (schedule / results) */
+.game-list-item {
+  @apply flex items-center justify-between rounded-lg border px-4 py-3;
+}
+
+.game-type-badge {
+  @apply inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground;
+}
+
+/* Sub-page header */
+.sub-page-header {
+  @apply flex items-center gap-3;
+}
+
+.back-link {
+  @apply flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors;
+}
+
+/* Import tabs */
+.import-tabs {
+  @apply flex gap-1 rounded-lg bg-muted p-1;
+}
+
+.import-tab {
+  @apply flex-1 rounded-md px-3 py-1.5 text-center text-sm font-medium transition-colors;
+}
+
+.import-tab[data-active="true"] {
+  @apply bg-background shadow-sm;
+}
+
+/* Filter bar */
+.filter-bar {
+  @apply flex items-center gap-2;
+}
+
+/* Admin top-level tabs */
+.admin-tabs {
+  @apply flex gap-1 rounded-lg bg-muted p-1;
+}
+
+.admin-tab {
+  @apply flex-1 rounded-md px-3 py-2 text-center text-sm font-semibold transition-colors cursor-pointer;
+}
+
+.admin-tab[data-active="true"] {
+  @apply bg-background shadow-sm;
+}
+
+/* Games management table — breaks out of the 430px app shell */
+.games-table-wrap {
+  @apply overflow-x-auto;
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.games-table {
+  @apply w-full text-xs;
+  min-width: 600px;
+}
+
+.games-table th {
+  @apply px-1.5 py-2 text-left font-medium text-muted-foreground whitespace-nowrap;
+}
+
+.games-table td {
+  @apply px-1.5 py-1.5 align-middle;
+}
+
+.games-table tr {
+  @apply border-b;
+}
+
+.games-table-input {
+  @apply w-full rounded border bg-background px-1.5 py-1 text-xs;
+}
+
+.games-table-select {
+  @apply w-full rounded border bg-background px-1 py-1 text-xs;
+}
+
+.games-table-delete {
+  @apply rounded p-1 text-muted-foreground transition-colors hover:text-destructive hover:bg-destructive/10;
+}
+
+/* Result badges (W/L/T circles) */
+.result-badge {
+  @apply inline-flex size-6 items-center justify-center rounded-full text-xs font-bold text-white;
+}
+
+.result-badge-w {
+  @apply bg-green-600;
+}
+
+.result-badge-l {
+  @apply bg-red-600;
+}
+
+.result-badge-t {
+  @apply bg-yellow-500;
+}
+
+/* Last 10 games summary */
+.last-ten-summary {
+  @apply flex flex-col items-center gap-2 rounded-lg border px-4 py-3;
+}
+
+.last-ten-label {
+  @apply text-xs font-medium text-muted-foreground;
+}
+
+.last-ten-record {
+  @apply text-lg font-bold tracking-tight;
+}
+
+.last-ten-dots {
+  @apply flex items-center gap-1.5;
+}
+
+.last-ten-dot {
+  @apply size-3 rounded-full;
 }

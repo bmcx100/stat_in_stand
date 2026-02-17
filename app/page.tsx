@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useSyncExternalStore } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Heart } from "lucide-react"
@@ -11,16 +11,21 @@ import { useFavorites } from "@/hooks/use-favorites"
 export default function Home() {
   const router = useRouter()
   const { favorites, toggleFavorite, isFavorite } = useFavorites()
+  const hydrated = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
 
   const favoriteTeams = TEAMS.filter((t) => isFavorite(t.id))
 
   useEffect(() => {
-    if (favorites.length === 0) {
+    if (hydrated && favorites.length === 0) {
       router.push("/add-teams")
     }
-  }, [favorites.length, router])
+  }, [hydrated, favorites.length, router])
 
-  if (favorites.length === 0) {
+  if (!hydrated || favorites.length === 0) {
     return null
   }
 
