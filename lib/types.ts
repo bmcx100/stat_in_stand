@@ -102,11 +102,20 @@ export type PlaydownStandingsRow = {
   ga: number
   diff: number
   qualifies: boolean
+  tiedUnresolved: boolean
 }
 
 export type PlaydownData = {
   config: PlaydownConfig
   games: PlaydownGame[]
+}
+
+export type TiebreakerResolution = {
+  teams: [string, string]
+  teamNames: [string, string]
+  resolvedBy: string
+  detail: string
+  tiedValues: Record<string, string>
 }
 
 export type QualificationStatus = "locked" | "alive" | "out"

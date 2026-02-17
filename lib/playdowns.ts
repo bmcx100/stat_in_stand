@@ -1,4 +1,4 @@
-import type { PlaydownConfig, PlaydownGame, PlaydownStandingsRow, QualificationRow, QualificationStatus } from "./types"
+import type { PlaydownConfig, PlaydownGame, PlaydownStandingsRow, QualificationRow, QualificationStatus, TiebreakerResolution } from "./types"
 
 /**
  * Compute playdown standings from config and games.
@@ -8,6 +8,10 @@ import type { PlaydownConfig, PlaydownGame, PlaydownStandingsRow, QualificationR
  *   2. Head-to-head record among tied teams
  *   3. Goal differential (GF - GA)
  *   4. Fewest goals allowed
+ *   5. Most periods won in round-robin play (not tracked)
+ *   6. Fewest penalty minutes in round-robin play (not tracked)
+ *   7. First goal scored in the series (not tracked)
+ *   8. Flip of a coin (manual)
  */
 export function computePlaydownStandings(
   config: PlaydownConfig,
@@ -68,6 +72,7 @@ export function computePlaydownStandings(
     pts: s.w * 2 + s.t,
     diff: s.gf - s.ga,
     qualifies: false,
+    tiedUnresolved: false,
   }))
 
   // Head-to-head points for a subset of team IDs
@@ -114,12 +119,140 @@ export function computePlaydownStandings(
     return 0
   })
 
+  // Detect unresolved ties (all calculable tiebreakers exhausted)
+  for (let i = 0; i < rows.length - 1; i++) {
+    const a = rows[i]
+    const b = rows[i + 1]
+    if (a.pts !== b.pts || a.w !== b.w) continue
+    if (a.gp === 0 && b.gp === 0) continue
+    // Check head-to-head between this pair
+    const pairH2h = headToHeadPoints(new Set([a.teamId, b.teamId]))
+    const h2hA = pairH2h.get(a.teamId) ?? 0
+    const h2hB = pairH2h.get(b.teamId) ?? 0
+    if (h2hA !== h2hB) continue
+    // Check goal diff and goals allowed
+    if (a.diff !== b.diff) continue
+    if (a.ga !== b.ga) continue
+    // All calculable tiebreakers exhausted
+    a.tiedUnresolved = true
+    b.tiedUnresolved = true
+  }
+
   // Mark qualifying teams
   for (let i = 0; i < rows.length && i < config.qualifyingSpots; i++) {
     rows[i].qualifies = true
   }
 
   return rows
+}
+
+/**
+ * Detect which tiebreaker resolved each pair of teams that were tied on points.
+ */
+export function detectTiebreakerResolutions(
+  standings: PlaydownStandingsRow[],
+  games: PlaydownGame[]
+): TiebreakerResolution[] {
+  const playedGames = games.filter((g) => g.played && g.homeScore !== null && g.awayScore !== null)
+  const resolutions: TiebreakerResolution[] = []
+
+  function h2hPoints(aId: string, bId: string): [number, number] {
+    let aPoints = 0
+    let bPoints = 0
+    for (const game of playedGames) {
+      const isMatch = (game.homeTeam === aId && game.awayTeam === bId) ||
+        (game.homeTeam === bId && game.awayTeam === aId)
+      if (!isMatch) continue
+      const hs = game.homeScore!
+      const as_ = game.awayScore!
+      if (hs > as_) {
+        if (game.homeTeam === aId) aPoints += 2
+        else bPoints += 2
+      } else if (hs < as_) {
+        if (game.awayTeam === aId) aPoints += 2
+        else bPoints += 2
+      } else {
+        aPoints += 1
+        bPoints += 1
+      }
+    }
+    return [aPoints, bPoints]
+  }
+
+  function h2hRecord(aId: string, bId: string): string {
+    let w = 0, l = 0, t = 0
+    for (const game of playedGames) {
+      const isMatch = (game.homeTeam === aId && game.awayTeam === bId) ||
+        (game.homeTeam === bId && game.awayTeam === aId)
+      if (!isMatch) continue
+      const aScore = game.homeTeam === aId ? game.homeScore! : game.awayScore!
+      const bScore = game.homeTeam === aId ? game.awayScore! : game.homeScore!
+      if (aScore > bScore) w++
+      else if (aScore < bScore) l++
+      else t++
+    }
+    return `${w}-${l}-${t}`
+  }
+
+  for (let i = 0; i < standings.length - 1; i++) {
+    const a = standings[i]
+    const b = standings[i + 1]
+    if (a.pts !== b.pts) continue
+    if (a.gp === 0 && b.gp === 0) continue
+
+    // Both have same points — find which tiebreaker resolved it
+    const tiedValues: Record<string, string> = {}
+
+    if (a.w !== b.w) {
+      resolutions.push({
+        teams: [a.teamId, b.teamId],
+        teamNames: [a.teamName, b.teamName],
+        resolvedBy: "Wins",
+        detail: `${a.teamName} has ${a.w} wins vs ${b.teamName} with ${b.w} wins`,
+        tiedValues,
+      })
+      continue
+    }
+    tiedValues["Wins"] = String(a.w)
+
+    const [h2hA, h2hB] = h2hPoints(a.teamId, b.teamId)
+    if (h2hA !== h2hB) {
+      resolutions.push({
+        teams: [a.teamId, b.teamId],
+        teamNames: [a.teamName, b.teamName],
+        resolvedBy: "Head-to-Head",
+        detail: `${a.teamName} has ${h2hA} h2h pts vs ${b.teamName} with ${h2hB} h2h pts`,
+        tiedValues,
+      })
+      continue
+    }
+    tiedValues["Head-to-Head"] = h2hRecord(a.teamId, b.teamId)
+
+    if (a.diff !== b.diff) {
+      resolutions.push({
+        teams: [a.teamId, b.teamId],
+        teamNames: [a.teamName, b.teamName],
+        resolvedBy: "Goal Differential",
+        detail: `${a.teamName} has ${a.diff > 0 ? "+" : ""}${a.diff} vs ${b.teamName} with ${b.diff > 0 ? "+" : ""}${b.diff}`,
+        tiedValues,
+      })
+      continue
+    }
+    tiedValues["Goal Differential"] = `${a.diff > 0 ? "+" : ""}${a.diff}`
+
+    if (a.ga !== b.ga) {
+      resolutions.push({
+        teams: [a.teamId, b.teamId],
+        teamNames: [a.teamName, b.teamName],
+        resolvedBy: "Fewest Goals Allowed",
+        detail: `${a.teamName} has ${a.ga} GA vs ${b.teamName} with ${b.ga} GA`,
+        tiedValues,
+      })
+      continue
+    }
+  }
+
+  return resolutions
 }
 
 /**
@@ -179,7 +312,20 @@ export function computeQualificationStatus(
     return { ...row, maxPts, gamesRemaining, status: "alive" as QualificationStatus }
   })
 
-  for (const row of rows) {
+  const allDone = rows.every((r) => r.gamesRemaining === 0)
+
+  for (let idx = 0; idx < rows.length; idx++) {
+    const row = rows[idx]
+
+    // When all games are done and tiebreakers resolved this team's position, use sorted order
+    if (allDone && !row.tiedUnresolved) {
+      row.status = idx < K ? "locked" : "out"
+      continue
+    }
+
+    // If this team has an unresolved tie, it can't be confidently LOCKED or OUT
+    if (row.tiedUnresolved) continue
+
     const teamsWhoseCeilingIsBelow = rows.filter(
       (other) => other.teamId !== row.teamId && other.maxPts < row.pts
     ).length

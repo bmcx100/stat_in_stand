@@ -2,10 +2,10 @@
 
 import { use, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, AlertCircle } from "lucide-react"
 import { TEAMS } from "@/lib/teams"
 import { usePlaydowns } from "@/hooks/use-playdowns"
-import { computePlaydownStandings, computeQualificationStatus } from "@/lib/playdowns"
+import { computePlaydownStandings, computeQualificationStatus, detectTiebreakerResolutions } from "@/lib/playdowns"
 
 export default function PlaydownsPage({
   params,
@@ -15,7 +15,7 @@ export default function PlaydownsPage({
   const { teamId } = use(params)
   const team = TEAMS.find((t) => t.id === teamId)
   const { getPlaydown } = usePlaydowns()
-  const [tab, setTab] = useState<"standings" | "graphs">("standings")
+  const [tab, setTab] = useState<"standings" | "graphs">("graphs")
 
   if (!team) return null
 
@@ -48,6 +48,7 @@ export default function PlaydownsPage({
   const cutoffPts = qualification.length >= config.qualifyingSpots
     ? qualification[config.qualifyingSpots - 1].pts
     : 0
+  const tiebreakers = detectTiebreakerResolutions(standings, games)
 
   const completed = games
     .filter((g) => g.played)
@@ -73,7 +74,7 @@ export default function PlaydownsPage({
         </Link>
       </div>
 
-      <p className="text-sm text-center text-muted-foreground">
+      <p className="text-sm text-center font-bold">
         {config.totalTeams} Teams - {config.qualifyingSpots} Qualifiers - {config.gamesPerMatchup} Games per Matchup
       </p>
 
@@ -117,7 +118,23 @@ export default function PlaydownsPage({
                           {i + 1}
                         </span>
                       </td>
-                      <td className="font-medium">{row.teamName || teamName(row.teamId)}</td>
+                      <td className="font-medium">
+                        <span className="qual-name-cell">
+                          {row.teamName || teamName(row.teamId)}
+                          {row.tiedUnresolved && (
+                            <span className="qual-tie-warn-wrap">
+                              <AlertCircle className="qual-tie-warn-icon" />
+                              <span className="qual-tie-warn-tooltip">
+                                Cannot be calculated with current info !!!
+                                <br />5. Most periods won in round-robin play
+                                <br />6. Fewest penalty minutes in round-robin play
+                                <br />7. First goal scored in the series
+                                <br />8. Flip of a coin
+                              </span>
+                            </span>
+                          )}
+                        </span>
+                      </td>
                       <td className="font-bold">{row.pts}</td>
                       <td>{row.gp}</td>
                       <td>{row.w}</td>
@@ -210,25 +227,44 @@ export default function PlaydownsPage({
 
           {/* Standings with Progress Bars */}
           <div className="qual-standings-list">
+            <p className="qual-standings-header"># | Team Name | Record | Games Played / Games Remaining</p>
             {qualification.map((row, i) => {
               const barWidth = maxScale > 0 ? (row.maxPts / maxScale) * 100 : 0
               const fillWidth = row.maxPts > 0 ? (row.pts / row.maxPts) * 100 : 0
               return (
                 <div key={row.teamId} className={`qual-standings-row ${row.teamId === "self" ? "playdown-self-row" : ""}`}>
-                  <div className="qual-standings-info">
+                  <div className="qual-standings-top">
                     <span className="qual-standings-rank">{i + 1}</span>
-                    <span className="qual-standings-name">{row.teamName || teamName(row.teamId)}</span>
+                    <span className="qual-standings-name">
+                      {row.teamName || teamName(row.teamId)}
+                      {row.tiedUnresolved && (
+                        <span className="qual-tie-warn-wrap">
+                          <AlertCircle className="qual-tie-warn-icon" />
+                          <span className="qual-tie-warn-tooltip">
+                            Cannot be calculated with current info !!!
+                            <br />5. Most periods won in round-robin play
+                            <br />6. Fewest penalty minutes in round-robin play
+                            <br />7. First goal scored in the series
+                            <br />8. Flip of a coin
+                          </span>
+                        </span>
+                      )}
+                    </span>
                     <span className="qual-standings-record">{row.w}-{row.l}-{row.t}</span>
+                    <span className="qual-standings-games">{row.gp}/{row.gp + row.gamesRemaining}</span>
                   </div>
-                  <div className="qual-progress-wrap">
-                    <div className="qual-progress-track" style={{ width: `${barWidth}%` }}>
-                      <div className="qual-progress-fill" data-status={row.status} style={{ width: `${fillWidth}%` }} />
+                  <div className="qual-standings-bottom">
+                    <div className="qual-progress-wrap">
+                      <div className="qual-progress-track" style={{ width: `${barWidth}%` }}>
+                        <div className="qual-progress-fill" data-status={row.status} style={{ width: `${fillWidth}%` }} />
+                      </div>
+                      <span className="qual-progress-label">{row.pts}/{row.maxPts} pts</span>
                     </div>
-                    <span className="qual-progress-label">{row.pts}/{row.maxPts}</span>
+                    <span className="qual-standings-divider" />
+                    <span className="qual-status-badge" data-status={row.status}>
+                      {row.status === "locked" ? "IN" : row.status === "out" ? "OUT" : "ALIVE"}
+                    </span>
                   </div>
-                  <span className="qual-status-badge" data-status={row.status}>
-                    {row.status === "locked" ? "IN" : row.status === "out" ? "OUT" : "ALIVE"}
-                  </span>
                 </div>
               )
             })}
@@ -261,6 +297,43 @@ export default function PlaydownsPage({
               <span className="qual-axis-label" data-pos="end">{maxScale}</span>
             </div>
           </div>
+
+          {/* Tiebreaker Cards */}
+          {tiebreakers.length > 0 && (
+            <div className="qual-tiebreaker-section">
+              <h2 className="qual-tiebreaker-heading">Tiebreaker Resolutions</h2>
+              {tiebreakers.map((tb, i) => (
+                <details key={i} className="qual-tiebreaker-card">
+                  <summary className="qual-tiebreaker-summary">
+                    <div className="qual-tiebreaker-badge">Tiebreaker Used</div>
+                    <p className="qual-tiebreaker-teams">{tb.teamNames[0]} vs {tb.teamNames[1]}</p>
+                  </summary>
+                  <p className="qual-tiebreaker-resolved">Resolved by: <strong>{tb.resolvedBy}</strong></p>
+                  <p className="qual-tiebreaker-detail">{tb.detail}</p>
+                  <div className="qual-tiebreaker-rules">
+                    <p className="qual-tiebreaker-rules-title">Tiebreaker Order:</p>
+                    <ol className="qual-tiebreaker-rules-list">
+                      {[
+                        { label: "Number of wins", key: "Wins" },
+                        { label: "Head-to-head record", key: "Head-to-Head" },
+                        { label: "Goal differential (GF - GA)", key: "Goal Differential" },
+                        { label: "Fewest goals allowed", key: "Fewest Goals Allowed" },
+                        { label: "Most periods won *", key: "" },
+                        { label: "Fewest penalty minutes *", key: "" },
+                        { label: "First goal scored in series *", key: "" },
+                        { label: "Flip of a coin *", key: "" },
+                      ].map((rule) => (
+                        <li key={rule.label} className={rule.key === tb.resolvedBy ? "qual-tiebreaker-highlight" : ""}>
+                          {rule.key && tb.tiedValues[rule.key] ? `${rule.label}: ${tb.tiedValues[rule.key]}` : rule.label}
+                        </li>
+                      ))}
+                    </ol>
+                    <p className="qual-tiebreaker-note">* Cannot be calculated with current data</p>
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
