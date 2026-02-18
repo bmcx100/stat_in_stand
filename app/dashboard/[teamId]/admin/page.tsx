@@ -21,8 +21,10 @@ import {
 import type { DuplicateInfo } from "@/lib/parsers"
 import { downloadBackup, restoreBackup } from "@/lib/backup"
 import { usePlaydowns } from "@/hooks/use-playdowns"
+import { useTournaments } from "@/hooks/use-tournaments"
 import { computePlaydownStandings } from "@/lib/playdowns"
-import type { Game, GameType, Opponent, StandingsRow, PlaydownConfig, PlaydownGame, PlaydownTeam } from "@/lib/types"
+import { computePoolStandings } from "@/lib/tournaments"
+import type { Game, GameType, Opponent, StandingsRow, PlaydownConfig, PlaydownGame, PlaydownTeam, TournamentConfig, TournamentGame, TournamentTeam, TournamentPool, TiebreakerKey } from "@/lib/types"
 
 type AdminTab = "config" | "data"
 type ConfigSubTab = "events" | "blank"
@@ -295,7 +297,9 @@ function OpponentsTab() {
 function GamesTab({ teamId }: { teamId: string }) {
   const { getTeamGames, updateGame, removeGame } = useGames()
   const { getById } = useOpponents()
+  const { getTournaments } = useTournaments()
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const tournamentNames = getTournaments(teamId).map((t) => t.config.name)
 
   const games = getTeamGames(teamId)
     .slice()
@@ -407,18 +411,34 @@ function GamesTab({ teamId }: { teamId: string }) {
                     </select>
                   </td>
                   <td>
-                    <input
-                      type="text"
-                      className="games-table-input"
-                      placeholder="—"
-                      defaultValue={game.tournamentName ?? ""}
-                      onBlur={(e) => {
-                        const val = e.target.value.trim() || undefined
-                        if (val !== (game.tournamentName ?? undefined)) {
+                    {game.gameType === "tournament" && tournamentNames.length > 0 ? (
+                      <select
+                        className="games-table-select"
+                        value={game.tournamentName ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value || undefined
                           handleUpdate(game.id, { tournamentName: val })
-                        }
-                      }}
-                    />
+                        }}
+                      >
+                        <option value="">—</option>
+                        {tournamentNames.map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        className="games-table-input"
+                        placeholder="—"
+                        defaultValue={game.tournamentName ?? ""}
+                        onBlur={(e) => {
+                          const val = e.target.value.trim() || undefined
+                          if (val !== (game.tournamentName ?? undefined)) {
+                            handleUpdate(game.id, { tournamentName: val })
+                          }
+                        }}
+                      />
+                    )}
                   </td>
                   <td>
                     <span className="game-type-badge">{game.source}</span>
@@ -1183,6 +1203,902 @@ function ImportDataTab({
   )
 }
 
+// === Tournaments Tab ===
+
+type TournamentSubTab = "list" | "setup" | "games"
+
+const ALL_TIEBREAKER_KEYS: { key: TiebreakerKey; label: string }[] = [
+  { key: "wins", label: "Number of Wins" },
+  { key: "head-to-head", label: "Head-to-Head Record" },
+  { key: "goal-differential", label: "Goal Differential" },
+  { key: "goals-allowed", label: "Fewest Goals Allowed" },
+  { key: "goals-for", label: "Most Goals For" },
+]
+
+function TournamentsTab({ teamId }: { teamId: string }) {
+  const { getTournaments, addTournament, updateConfig, removeTournament, addGame, updateGame, removeGame, setGames } = useTournaments()
+  const { getTeamGames } = useGames()
+  const { getById: getOpponentById } = useOpponents()
+  const tournaments = getTournaments(teamId)
+  const [subTab, setSubTab] = useState<TournamentSubTab>("list")
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [confirmDeleteGameId, setConfirmDeleteGameId] = useState<string | null>(null)
+  const [scannedGames, setScannedGames] = useState<Game[] | null>(null)
+
+  // Setup form state
+  const selected = tournaments.find((t) => t.config.id === selectedId) ?? null
+  const cfg = selected?.config
+  const [tName, setTName] = useState("")
+  const [tLocation, setTLocation] = useState("")
+  const [tStartDate, setTStartDate] = useState("")
+  const [tEndDate, setTEndDate] = useState("")
+  const [tGamesPerMatchup, setTGamesPerMatchup] = useState(1)
+  const [tEliminationEnabled, setTEliminationEnabled] = useState(true)
+  const [tConsolationEnabled, setTConsolationEnabled] = useState(false)
+  const [tTiebreakerOrder, setTTiebreakerOrder] = useState<TiebreakerKey[]>(["wins", "head-to-head", "goal-differential", "goals-allowed", "goals-for"])
+  const [tPools, setTPools] = useState<TournamentPool[]>([])
+  const [tTeams, setTTeams] = useState<TournamentTeam[]>([])
+
+  // New team input
+  const [newTeamName, setNewTeamName] = useState("")
+  const [newTeamPool, setNewTeamPool] = useState("")
+
+  // Games state
+  const [activePoolTab, setActivePoolTab] = useState("")
+  const [showAddGame, setShowAddGame] = useState(false)
+  const [newGameDate, setNewGameDate] = useState("")
+  const [newGameTime, setNewGameTime] = useState("")
+  const [newGameHome, setNewGameHome] = useState("")
+  const [newGameAway, setNewGameAway] = useState("")
+  const [newGameLocation, setNewGameLocation] = useState("")
+  const [newGameRound, setNewGameRound] = useState<TournamentGame["round"]>("pool")
+
+  // Import state
+  const [gamesText, setGamesText] = useState("")
+  const [importStandingsText, setImportStandingsText] = useState("")
+  const [importStandingsPool, setImportStandingsPool] = useState("")
+  const [importScheduleText, setImportScheduleText] = useState("")
+  const [importSchedulePool, setImportSchedulePool] = useState("")
+
+  function loadConfigIntoForm(c: TournamentConfig) {
+    setTName(c.name)
+    setTLocation(c.location)
+    setTStartDate(c.startDate)
+    setTEndDate(c.endDate)
+    setTGamesPerMatchup(c.gamesPerMatchup)
+    setTEliminationEnabled(c.eliminationEnabled)
+    setTConsolationEnabled(c.consolationEnabled)
+    setTTiebreakerOrder([...c.tiebreakerOrder])
+    setTPools(c.pools.map((p) => ({ ...p, teamIds: [...p.teamIds] })))
+    setTTeams(c.teams.map((t) => ({ ...t })))
+    if (c.pools.length > 0) setActivePoolTab(c.pools[0].id)
+  }
+
+  function handleSelectTournament(id: string) {
+    setSelectedId(id)
+    const t = tournaments.find((t) => t.config.id === id)
+    if (t) {
+      loadConfigIntoForm(t.config)
+      setSubTab("setup")
+    }
+  }
+
+  function handleNewTournament() {
+    setSelectedId(null)
+    setTName("")
+    setTLocation("")
+    setTStartDate("")
+    setTEndDate("")
+    setTGamesPerMatchup(1)
+    setTEliminationEnabled(true)
+    setTConsolationEnabled(false)
+    setTTiebreakerOrder(["wins", "head-to-head", "goal-differential", "goals-allowed", "goals-for"])
+    setTPools([{ id: "pool-a", name: "Pool A", teamIds: [], qualifyingSpots: 2 }])
+    setTTeams([])
+    setActivePoolTab("pool-a")
+    setSubTab("setup")
+  }
+
+  function handleSaveConfig() {
+    if (!tName.trim()) return
+    const config: TournamentConfig = {
+      id: selectedId ?? `tournament-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      teamId,
+      name: tName.trim(),
+      location: tLocation.trim(),
+      startDate: tStartDate,
+      endDate: tEndDate,
+      pools: tPools,
+      teams: tTeams,
+      gamesPerMatchup: tGamesPerMatchup,
+      tiebreakerOrder: tTiebreakerOrder,
+      eliminationEnabled: tEliminationEnabled,
+      consolationEnabled: tConsolationEnabled,
+    }
+    if (selectedId) {
+      updateConfig(teamId, selectedId, config)
+    } else {
+      addTournament(teamId, config)
+      setSelectedId(config.id)
+    }
+  }
+
+  function handleAddPool() {
+    const poolNum = tPools.length + 1
+    const letters = "ABCDEFGH"
+    const letter = letters[poolNum - 1] ?? String(poolNum)
+    const id = `pool-${letter.toLowerCase()}`
+    setTPools([...tPools, { id, name: `Pool ${letter}`, teamIds: [], qualifyingSpots: 2 }])
+    setActivePoolTab(id)
+  }
+
+  function handleRemovePool(poolId: string) {
+    setTPools(tPools.filter((p) => p.id !== poolId))
+    setTTeams(tTeams.filter((t) => t.poolId !== poolId))
+    if (activePoolTab === poolId && tPools.length > 1) {
+      setActivePoolTab(tPools.find((p) => p.id !== poolId)?.id ?? "")
+    }
+  }
+
+  function handleAddTeam() {
+    if (!newTeamName.trim() || !newTeamPool) return
+    const id = `t-team-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const team: TournamentTeam = { id, name: newTeamName.trim(), poolId: newTeamPool }
+    setTTeams([...tTeams, team])
+    setTPools(tPools.map((p) => p.id === newTeamPool ? { ...p, teamIds: [...p.teamIds, id] } : p))
+    setNewTeamName("")
+  }
+
+  function handleRemoveTeam(teamIdToRemove: string) {
+    setTTeams(tTeams.filter((t) => t.id !== teamIdToRemove))
+    setTPools(tPools.map((p) => ({ ...p, teamIds: p.teamIds.filter((id) => id !== teamIdToRemove) })))
+  }
+
+  function handleMoveTiebreaker(index: number, direction: "up" | "down") {
+    const newOrder = [...tTiebreakerOrder]
+    const swapIdx = direction === "up" ? index - 1 : index + 1
+    if (swapIdx < 0 || swapIdx >= newOrder.length) return
+    ;[newOrder[index], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[index]]
+    setTTiebreakerOrder(newOrder)
+  }
+
+  function handleImportStandings() {
+    const lines = importStandingsText.trim().split("\n").filter((l) => l.trim())
+    if (lines.length === 0) return
+    const targetPoolId = importStandingsPool || tPools[0]?.id
+    if (!targetPoolId) return
+
+    const newTeams: TournamentTeam[] = [...tTeams]
+    const newPools = tPools.map((p) => ({ ...p, teamIds: [...p.teamIds] }))
+    const existingNames = new Set(newTeams.map((t) => t.name.toLowerCase()))
+
+    for (const line of lines) {
+      const cols = line.split("\t").map((c) => c.trim())
+      const nameCol = cols.find((c) => c && !/^\d+$/.test(c) && !/^\d+\.\d+$/.test(c))
+      if (!nameCol) continue
+      if (existingNames.has(nameCol.toLowerCase())) continue
+
+      const id = `t-team-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      newTeams.push({ id, name: nameCol, poolId: targetPoolId })
+      const pool = newPools.find((p) => p.id === targetPoolId)
+      if (pool) pool.teamIds.push(id)
+      existingNames.add(nameCol.toLowerCase())
+    }
+
+    setTTeams(newTeams)
+    setTPools(newPools)
+    setImportStandingsText("")
+  }
+
+  function handleImportSchedule() {
+    const lines = importScheduleText.trim().split("\n").filter((l) => l.trim())
+    if (lines.length === 0) return
+    const targetPoolId = importSchedulePool || tPools[0]?.id
+    if (!targetPoolId) return
+
+    const newTeams: TournamentTeam[] = [...tTeams]
+    const newPools = tPools.map((p) => ({ ...p, teamIds: [...p.teamIds] }))
+    const existingNames = new Set(newTeams.map((t) => t.name.toLowerCase()))
+    const teamNames = new Set<string>()
+
+    for (const line of lines) {
+      const cols = line.split("\t").map((c) => c.trim())
+      // Look for two team names: skip date/time/numeric/location-like columns
+      const nameCandidates = cols.filter((c) =>
+        c && !/^\d+$/.test(c) && !/^\d+\.\d+$/.test(c)
+        && !/^\d{1,2}[:\-\/]\d{2}/.test(c) && !/^\d{4}-\d{2}/.test(c)
+        && !/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i.test(c)
+        && c.length > 1
+      )
+      for (const name of nameCandidates) {
+        teamNames.add(name)
+      }
+    }
+
+    for (const name of teamNames) {
+      if (existingNames.has(name.toLowerCase())) continue
+      const id = `t-team-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      newTeams.push({ id, name, poolId: targetPoolId })
+      const pool = newPools.find((p) => p.id === targetPoolId)
+      if (pool) pool.teamIds.push(id)
+      existingNames.add(name.toLowerCase())
+    }
+
+    setTTeams(newTeams)
+    setTPools(newPools)
+    setImportScheduleText("")
+  }
+
+  function handleScanGames() {
+    if (!tStartDate || !tEndDate) return
+    const allGames = getTeamGames(teamId)
+    // Compare date strings directly (both should be YYYY-MM-DD)
+    // Also try matching by month-day only in case year was inferred differently
+    const matched = allGames.filter((g) => {
+      if (!g.date) return false
+      // Exact YYYY-MM-DD range match
+      if (g.date >= tStartDate && g.date <= tEndDate) return true
+      // Fallback: match month-day range ignoring year (for cross-year inference issues)
+      const gMD = g.date.slice(5) // "MM-DD"
+      const startMD = tStartDate.slice(5)
+      const endMD = tEndDate.slice(5)
+      if (startMD <= endMD) {
+        return gMD >= startMD && gMD <= endMD
+      }
+      return false
+    })
+    setScannedGames(matched)
+  }
+
+  function normalizeTo24h(time: string): string {
+    if (!time) return ""
+    // Already in HH:MM format
+    if (/^\d{1,2}:\d{2}$/.test(time)) return time
+    // Convert "7:30 PM" / "12:00 AM" style
+    const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+    if (match) {
+      let h = parseInt(match[1], 10)
+      const m = match[2]
+      const ampm = match[3].toUpperCase()
+      if (ampm === "PM" && h !== 12) h += 12
+      if (ampm === "AM" && h === 12) h = 0
+      return `${String(h).padStart(2, "0")}:${m}`
+    }
+    return time
+  }
+
+  function handleConfirmScannedGames() {
+    if (!scannedGames || !selectedId) return
+    const existingGames = selected?.games ?? []
+    const existingKeys = new Set(existingGames.map((g) => `${g.date}|${g.homeTeam}|${g.awayTeam}`))
+
+    // Determine the default pool
+    const defaultPoolId = tPools[0]?.id ?? ""
+
+    // Resolve opponent names to tournament team IDs where possible
+    const nameToId = new Map(tTeams.map((t) => [t.name.toLowerCase(), t.id]))
+
+    const newGames: TournamentGame[] = scannedGames.map((g) => {
+      const oppDisplay = g.opponentId
+        ? (getOpponentById(g.opponentId)?.fullName ?? g.opponent)
+        : g.opponent
+      const awayId = nameToId.get(oppDisplay.toLowerCase()) ?? oppDisplay
+      return {
+        id: `t-g-scan-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        teamId,
+        tournamentId: selectedId,
+        date: g.date,
+        time: normalizeTo24h(g.time),
+        homeTeam: "self",
+        awayTeam: awayId,
+        homeScore: g.teamScore,
+        awayScore: g.opponentScore,
+        location: g.location,
+        played: g.played,
+        round: "pool" as const,
+        poolId: defaultPoolId,
+      }
+    }).filter((g) => !existingKeys.has(`${g.date}|${g.homeTeam}|${g.awayTeam}`))
+
+    if (newGames.length > 0) {
+      setGames(teamId, selectedId, [...existingGames, ...newGames])
+    }
+    setScannedGames(null)
+  }
+
+  function handleAddGameToTournament() {
+    if (!selectedId || !newGameDate || !newGameHome || !newGameAway) return
+    const id = `t-g-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const poolId = newGameRound === "pool" ? activePoolTab : undefined
+    addGame(teamId, selectedId, {
+      id,
+      teamId,
+      tournamentId: selectedId,
+      date: newGameDate,
+      time: newGameTime,
+      homeTeam: newGameHome,
+      awayTeam: newGameAway,
+      homeScore: null,
+      awayScore: null,
+      location: newGameLocation,
+      played: false,
+      round: newGameRound,
+      poolId,
+    })
+    setNewGameDate("")
+    setNewGameTime("")
+    setNewGameHome("")
+    setNewGameAway("")
+    setNewGameLocation("")
+    setShowAddGame(false)
+  }
+
+  function handleScoreUpdate(gameId: string, homeScore: string, awayScore: string) {
+    if (!selectedId) return
+    const hs = homeScore === "" ? null : parseInt(homeScore, 10)
+    const as_ = awayScore === "" ? null : parseInt(awayScore, 10)
+    const played = hs !== null && as_ !== null && !isNaN(hs) && !isNaN(as_)
+    updateGame(teamId, selectedId, gameId, {
+      homeScore: hs !== null && !isNaN(hs) ? hs : null,
+      awayScore: as_ !== null && !isNaN(as_) ? as_ : null,
+      played,
+    })
+  }
+
+  function handleImportGames() {
+    if (!selectedId) return
+    const { games: parsed } = parsePlaydownGames(gamesText, teamId)
+    if (parsed.length === 0) return
+
+    const existingGames = selected?.games ?? []
+    const existingKeys = new Set(existingGames.map((g) => `${g.date}|${g.homeTeam}|${g.awayTeam}`))
+
+    // Map team names to IDs
+    const nameToId = new Map(tTeams.map((t) => [t.name, t.id]))
+    const poolForTeam = (tId: string) => tTeams.find((t) => t.id === tId)?.poolId
+
+    const newGames: TournamentGame[] = parsed
+      .filter((g) => !existingKeys.has(`${g.date}|${nameToId.get(g.homeTeam) ?? g.homeTeam}|${nameToId.get(g.awayTeam) ?? g.awayTeam}`))
+      .map((g) => {
+        const homeId = nameToId.get(g.homeTeam) ?? g.homeTeam
+        const awayId = nameToId.get(g.awayTeam) ?? g.awayTeam
+        const poolId = poolForTeam(homeId) ?? poolForTeam(awayId) ?? activePoolTab
+        return {
+          id: `t-g-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          teamId,
+          tournamentId: selectedId,
+          date: g.date,
+          time: g.time,
+          homeTeam: homeId,
+          awayTeam: awayId,
+          homeScore: g.homeScore,
+          awayScore: g.awayScore,
+          location: g.location,
+          played: g.played,
+          round: "pool" as const,
+          poolId,
+        }
+      })
+
+    if (newGames.length > 0) {
+      setGames(teamId, selectedId, [...existingGames, ...newGames])
+    }
+    setGamesText("")
+  }
+
+  const selfTeamLabel = (() => {
+    const t = TEAMS.find((t) => t.id === teamId)
+    return t ? `${t.organization} ${t.name}` : "Your Team"
+  })()
+
+  function tTeamName(id: string): string {
+    if (id === "self") return selfTeamLabel
+    return tTeams.find((t) => t.id === id)?.name ?? cfg?.teams.find((t) => t.id === id)?.name ?? id
+  }
+
+  const selectedGames = selected?.games ?? []
+  const poolGames = selectedGames.filter((g) => g.round === "pool" && g.poolId === activePoolTab)
+  const elimGames = selectedGames.filter((g) => g.round !== "pool")
+
+  return (
+    <>
+      <div className="playdown-title-row">
+        <h2 className="text-sm font-semibold">Tournaments</h2>
+      </div>
+
+      <div className="import-tabs">
+        <button className="import-tab" data-active={subTab === "list"} onClick={() => setSubTab("list")}>
+          List
+        </button>
+        <button className="import-tab" data-active={subTab === "setup"} onClick={() => setSubTab("setup")}>
+          Setup
+        </button>
+        <button className="import-tab" data-active={subTab === "games"} onClick={() => { if (selectedId) setSubTab("games") }}>
+          Games
+        </button>
+      </div>
+
+      {/* List */}
+      {subTab === "list" && (
+        <div className="import-section">
+          <Button size="sm" variant="outline" onClick={handleNewTournament}>
+            <Plus className="size-3.5" /> New Tournament
+          </Button>
+
+          {tournaments.length === 0 ? (
+            <p className="dashboard-record-label">No tournaments configured</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {tournaments.map((t) => (
+                <div key={t.config.id} className="import-preview">
+                  <div className="flex items-center justify-between">
+                    <button className="text-left" onClick={() => handleSelectTournament(t.config.id)}>
+                      <p className="text-sm font-medium">{t.config.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t.config.location}
+                        {t.config.startDate && ` — ${t.config.startDate}`}
+                        {t.config.endDate && ` to ${t.config.endDate}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t.config.pools.length} pool{t.config.pools.length !== 1 ? "s" : ""} — {t.config.teams.length} teams — {t.games.length} games
+                      </p>
+                    </button>
+                    <div className="flex gap-1">
+                      {confirmDeleteId === t.config.id ? (
+                        <>
+                          <Button variant="destructive" size="sm" onClick={() => { removeTournament(teamId, t.config.id); setConfirmDeleteId(null); if (selectedId === t.config.id) setSelectedId(null) }}>
+                            Delete
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
+                            <X className="size-3.5" />
+                          </Button>
+                        </>
+                      ) : (
+                        <button className="games-table-delete" onClick={() => setConfirmDeleteId(t.config.id)}>
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Setup */}
+      {subTab === "setup" && (
+        <div className="import-section">
+          <div className="flex flex-col gap-3">
+            <div className="game-form-field">
+              <label className="game-form-label">Tournament Name</label>
+              <input type="text" className="game-form-input" placeholder="e.g. Silver Stick Regional" value={tName} onChange={(e) => setTName(e.target.value)} />
+            </div>
+            <div className="game-form-field">
+              <label className="game-form-label">Location</label>
+              <input type="text" className="game-form-input" placeholder="e.g. Kanata, ON" value={tLocation} onChange={(e) => setTLocation(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <div className="game-form-field flex-1">
+                <label className="game-form-label">Start Date</label>
+                <input type="date" className="game-form-input" value={tStartDate} onChange={(e) => setTStartDate(e.target.value)} />
+              </div>
+              <div className="game-form-field flex-1">
+                <label className="game-form-label">End Date</label>
+                <input type="date" className="game-form-input" value={tEndDate} onChange={(e) => setTEndDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="playdown-config-row">
+              <div className="playdown-config-field">
+                <label className="game-form-label">Games / Matchup</label>
+                <input type="number" className="playdown-config-input" min={1} value={tGamesPerMatchup} onChange={(e) => setTGamesPerMatchup(parseInt(e.target.value, 10) || 1)} />
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={tEliminationEnabled} onChange={(e) => setTEliminationEnabled(e.target.checked)} />
+                Elimination Round
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={tConsolationEnabled} onChange={(e) => setTConsolationEnabled(e.target.checked)} />
+                Consolation Bracket
+              </label>
+            </div>
+
+            {/* Pools */}
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="game-form-label">Pools</label>
+                <Button size="sm" variant="ghost" onClick={handleAddPool}>
+                  <Plus className="size-3" /> Add Pool
+                </Button>
+              </div>
+              <div className="flex flex-col gap-2 mt-1">
+                {tPools.map((pool) => (
+                  <div key={pool.id} className="import-preview">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        className="game-form-input flex-1"
+                        value={pool.name}
+                        onChange={(e) => setTPools(tPools.map((p) => p.id === pool.id ? { ...p, name: e.target.value } : p))}
+                      />
+                      <div className="flex items-center gap-1">
+                        <label className="text-xs text-muted-foreground">Qualify:</label>
+                        <input
+                          type="number"
+                          className="playdown-config-input"
+                          style={{ width: "50px" }}
+                          min={1}
+                          value={pool.qualifyingSpots}
+                          onChange={(e) => setTPools(tPools.map((p) => p.id === pool.id ? { ...p, qualifyingSpots: parseInt(e.target.value, 10) || 1 } : p))}
+                        />
+                      </div>
+                      {tPools.length > 1 && (
+                        <button className="games-table-delete" onClick={() => handleRemovePool(pool.id)}>
+                          <X className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="mt-1">
+                      {tTeams.filter((t) => t.poolId === pool.id).map((t) => (
+                        <div key={t.id} className="flex items-center justify-between py-0.5">
+                          <span className="text-xs">{t.name} {t.id === "self" && "(You)"}</span>
+                          <button className="games-table-delete" onClick={() => handleRemoveTeam(t.id)}>
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Add Team */}
+            {tPools.length > 0 && (
+              <div className="flex gap-2 items-end">
+                <div className="game-form-field flex-1">
+                  <label className="game-form-label">Add Team</label>
+                  <input type="text" className="game-form-input" placeholder="Team name" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} />
+                </div>
+                <select className="game-form-select" value={newTeamPool || tPools[0]?.id} onChange={(e) => setNewTeamPool(e.target.value)}>
+                  {tPools.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <Button size="sm" onClick={handleAddTeam} disabled={!newTeamName.trim()}>
+                  Add
+                </Button>
+              </div>
+            )}
+
+            {/* Tiebreaker Order */}
+            <div>
+              <label className="game-form-label">Tiebreaker Order (drag to reorder)</label>
+              <div className="flex flex-col gap-1 mt-1">
+                {tTiebreakerOrder.map((key, i) => {
+                  const label = ALL_TIEBREAKER_KEYS.find((k) => k.key === key)?.label ?? key
+                  return (
+                    <div key={key} className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-4">{i + 1}.</span>
+                      <span className="text-sm flex-1">{label}</span>
+                      <button className="games-table-delete" disabled={i === 0} onClick={() => handleMoveTiebreaker(i, "up")}>
+                        &#x25B2;
+                      </button>
+                      <button className="games-table-delete" disabled={i === tTiebreakerOrder.length - 1} onClick={() => handleMoveTiebreaker(i, "down")}>
+                        &#x25BC;
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={handleSaveConfig}>
+                {selectedId ? "Update Tournament" : "Create Tournament"}
+              </Button>
+              {selectedId && (
+                <Button variant="outline" onClick={() => { setSelectedId(null); setSubTab("list") }}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+
+            {/* Scan Existing Games */}
+            {tStartDate && tEndDate && (
+              <div className="game-form-field">
+                <label className="game-form-label">Scan Existing Games</label>
+                <p className="text-xs text-muted-foreground">
+                  Find games from your schedule between {tStartDate} and {tEndDate}
+                </p>
+                <Button variant="outline" size="sm" onClick={handleScanGames}>
+                  <Download className="size-3.5" /> Scan Games
+                </Button>
+
+                {scannedGames !== null && (
+                  <div className="import-preview">
+                    {scannedGames.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No games found in date range.</p>
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium">{scannedGames.length} game{scannedGames.length !== 1 ? "s" : ""} found:</p>
+                        <div className="flex flex-col gap-1 mt-1">
+                          {scannedGames
+                            .slice()
+                            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                            .map((game) => (
+                                <div key={game.id} className="flex items-center justify-between">
+                                  <p className="text-xs text-muted-foreground">
+                                    {game.date}{game.time ? ` at ${game.time}` : ""}
+                                    {game.location ? ` — ${game.location}` : ""}
+                                  </p>
+                                  {game.played && (
+                                    <span className="text-xs font-bold">{game.teamScore}-{game.opponentScore}</span>
+                                  )}
+                                </div>
+                              ))}
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <Button size="sm" onClick={handleConfirmScannedGames} disabled={!selectedId}>
+                            {selectedId ? `Add ${scannedGames.length} Game${scannedGames.length !== 1 ? "s" : ""}` : "Save tournament first"}
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setScannedGames(null)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Import Standings */}
+            {tPools.length > 0 && (
+              <details className="qual-tiebreaker-card">
+                <summary className="qual-tiebreaker-summary">
+                  <span className="game-form-label">Import Standings</span>
+                </summary>
+                <div className="game-form-field">
+                  <p className="text-xs text-muted-foreground">Adds teams to a pool</p>
+                  <div className="flex gap-2 mb-1">
+                    <select className="game-form-select" value={importStandingsPool || tPools[0]?.id} onChange={(e) => setImportStandingsPool(e.target.value)}>
+                      {tPools.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <textarea
+                    className="import-textarea"
+                    placeholder={"Team\tGP\tW\tL\tT\tPTS\tGF\tGA\nNepean Wildcats\t4\t3\t1\t0\t6\t12\t5"}
+                    value={importStandingsText}
+                    onChange={(e) => setImportStandingsText(e.target.value)}
+                  />
+                  <Button variant="outline" size="sm" disabled={!importStandingsText.trim()} onClick={handleImportStandings}>
+                    Import Teams from Standings
+                  </Button>
+                </div>
+              </details>
+            )}
+
+            {/* Import Schedule */}
+            {tPools.length > 0 && (
+              <details className="qual-tiebreaker-card">
+                <summary className="qual-tiebreaker-summary">
+                  <span className="game-form-label">Import Schedule</span>
+                </summary>
+                <div className="game-form-field">
+                  <p className="text-xs text-muted-foreground">Adds teams to a pool</p>
+                  <div className="flex gap-2 mb-1">
+                    <select className="game-form-select" value={importSchedulePool || tPools[0]?.id} onChange={(e) => setImportSchedulePool(e.target.value)}>
+                      {tPools.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <textarea
+                    className="import-textarea"
+                    placeholder={"Date\tTime\tHome\tAway\tLocation\n2026-02-20\t10:00\tNepean Wildcats\tOttawa Ice\tScotiabank Place"}
+                    value={importScheduleText}
+                    onChange={(e) => setImportScheduleText(e.target.value)}
+                  />
+                  <Button variant="outline" size="sm" disabled={!importScheduleText.trim()} onClick={handleImportSchedule}>
+                    Import Teams from Schedule
+                  </Button>
+                </div>
+              </details>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Games */}
+      {subTab === "games" && selectedId && (
+        <div className="import-section">
+          <p className="text-sm font-medium">{cfg?.name}</p>
+
+          {/* Pool tabs */}
+          {cfg && cfg.pools.length > 0 && (
+            <div className="import-tabs">
+              {cfg.pools.map((pool) => (
+                <button key={pool.id} className="import-tab" data-active={activePoolTab === pool.id} onClick={() => setActivePoolTab(pool.id)}>
+                  {pool.name}
+                </button>
+              ))}
+              <button className="import-tab" data-active={activePoolTab === "elimination"} onClick={() => setActivePoolTab("elimination")}>
+                Elimination
+              </button>
+            </div>
+          )}
+
+          <Button size="sm" variant="outline" onClick={() => setShowAddGame(!showAddGame)}>
+            <Plus className="size-3.5" /> Add Game
+          </Button>
+
+          {showAddGame && (
+            <div className="import-preview">
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <input type="date" className="game-form-input" value={newGameDate} onChange={(e) => setNewGameDate(e.target.value)} />
+                  <input type="time" className="game-form-input" value={newGameTime} onChange={(e) => setNewGameTime(e.target.value)} />
+                </div>
+                <div className="flex gap-2">
+                  <select className="game-form-select" value={newGameHome} onChange={(e) => setNewGameHome(e.target.value)}>
+                    <option value="">Home Team</option>
+                    {(cfg?.teams ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  <select className="game-form-select" value={newGameAway} onChange={(e) => setNewGameAway(e.target.value)}>
+                    <option value="">Away Team</option>
+                    {(cfg?.teams ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+                {activePoolTab === "elimination" && (
+                  <select className="game-form-select" value={newGameRound} onChange={(e) => setNewGameRound(e.target.value as TournamentGame["round"])}>
+                    <option value="quarterfinal">Quarterfinal</option>
+                    <option value="semifinal">Semifinal</option>
+                    <option value="final">Final</option>
+                    <option value="consolation">Consolation</option>
+                    <option value="bronze">Bronze</option>
+                  </select>
+                )}
+                <input type="text" className="game-form-input" placeholder="Location" value={newGameLocation} onChange={(e) => setNewGameLocation(e.target.value)} />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleAddGameToTournament} disabled={!newGameDate || !newGameHome || !newGameAway}>
+                    Save Game
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setShowAddGame(false)}>Cancel</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Games table */}
+          {(() => {
+            const displayGames = activePoolTab === "elimination" ? elimGames : poolGames
+            if (displayGames.length === 0) return <p className="dashboard-record-label">No games yet</p>
+            return (
+              <div className="games-table-wrap">
+                <table className="games-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Time</th>
+                      <th>Home</th>
+                      <th>Away</th>
+                      <th>H</th>
+                      <th>A</th>
+                      <th>Location</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayGames
+                      .slice()
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                      .map((game) => (
+                      <tr key={game.id}>
+                        <td>
+                          <input
+                            type="date"
+                            className="games-table-input"
+                            style={{ width: "115px" }}
+                            defaultValue={game.date}
+                            onBlur={(e) => {
+                              if (e.target.value !== game.date) updateGame(teamId, selectedId, game.id, { date: e.target.value })
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="time"
+                            className="games-table-input"
+                            style={{ width: "80px" }}
+                            defaultValue={game.time}
+                            onBlur={(e) => {
+                              if (e.target.value !== game.time) updateGame(teamId, selectedId, game.id, { time: e.target.value })
+                            }}
+                          />
+                        </td>
+                        <td><span className="text-xs">{tTeamName(game.homeTeam)}</span></td>
+                        <td><span className="text-xs">{tTeamName(game.awayTeam)}</span></td>
+                        <td>
+                          <input
+                            type="number"
+                            className="games-table-input"
+                            style={{ width: "40px" }}
+                            defaultValue={game.homeScore ?? ""}
+                            onBlur={(e) => handleScoreUpdate(game.id, e.target.value, String(game.awayScore ?? ""))}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            className="games-table-input"
+                            style={{ width: "40px" }}
+                            defaultValue={game.awayScore ?? ""}
+                            onBlur={(e) => handleScoreUpdate(game.id, String(game.homeScore ?? ""), e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="games-table-input"
+                            style={{ width: "120px" }}
+                            defaultValue={game.location}
+                            onBlur={(e) => {
+                              if (e.target.value !== game.location) updateGame(teamId, selectedId, game.id, { location: e.target.value })
+                            }}
+                          />
+                        </td>
+                        <td>
+                          {confirmDeleteGameId === game.id ? (
+                            <div className="flex gap-1">
+                              <button className="games-table-delete" onClick={() => { removeGame(teamId, selectedId, game.id); setConfirmDeleteGameId(null) }}>
+                                <Trash2 className="size-3.5 text-destructive" />
+                              </button>
+                              <button className="games-table-delete" onClick={() => setConfirmDeleteGameId(null)}>
+                                <X className="size-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button className="games-table-delete" onClick={() => setConfirmDeleteGameId(game.id)}>
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })()}
+
+          {/* Import games */}
+          <div className="game-form-field">
+            <label className="game-form-label">Import Games</label>
+            <textarea
+              className="import-textarea"
+              placeholder="Paste game data here (tab-separated)..."
+              value={gamesText}
+              onChange={(e) => setGamesText(e.target.value)}
+            />
+            <Button variant="outline" disabled={!gamesText.trim()} onClick={handleImportGames}>
+              Import Games
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {subTab === "games" && !selectedId && (
+        <div className="import-section">
+          <p className="dashboard-record-label">Select a tournament from the list first</p>
+        </div>
+      )}
+    </>
+  )
+}
+
 // === Modes Tab (Playdowns) ===
 
 type PlaydownSubTab = "setup" | "standings" | "games"
@@ -1792,6 +2708,8 @@ export default function AdminPage({
 
               {eventsSubTab === "playdowns" ? (
                 <ModesTab teamId={teamId} teamOrganization={team.organization} />
+              ) : eventsSubTab === "tournaments" ? (
+                <TournamentsTab teamId={teamId} />
               ) : (
                 <p className="text-sm text-muted-foreground">Coming soon</p>
               )}

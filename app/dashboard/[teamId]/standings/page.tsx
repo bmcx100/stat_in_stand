@@ -35,7 +35,7 @@ export default function StandingsPage({
         <div>
           <p className="dashboard-record-label">No standings data</p>
           <Button variant="outline" size="sm" asChild className="mt-2">
-            <Link href={`/dashboard/${teamId}/import`}>Import Standings</Link>
+            <Link href={`/dashboard/${teamId}/admin`}>Import Standings</Link>
           </Button>
         </div>
       ) : (

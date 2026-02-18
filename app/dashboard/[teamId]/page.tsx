@@ -8,7 +8,9 @@ import { useGames } from "@/hooks/use-games"
 import { useOpponents } from "@/hooks/use-opponents"
 import { useStandings } from "@/hooks/use-standings"
 import { usePlaydowns } from "@/hooks/use-playdowns"
+import { useTournaments } from "@/hooks/use-tournaments"
 import { isPlaydownActive, isPlaydownExpired, computePlaydownStandings } from "@/lib/playdowns"
+import { isTournamentActive, isTournamentExpired, computePoolStandings } from "@/lib/tournaments"
 import type { Game } from "@/lib/types"
 
 export default function Dashboard({
@@ -22,6 +24,7 @@ export default function Dashboard({
   const { getById } = useOpponents()
   const { getStandings } = useStandings()
   const { getPlaydown } = usePlaydowns()
+  const { getTournaments } = useTournaments()
   const [canScrollUp, setCanScrollUp] = useState(false)
   const [canScrollDown, setCanScrollDown] = useState(false)
   const pageRef = useRef<HTMLDivElement>(null)
@@ -102,11 +105,24 @@ export default function Dashboard({
 
   const playdown = getPlaydown(teamId)
   const showPlaydownCard = playdown && isPlaydownActive(playdown.config, playdown.games)
-  const showPastEvents = playdown && isPlaydownExpired(playdown.config, playdown.games)
 
   const playdownSelf = playdown
     ? computePlaydownStandings(playdown.config, playdown.games).find((r) => r.teamId === "self")
     : null
+
+  const allTournaments = getTournaments(teamId)
+  const activeTournaments = allTournaments.filter((t) => isTournamentActive(t.config))
+  const hasExpiredTournaments = allTournaments.some((t) => isTournamentExpired(t.config))
+
+  const showPastEvents = (playdown && isPlaydownExpired(playdown.config, playdown.games)) || hasExpiredTournaments
+
+  const tournamentSelfRecords = activeTournaments.map((t) => {
+    const selfTeam = t.config.teams.find((team) => team.id === "self")
+    if (!selfTeam) return { id: t.config.id, name: t.config.name, w: 0, l: 0, t: 0 }
+    const poolStandings = computePoolStandings(t.config, t.games, selfTeam.poolId)
+    const selfRow = poolStandings.find((r) => r.teamId === "self")
+    return { id: t.config.id, name: t.config.name, w: selfRow?.w ?? 0, l: selfRow?.l ?? 0, t: selfRow?.t ?? 0 }
+  })
 
   const allPlayoffGames = games.filter((g) => g.gameType === "playoffs")
   const playoffPlayed = allPlayoffGames.filter((g) => g.played)
@@ -174,12 +190,6 @@ export default function Dashboard({
         </Link>
       )}
 
-      {allPlayoffGames.length > 0 && (
-        <Link href="/" className="dashboard-record-card">
-          <p className="dashboard-record">{playoffRecord.w}-{playoffRecord.l}-{playoffRecord.t}</p>
-          <p className="dashboard-record-label">Playoffs</p>
-        </Link>
-      )}
 
       {showPastEvents && (
         <div className="dashboard-nav">

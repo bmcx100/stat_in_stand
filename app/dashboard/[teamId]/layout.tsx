@@ -23,7 +23,6 @@ export default function TeamLayout({
     { href: `/dashboard/${teamId}`, icon: Home, label: "Home" },
     { href: `/dashboard/${teamId}/schedule`, icon: Calendar, label: "Schedule" },
     { href: `/dashboard/${teamId}/regular-season`, icon: Trophy, label: "Standings" },
-    { href: `/dashboard/${teamId}/import`, icon: Settings, label: "Admin" },
   ]
 
   return (
@@ -39,7 +38,7 @@ export default function TeamLayout({
         </div>
       </Link>
 
-      <div className={`team-layout-content ${pathname.includes("/import") ? "team-layout-wide" : ""}`}>
+      <div className={`team-layout-content ${pathname.includes("/admin") ? "team-layout-wide" : ""}`}>
         {children}
       </div>
 
