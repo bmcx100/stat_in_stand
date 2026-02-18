@@ -6,19 +6,20 @@ branch: claude/feature/tournament-system
 
 - Add a full Tournament feature mirroring the Playdowns architecture but adapted for multi-day tournament formats
 - Tournaments have a name, location, date range (typically 2-4 days), pool play qualifying rounds feeding into single-elimination brackets
-- Support multiple pools (e.g. Pool A, Pool B) that independently qualify teams into a shared elimination round
+- Support multiple pools (e.g. Pool A, Pool B) that independently or jointly qualify teams into a shared elimination round
 - Optional consolation bracket for teams that don't qualify
 - Tiebreaker rules are configurable per tournament (similar structure to playdowns but each tournament may differ)
 - Games can be auto-imported from existing scheduled games (matched by date range and tournament name) or from data imports
 - Tournament card appears on the dashboard with the same visibility rules as playdowns (1 month before to 1 week after)
 - Admin section under Config > Events allows full tournament setup and management
+- Drop down box to select existing tournaments or add new tournament button
 
 ## Functional Requirements
 
 ### Dashboard Integration
 
 - A "Tournament" card appears on the team dashboard when the current date is within one month of the tournament start date
-- Card shows tournament name and location
+- Card shows tournament name and location and record if historical
 - Clicking navigates to the dedicated Tournament page for that team
 - After 1 week past the last game, the tournament moves to Past Events
 
