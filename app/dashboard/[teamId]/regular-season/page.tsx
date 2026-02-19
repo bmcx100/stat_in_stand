@@ -7,7 +7,11 @@ import { TEAMS } from "@/lib/teams"
 import { useGames } from "@/hooks/use-games"
 import { useOpponents } from "@/hooks/use-opponents"
 import { useStandings } from "@/hooks/use-standings"
+import { usePlaydowns } from "@/hooks/use-playdowns"
+import { computePlaydownStandings } from "@/lib/playdowns"
 import type { Game } from "@/lib/types"
+
+type StandingsMode = "regular" | "playdowns"
 
 function ResultBadge({ result }: { result: Game["result"] }) {
   if (!result) return null
@@ -34,6 +38,8 @@ export default function RegularSeasonPage({
   const { getTeamGames } = useGames()
   const { getById } = useOpponents()
   const { getStandings } = useStandings()
+  const { getPlaydown } = usePlaydowns()
+  const [mode, setMode] = useState<StandingsMode>("regular")
   const [search, setSearch] = useState("")
   const [selectedOpponent, setSelectedOpponent] = useState<string | null>(null)
   const [canScrollUp, setCanScrollUp] = useState(false)
@@ -93,11 +99,66 @@ export default function RegularSeasonPage({
 
   if (!team) return null
 
+  const playdown = getPlaydown(teamId)
+  const hasPlaydown = !!playdown
+
+  // --- Regular Season data ---
   const allPlayed = getTeamGames(teamId)
     .filter((g) => g.played && g.gameType === "regular")
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-  const filtered = allPlayed
+  const standings = getStandings(teamId)
+  const teamRow = standings?.rows.find((r) => {
+    const needle = team.organization.toLowerCase().replace(/\s+/g, "")
+    const hay = r.teamName.toLowerCase().replace(/\s+/g, "")
+    return hay.includes(needle) || needle.includes(hay)
+  })
+  const standingsRecord = teamRow
+    ? { w: teamRow.w, l: teamRow.l, t: teamRow.t, gp: teamRow.gp }
+    : null
+  const localRecord = computeRecord(allPlayed)
+
+  // --- Playdowns data ---
+  const playdownStandings = playdown
+    ? computePlaydownStandings(playdown.config, playdown.games)
+    : []
+  const playdownSelf = playdownStandings.find((r) => r.teamId === "self")
+
+  // Convert playdown games to Game-like objects for the unified game list
+  const playdownGames: Game[] = playdown
+    ? playdown.games
+        .filter((g) => g.played && g.homeScore !== null && g.awayScore !== null)
+        .map((g) => {
+          const isSelfHome = g.homeTeam === "self"
+          const opponentTeamId = isSelfHome ? g.awayTeam : g.homeTeam
+          const oppTeam = playdown.config.teams.find((t) => t.id === opponentTeamId)
+          const teamScore = isSelfHome ? g.homeScore! : g.awayScore!
+          const opponentScore = isSelfHome ? g.awayScore! : g.homeScore!
+          const result = teamScore > opponentScore ? "W" : teamScore < opponentScore ? "L" : "T"
+          return {
+            id: g.id,
+            teamId,
+            date: g.date,
+            time: g.time,
+            opponent: oppTeam?.name ?? opponentTeamId,
+            opponentId: oppTeam?.opponentId,
+            location: g.location,
+            gameType: "playdowns" as Game["gameType"],
+            played: true,
+            teamScore,
+            opponentScore,
+            result: result as Game["result"],
+            source: "manual" as Game["source"],
+            sourceGameId: "",
+          }
+        })
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    : []
+
+  // --- Unified filtered list based on mode ---
+  const activeGames = mode === "regular" ? allPlayed : playdownGames
+
+  const filtered = activeGames
     .filter((g) => {
       if (!search) return true
       const name = opponentDisplay(g).toLowerCase()
@@ -113,16 +174,11 @@ export default function RegularSeasonPage({
     ? { name: opponentDisplay(filtered[0]), ...computeRecord(filtered), gp: filtered.length }
     : null
 
-  const standings = getStandings(teamId)
-  const teamRow = standings?.rows.find((r) => {
-    const needle = team.organization.toLowerCase().replace(/\s+/g, "")
-    const hay = r.teamName.toLowerCase().replace(/\s+/g, "")
-    return hay.includes(needle) || needle.includes(hay)
-  })
-  const standingsRecord = teamRow
-    ? { w: teamRow.w, l: teamRow.l, t: teamRow.t, gp: teamRow.gp }
-    : null
-  const localRecord = computeRecord(allPlayed)
+  function handleModeChange(newMode: StandingsMode) {
+    setMode(newMode)
+    setSearch("")
+    setSelectedOpponent(null)
+  }
 
   function handleGameClick(game: Game) {
     const key = opponentKey(game)
@@ -138,7 +194,18 @@ export default function RegularSeasonPage({
     <div ref={pageRef} className="results-page-wrap">
       <div className="results-header">
         <div className="sub-page-header">
-          <h1 className="page-title">Regular Season</h1>
+          {hasPlaydown ? (
+            <select
+              className="standings-mode-select"
+              value={mode}
+              onChange={(e) => handleModeChange(e.target.value as StandingsMode)}
+            >
+              <option value="regular">Regular Season</option>
+              <option value="playdowns">Playdowns</option>
+            </select>
+          ) : (
+            <h1 className="page-title">Regular Season</h1>
+          )}
           <Link href={`/dashboard/${teamId}`} className="back-link">
             Back
             <ArrowLeft className="size-4" />
@@ -151,7 +218,7 @@ export default function RegularSeasonPage({
             <span className="text-sm font-bold">{singleOpponent.w}-{singleOpponent.l}-{singleOpponent.t}</span>
             <span className="text-xs text-muted-foreground">{singleOpponent.gp} GP</span>
           </div>
-        ) : (
+        ) : mode === "regular" ? (
           <div className="results-record-bar">
             <span className="text-xs text-muted-foreground">Record</span>
             <span className="text-sm font-bold">
@@ -164,9 +231,21 @@ export default function RegularSeasonPage({
               {standingsRecord ? standingsRecord.gp : allPlayed.length} GP
             </span>
           </div>
+        ) : playdownSelf ? (
+          <div className="results-record-bar">
+            <span className="text-xs text-muted-foreground">Record</span>
+            <span className="text-sm font-bold">{playdownSelf.w}-{playdownSelf.l}-{playdownSelf.t}</span>
+            <span className="text-xs text-muted-foreground">{playdownSelf.gp} GP</span>
+          </div>
+        ) : (
+          <div className="results-record-bar">
+            <span className="text-xs text-muted-foreground">Record</span>
+            <span className="text-sm font-bold">0-0-0</span>
+            <span className="text-xs text-muted-foreground">0 GP</span>
+          </div>
         )}
 
-        {standings && standings.rows.length > 0 && (
+        {mode === "regular" && standings && standings.rows.length > 0 && (
           <div className="results-standings-mini">
             <table className="standings-table-mini">
               <thead>
@@ -190,6 +269,47 @@ export default function RegularSeasonPage({
                     className={`${isMyTeam ? "standings-mini-highlight" : "standings-mini-clickable"}`}
                     onClick={() => {
                       if (!isMyTeam) {
+                        setSearch(row.teamName)
+                        setSelectedOpponent(null)
+                      }
+                    }}
+                  >
+                    <td className="font-medium">{row.teamName}</td>
+                    <td>{row.gp}</td>
+                    <td>{row.w}</td>
+                    <td>{row.l}</td>
+                    <td>{row.t}</td>
+                    <td className="font-bold">{row.pts}</td>
+                  </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {mode === "playdowns" && playdownStandings.length > 0 && (
+          <div className="results-standings-mini">
+            <table className="standings-table-mini">
+              <thead>
+                <tr>
+                  <th>Team</th>
+                  <th>GP</th>
+                  <th>W</th>
+                  <th>L</th>
+                  <th>T</th>
+                  <th>PTS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {playdownStandings.map((row, i) => {
+                  const isSelf = row.teamId === "self"
+                  return (
+                  <tr
+                    key={i}
+                    className={`${isSelf ? "standings-mini-highlight" : "standings-mini-clickable"}`}
+                    onClick={() => {
+                      if (!isSelf) {
                         setSearch(row.teamName)
                         setSelectedOpponent(null)
                       }

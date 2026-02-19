@@ -149,6 +149,12 @@
   @apply text-2xl font-bold tracking-tight;
 }
 
+.standings-mode-select {
+  @apply text-2xl font-bold tracking-tight bg-transparent border-none cursor-pointer;
+  appearance: auto;
+  color: var(--foreground);
+}
+
 /* Team cards (home screen) */
 .team-card {
   @apply flex w-full items-center rounded-xl border py-4 pr-4 transition-colors;
