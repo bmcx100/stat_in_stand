@@ -334,9 +334,6 @@ export function computeQualificationStatus(
       // If this team has an unresolved tie, it can't be confidently LOCKED or OUT
       if (row.tiedUnresolved) continue
 
-      // Teams already OUT don't compete for spots
-      const activeTeams = rows.filter((r) => r.status !== "out").length
-
       // Count teams guaranteed to finish below this team:
       // - teams already OUT
       // - teams whose max possible pts is strictly less than this team's current pts

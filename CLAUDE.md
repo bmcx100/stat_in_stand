@@ -13,25 +13,53 @@ No test framework is configured.
 
 ## Architecture
 
-A mobile-first hockey team tracker for coaches/parents to manage game schedules, results, standings, and playoff tournaments across multiple youth hockey teams.
+A mobile-first hockey team tracker for coaches/parents to manage game schedules, results, standings, and playoff tournaments across multiple youth hockey teams. Uses Supabase as the backend with admin authentication.
 
 - **Framework:** Next.js 16.1.6 with React 19, TypeScript 5
 - **Styling:** Tailwind CSS v4 via `@tailwindcss/postcss` plugin
 - **Component library:** shadcn/ui (New York style, Lucide icons)
 - **Theming:** CSS variables in `app/globals.css` using OKLCH color space, light/dark mode
 - **Path alias:** `@/*` maps to project root
+- **Backend:** Supabase (PostgreSQL, Auth, Row Level Security, Storage)
+
+### Environment Variables
+
+Required in `.env.local` (not committed):
+- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon/public key
+- `SUPABASE_SERVICE_ROLE_KEY` — Service role key (server-side only, for admin invites)
 
 ### Data Layer
 
-All state is client-side using `useSyncExternalStore` + localStorage. No backend or database. Each hook follows the same pattern: global mutable store, listener array, cache to avoid redundant JSON parsing, `subscribe()`/`getSnapshot()` for React integration, and `emitChange()` to notify listeners.
+Data is stored in Supabase PostgreSQL with Row Level Security. Public read access for all tables, authenticated write access scoped by `team_admins` membership. Each hook uses `useState` + `useEffect` for data fetching and provides mutation functions.
 
-| Hook | Storage Key | Purpose |
-|------|------------|---------|
-| `useGames()` | `team-games` | Game schedules and results per team |
-| `useStandings()` | `team-standings` | OWHA standings data per team |
-| `useOpponents()` | `opponents` | Opponent team registry (shared across teams) |
-| `usePlaydowns()` | `team-playdowns` | Playdown config + games per team |
-| `useFavorites()` | `favorite-teams` | User's selected teams |
+| Hook | Supabase Table | Purpose |
+|------|---------------|---------|
+| `useSupabaseTeams()` | `teams` | Team registry with slug, org, banner |
+| `useSupabaseGames()` | `games` | Game schedules and results per team |
+| `useSupabaseStandings()` | `standings` | OWHA standings data per team |
+| `useSupabaseOpponents()` | `opponents` | Opponent team registry per team |
+| `useSupabasePlaydowns()` | `playdowns` | Playdown config + games per team |
+| `useSupabaseTournaments()` | `tournaments` | Tournament config + games per team |
+| `useFavorites()` | localStorage | User's favorited teams (client-side) |
+
+### Supabase Client Utilities
+
+- `lib/supabase/client.ts` — Browser client using `createBrowserClient()` from `@supabase/ssr`
+- `lib/supabase/server.ts` — Server client using `createServerClient()` with Next.js cookie handling
+
+### Database Schema
+
+Tables: `teams`, `team_admins`, `opponents`, `games`, `standings`, `playdowns`, `tournaments`
+
+Migrations in `supabase/migrations/`:
+- `001_schema.sql` — Table definitions
+- `002_rls.sql` — Row Level Security policies
+
+### Auth & Middleware
+
+- `middleware.ts` — Refreshes Supabase auth session, protects `/admin/*` routes (redirects unauthenticated users to `/admin` login)
+- Roles: `super_admin` (manages all teams + admins), `team_admin` (manages assigned teams)
 
 ### Key Domain Types (`lib/types.ts`)
 
@@ -56,28 +84,43 @@ Hockey seasons span Aug-Jul. `inferYear()` handles mid-season date imports where
 - `computePlaydownStandings()` — standings with tiebreakers (wins, h2h, goal diff, GA)
 - `isPlaydownActive()` / `isPlaydownExpired()` — visibility windowing (1 month before to 1 week after)
 
-### Page Structure
+### Route Structure
 
 ```
-app/dashboard/[teamId]/
-  layout.tsx        — team banner + fixed bottom nav (Home/Schedule/Standings/Admin)
-  page.tsx          — dashboard: History cards, scrollable schedule, Events section
-  results/          — All Games: filterable list with opponent selection, Last N summary
-  regular-season/   — standings table + filtered game list
-  schedule/         — upcoming games
-  playdowns/        — tournament bracket + standings
-  events/           — archived events (expired playdowns)
-  import/           — admin: multi-tab data import (OWHA/MHR/TeamSnap + standings + opponents)
-  add-game/         — manual game entry
+app/
+  page.tsx              — Landing page: list published teams
+  team/[slug]/
+    layout.tsx          — Public team layout with banner + bottom nav (Home/Schedule/Standings)
+    page.tsx            — Dashboard: history cards, scrollable schedule, events
+    results/            — All games: filterable list with opponent selection, Last N summary
+    standings/          — Standings table with Regular Season / Playdowns mode dropdown
+    schedule/           — Upcoming games
+    playdowns/          — Playdown bracket + standings
+    events/             — Archived events (expired playdowns/tournaments)
+    tournaments/[id]/   — Tournament view with pools, standings, graphs
+  admin/
+    page.tsx            — Login page
+    layout.tsx          — Admin layout
+    dashboard/          — Admin home: list managed teams
+    teams/              — Super admin: create/edit/delete teams, manage admins
+    team/[slug]/
+      layout.tsx        — Team admin layout with tab nav
+      page.tsx          — Team overview (record, counts)
+      games/            — Game management: import + CRUD
+      standings/        — Standings import + display
+      opponents/        — Opponent management: import + CRUD
+      events/           — Playdown + tournament management
+  api/
+    invite-admin/       — Server-side admin invitation endpoint
 ```
+
+### Team Context
+
+`lib/team-context.tsx` provides `TeamProvider` and `useTeamContext()` for passing team data from layout to child pages without re-fetching. Used in both public and admin team layouts.
 
 ### Scroll Pattern
 
-Several pages use a shared pattern: JS `useEffect` modifies the parent `team-layout-content` to `overflow: hidden; display: flex; flex-direction: column`, then uses `absolute inset-0` scroll areas with `ResizeObserver` for fade indicators.
-
-### Teams (`lib/teams.ts`)
-
-Hardcoded team registry (Nepean Wildcats, Ottawa Ice) with banner images and metadata. Teams are identified by slug IDs.
+Several pages use a shared pattern: JS `useEffect` modifies the parent element to `overflow: hidden; display: flex; flex-direction: column`, then uses `absolute inset-0` scroll areas with `ResizeObserver` for fade indicators.
 
 ## Coding Preferences
 

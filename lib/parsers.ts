@@ -43,6 +43,57 @@ function generateOpponentId(fullName: string, owhaId?: string): string {
 }
 
 /**
+ * Parse My Hockey Rankings team list from pasted text.
+ * Rows contain rank, blank lines, team name (with province suffix), and stats.
+ * Only the team name lines are extracted.
+ * e.g. "London Devilettes U13 A (ON)"
+ */
+export function parseMhrTeamList(
+  text: string,
+  ageGroup: string,
+  level: string
+): Opponent[] {
+  const lines = text.split("\n").map((l) => l.trim())
+  const opponents: Opponent[] = []
+  const seen = new Set<string>()
+
+  for (const line of lines) {
+    if (!line) continue
+    // Skip header row
+    if (/^Rank/i.test(line)) continue
+    // Skip rank lines (just a number, possibly with tabs)
+    if (/^\d+\s*$/.test(line)) continue
+    // Skip stats lines (start with a W-L-T record)
+    if (/^\d+-\d+-\d+/.test(line)) continue
+    // Skip lines that are purely numeric/decimal/whitespace
+    if (/^[\d.\s\t]+$/.test(line)) continue
+    // Must contain at least 2 words of letters to be a team name
+    if (!/[A-Za-z].*[A-Za-z]/.test(line)) continue
+
+    // Strip province suffix e.g. " (ON)"
+    // Strip age/level suffix e.g. " U13 A", " U11 BB"
+    const fullName = line
+      .replace(/\s*\([A-Z]{2,3}\)\s*$/, "")
+      .replace(/\s+(U\d+|Atom|Novice|Tyke|Peewee|Bantam|Midget)\b.*/i, "")
+      .trim()
+    if (!fullName || seen.has(fullName.toLowerCase())) continue
+    seen.add(fullName.toLowerCase())
+
+    opponents.push({
+      id: generateOpponentId(fullName),
+      fullName,
+      location: "",
+      name: "",
+      ageGroup,
+      level,
+      owhaId: undefined,
+    })
+  }
+
+  return opponents
+}
+
+/**
  * Parse OWHA team list from pasted text.
  * Format: one team per line, "Team Name #ID"
  * e.g. "Ancaster Avalanche #5045"
@@ -143,7 +194,20 @@ export function parseOwhaGames(
   owhaTeamName: string,
   gameType: GameType = "regular"
 ): Game[] {
-  const lines = text.trim().split("\n").map((l) => l.trim()).filter(Boolean)
+  // Strip "Curfew in effect" prefix then merge continuation lines
+  // (lines not starting with a game number) into the preceding game line
+  const rawLines = text.trim().split("\n").map((l) => l.trim()).filter(Boolean)
+  const mergedLines: string[] = []
+  for (const line of rawLines) {
+    const cleaned = line.replace(/^Curfew in effect\t?/i, "").trim()
+    if (!cleaned) continue
+    if (/^\d+/.test(cleaned)) {
+      mergedLines.push(cleaned)
+    } else if (mergedLines.length > 0) {
+      mergedLines[mergedLines.length - 1] += "\t" + cleaned
+    }
+  }
+  const lines = mergedLines
   const games: Game[] = []
   const needle = owhaTeamName.toLowerCase().trim()
 
