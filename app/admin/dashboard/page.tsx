@@ -14,6 +14,7 @@ type TeamRow = {
   age_group: string
   level: string
   published: boolean
+  lastUpdated?: string
 }
 
 type AdminRole = "super_admin" | "team_admin"
@@ -47,12 +48,13 @@ export default function AdminDashboardPage() {
       const isSuperAdmin = adminRows.some((r) => r.role === "super_admin")
       setRole(isSuperAdmin ? "super_admin" : "team_admin")
 
+      let rows: TeamRow[] = []
       if (isSuperAdmin) {
         const { data: allTeams } = await supabase
           .from("teams")
           .select("id, slug, organization, name, age_group, level, published")
-          .order("organization")
-        setTeams(allTeams ?? [])
+          .order("age_group").order("level").order("organization").order("name")
+        rows = allTeams ?? []
       } else {
         const teamIds = adminRows.map((r) => r.team_id).filter(Boolean)
         if (teamIds.length > 0) {
@@ -60,15 +62,48 @@ export default function AdminDashboardPage() {
             .from("teams")
             .select("id, slug, organization, name, age_group, level, published")
             .in("id", teamIds)
-            .order("organization")
-          setTeams(myTeams ?? [])
+            .order("age_group").order("level").order("organization").order("name")
+          rows = myTeams ?? []
         }
       }
 
+      setTeams(rows)
       setLoading(false)
+
+      // Fetch last-updated timestamps across all content tables
+      if (rows.length > 0) {
+        const ids = rows.map((t) => t.id)
+        const [{ data: games }, { data: playdowns }, { data: standings }, { data: tournaments }] =
+          await Promise.all([
+            supabase.from("games").select("team_id, created_at").in("team_id", ids),
+            supabase.from("playdowns").select("team_id, updated_at").in("team_id", ids),
+            supabase.from("standings").select("team_id, updated_at").in("team_id", ids),
+            supabase.from("tournaments").select("team_id, updated_at").in("team_id", ids),
+          ])
+
+        const latestByTeam = new Map<string, string>()
+        const bump = (teamId: string, ts: string) => {
+          const cur = latestByTeam.get(teamId)
+          if (!cur || ts > cur) latestByTeam.set(teamId, ts)
+        }
+        for (const r of games ?? []) bump(r.team_id, r.created_at)
+        for (const r of playdowns ?? []) bump(r.team_id, r.updated_at)
+        for (const r of standings ?? []) bump(r.team_id, r.updated_at)
+        for (const r of tournaments ?? []) bump(r.team_id, r.updated_at)
+
+        setTeams(rows.map((t) => ({ ...t, lastUpdated: latestByTeam.get(t.id) })))
+      }
     }
     load()
   }, [router, supabase])
+
+  function formatUpdated(ts: string) {
+    const d = new Date(ts)
+    return d.toLocaleString("en-CA", {
+      month: "short", day: "numeric", year: "numeric",
+      hour: "numeric", minute: "2-digit", hour12: true,
+    })
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -168,10 +203,28 @@ export default function AdminDashboardPage() {
                         {team.organization} - {team.name} - {team.age_group.toUpperCase()} - {team.level.toUpperCase()}
                       </p>
                       <p className="ob-file-slug">/{team.slug}</p>
+                      {team.lastUpdated && (
+                        <p className="ob-file-updated">Updated {formatUpdated(team.lastUpdated)}</p>
+                      )}
                     </div>
-                    {!team.published && (
-                      <span className="ob-file-badge">draft</span>
-                    )}
+                    <button
+                      className={`ob-file-badge ob-file-badge-btn ${team.published ? "ob-file-badge-published" : ""}`}
+                      onClick={async (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const { error } = await supabase
+                          .from("teams")
+                          .update({ published: !team.published })
+                          .eq("id", team.id)
+                        if (!error) {
+                          setTeams((prev) => prev.map((t) =>
+                            t.id === team.id ? { ...t, published: !t.published } : t
+                          ))
+                        }
+                      }}
+                    >
+                      {team.published ? "published" : "draft"}
+                    </button>
                   </Link>
                 ))}
               </div>

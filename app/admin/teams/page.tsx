@@ -74,7 +74,7 @@ export default function AdminTeamsPage() {
       const { data: allTeams } = await supabase
         .from("teams")
         .select("*")
-        .order("organization")
+        .order("age_group").order("level").order("organization").order("name")
       setTeams(allTeams ?? [])
 
       const { data: allAdmins } = await supabase

@@ -559,6 +559,10 @@
   @apply border-b;
 }
 
+.games-table tr[data-myteam="true"] td {
+  background-color: color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
 .games-table-input {
   @apply w-full rounded border bg-background px-1.5 py-1 text-xs;
 }
@@ -569,6 +573,10 @@
 
 .games-table-delete {
   @apply rounded p-1 text-muted-foreground transition-colors hover:text-destructive hover:bg-destructive/10;
+}
+
+.games-table-score-input {
+  @apply w-10 rounded border bg-background px-1 py-1 text-xs text-center;
 }
 
 /* Result badges (W/L/T circles) */
@@ -936,7 +944,7 @@ details[open] > .qual-tiebreaker-summary::after {
 
 .ob-layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 224px 1fr;
   min-height: 100dvh;
   background: #f9f9f9;
   color: #1a1a1a;
@@ -1082,7 +1090,7 @@ details[open] > .qual-tiebreaker-summary::after {
   border-radius: 4px;
   border-left: 2px solid transparent;
   color: #888;
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   text-decoration: none;
   transition: background 0.12s, border-left-color 0.12s, color 0.12s;
   width: 100%;
@@ -1229,8 +1237,9 @@ details[open] > .qual-tiebreaker-summary::after {
 }
 
 .ob-team-meta {
-  font-size: 0.75rem;
-  color: #999;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1a1a1a;
   margin-top: 0.1rem;
 }
 
@@ -1320,6 +1329,12 @@ details[open] > .qual-tiebreaker-summary::after {
   margin-top: 0.1rem;
 }
 
+.ob-file-updated {
+  font-size: 0.72rem;
+  color: #aaa;
+  margin-top: 0.15rem;
+}
+
 .ob-file-badge {
   font-size: 0.68rem;
   letter-spacing: 0.1em;
@@ -1329,6 +1344,27 @@ details[open] > .qual-tiebreaker-summary::after {
   border: 1px solid #ddd;
   color: #aaa;
   flex-shrink: 0;
+}
+
+.ob-file-badge-btn {
+  cursor: pointer;
+  background: none;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.ob-file-badge-btn:hover {
+  border-color: #bbb;
+  color: #555;
+}
+
+.ob-file-badge-published {
+  border-color: oklch(0.6 0.15 150);
+  color: oklch(0.45 0.15 150);
+}
+
+.ob-file-badge-published:hover {
+  border-color: oklch(0.5 0.15 150);
+  color: oklch(0.35 0.15 150);
 }
 
 .ob-empty {

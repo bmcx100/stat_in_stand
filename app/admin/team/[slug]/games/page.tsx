@@ -500,26 +500,61 @@ export default function AdminGamesPage() {
                   />
                 </td>
                 <td>
-                  {game.played
-                    ? `${game.teamScore}-${game.opponentScore}`
-                    : "\u2014"}
+                  <span className="flex items-center gap-0.5">
+                    <input
+                      className="games-table-score-input"
+                      type="number"
+                      min={0}
+                      defaultValue={game.teamScore ?? ""}
+                      onBlur={(e) => {
+                        const val = e.target.value === "" ? null : Number(e.target.value)
+                        if (val !== game.teamScore) {
+                          const opp = game.opponentScore
+                          const bothSet = val !== null && opp !== null
+                          handleGameUpdate(game.id, {
+                            teamScore: val,
+                            played: bothSet,
+                            result: bothSet ? (val > opp! ? "W" : val < opp! ? "L" : "T") : game.result,
+                          })
+                        }
+                      }}
+                    />
+                    <span>-</span>
+                    <input
+                      className="games-table-score-input"
+                      type="number"
+                      min={0}
+                      defaultValue={game.opponentScore ?? ""}
+                      onBlur={(e) => {
+                        const val = e.target.value === "" ? null : Number(e.target.value)
+                        if (val !== game.opponentScore) {
+                          const team = game.teamScore
+                          const bothSet = team !== null && val !== null
+                          handleGameUpdate(game.id, {
+                            opponentScore: val,
+                            played: bothSet,
+                            result: bothSet ? (team! > val ? "W" : team! < val ? "L" : "T") : game.result,
+                          })
+                        }
+                      }}
+                    />
+                  </span>
                 </td>
                 <td>
-                  {game.result ? (
-                    <span
-                      className={`result-badge ${
-                        game.result === "W"
-                          ? "result-badge-w"
-                          : game.result === "L"
-                          ? "result-badge-l"
-                          : "result-badge-t"
-                      }`}
-                    >
-                      {game.result}
-                    </span>
-                  ) : (
-                    "\u2014"
-                  )}
+                  <select
+                    className="games-table-select"
+                    value={game.result ?? ""}
+                    onChange={(e) =>
+                      handleGameUpdate(game.id, {
+                        result: (e.target.value || null) as "W" | "L" | "T" | null,
+                      })
+                    }
+                  >
+                    <option value="">—</option>
+                    <option value="W">W</option>
+                    <option value="L">L</option>
+                    <option value="T">T</option>
+                  </select>
                 </td>
                 <td>
                   <select

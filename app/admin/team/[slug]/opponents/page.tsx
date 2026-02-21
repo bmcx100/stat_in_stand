@@ -222,9 +222,17 @@ export default function AdminOpponentsPage() {
 
         {parsed.length > 0 && !importDone && (
           <div className="import-preview">
-            <p className="dashboard-record-label">
-              {parsed.length} team{parsed.length !== 1 ? "s" : ""} found — confirm location / name before importing
-            </p>
+            <div className="flex gap-2 items-center flex-wrap">
+              <Button onClick={handleConfirmImport} className="btn-import">
+                Confirm Import ({parsed.filter((p) => !isExisting(p)).length} new)
+              </Button>
+              <Button variant="ghost" onClick={handleImportMore}>
+                <X className="size-4" /> Cancel
+              </Button>
+              <p className="dashboard-record-label">
+                {parsed.length} team{parsed.length !== 1 ? "s" : ""} found — confirm location / name before importing
+              </p>
+            </div>
             <div className="games-table-wrap">
               <table className="games-table">
                 <thead>
@@ -271,14 +279,6 @@ export default function AdminOpponentsPage() {
                   })}
                 </tbody>
               </table>
-            </div>
-            <div className="flex gap-2 mt-2">
-              <Button onClick={handleConfirmImport} className="btn-import">
-                Confirm Import ({parsed.filter((p) => !isExisting(p)).length} new)
-              </Button>
-              <Button variant="ghost" onClick={handleImportMore}>
-                <X className="size-4" /> Cancel
-              </Button>
             </div>
           </div>
         )}

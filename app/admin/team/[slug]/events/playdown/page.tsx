@@ -26,7 +26,9 @@ export default function PlaydownManagementPage() {
   const [gamesPerMatchup, setGamesPerMatchup] = useState(1)
   const [standingsText, setStandingsText] = useState("")
   const [importText, setImportText] = useState("")
+  const [importResult, setImportResult] = useState("")
   const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmClearGames, setConfirmClearGames] = useState(false)
 
   const [newDate, setNewDate] = useState("")
   const [newTime, setNewTime] = useState("")
@@ -73,6 +75,22 @@ export default function PlaydownManagementPage() {
     return m
   }, [config])
 
+  const myPlaydownTeamId = useMemo(() => {
+    if (!config) return null
+    const norm = (s: string) =>
+      s.replace(/#\d+/g, "").replace(/[^a-z0-9\s]/gi, "").replace(/\s+/g, " ").toLowerCase().trim()
+    const needle = norm(`${team.organization} ${team.name}`)
+    // Exact match first, then substring
+    for (const t of config.teams) {
+      if (norm(t.name) === needle) return t.id
+    }
+    for (const t of config.teams) {
+      const hay = norm(t.name)
+      if (hay.includes(needle) || needle.includes(hay)) return t.id
+    }
+    return null
+  }, [config, team.organization, team.name])
+
   const addGameReady = Boolean(newHome && newAway)
 
   async function handleSaveConfig() {
@@ -90,7 +108,6 @@ export default function PlaydownManagementPage() {
   async function handleImportStandings() {
     const lines = standingsText.trim().split("\n").map((l) => l.trim()).filter(Boolean)
     const teams: PlaydownTeam[] = []
-    const syntheticGames: PlaydownGame[] = []
 
     for (const line of lines) {
       const parts = line.split(/\t+|\s{2,}/).map((p) => p.trim()).filter(Boolean)
@@ -99,56 +116,10 @@ export default function PlaydownManagementPage() {
       if (gpIdx < 1) continue
 
       const teamPart = parts.slice(0, gpIdx).join(" ")
-      const nums = parts.slice(gpIdx)
       const name = teamPart.replace(/#\d+/, "").trim()
       if (!name) continue
 
-      const w = parseInt(nums[1], 10) || 0
-      const l = parseInt(nums[2], 10) || 0
-      const t = parseInt(nums[3], 10) || 0
-      const otl = parseInt(nums[4], 10) || 0
-      const sol = parseInt(nums[5], 10) || 0
-
-      const teamId = generateId("pd-t")
-      teams.push({ id: teamId, name })
-
-      for (let i = 0; i < w; i++) {
-        syntheticGames.push({
-          id: generateId("pd-g"), teamId: team.id, date: "", time: "",
-          homeTeam: teamId, awayTeam: "synthetic-opp",
-          homeScore: 1, awayScore: 0, location: "", played: true,
-        })
-      }
-      for (let i = 0; i < l; i++) {
-        syntheticGames.push({
-          id: generateId("pd-g"), teamId: team.id, date: "", time: "",
-          homeTeam: teamId, awayTeam: "synthetic-opp",
-          homeScore: 0, awayScore: 1, location: "", played: true,
-        })
-      }
-      for (let i = 0; i < t; i++) {
-        syntheticGames.push({
-          id: generateId("pd-g"), teamId: team.id, date: "", time: "",
-          homeTeam: teamId, awayTeam: "synthetic-opp",
-          homeScore: 0, awayScore: 0, location: "", played: true,
-        })
-      }
-      for (let i = 0; i < otl; i++) {
-        syntheticGames.push({
-          id: generateId("pd-g"), teamId: team.id, date: "", time: "",
-          homeTeam: "synthetic-opp", awayTeam: teamId,
-          homeScore: 1, awayScore: 0, location: "", played: true,
-          resultType: "overtime",
-        })
-      }
-      for (let i = 0; i < sol; i++) {
-        syntheticGames.push({
-          id: generateId("pd-g"), teamId: team.id, date: "", time: "",
-          homeTeam: "synthetic-opp", awayTeam: teamId,
-          homeScore: 1, awayScore: 0, location: "", played: true,
-          resultType: "shootout",
-        })
-      }
+      teams.push({ id: generateId("pd-t"), name })
     }
 
     const newConfig: PlaydownConfig = {
@@ -158,7 +129,7 @@ export default function PlaydownManagementPage() {
       gamesPerMatchup: gamesPerMatchup || 1,
       teams,
     }
-    await setConfigAndGames(newConfig, syntheticGames)
+    await setConfigAndGames(newConfig, games)
     setStandingsText("")
     setStandingsOpen(false)
     setTotalTeams(newConfig.totalTeams)
@@ -166,42 +137,81 @@ export default function PlaydownManagementPage() {
   }
 
   async function handleImportGames() {
+    setImportResult("")
     const { games: parsed } = parsePlaydownGames(importText, team.id)
-    if (parsed.length === 0) return
+    if (parsed.length === 0) {
+      setImportResult("No games could be parsed from the pasted text.")
+      return
+    }
 
     const existingTeams = config?.teams ?? []
 
-    // Normalize names for matching: strip OWHA IDs like "#2859", lowercase
-    const normalize = (s: string) => s.replace(/#\d+/, "").toLowerCase().trim()
+    // Normalize names for matching: strip OWHA IDs, punctuation, collapse spaces, lowercase
+    const normalize = (s: string) =>
+      s.replace(/#\d+/g, "").replace(/[^a-z0-9\s]/gi, "").replace(/\s+/g, " ").toLowerCase().trim()
 
-    // Build name → id map from already-configured teams only
-    const nameToId = new Map<string, string>()
-    for (const t of existingTeams) nameToId.set(normalize(t.name), t.id)
+    // Fuzzy match: one name contains the other (handles suffix differences like age/level)
+    const fuzzyFind = (raw: string): string | undefined => {
+      const needle = normalize(raw)
+      // Exact match first
+      for (const t of existingTeams) {
+        if (normalize(t.name) === needle) return t.id
+      }
+      // Substring fallback
+      for (const t of existingTeams) {
+        const hay = normalize(t.name)
+        if (hay.includes(needle) || needle.includes(hay)) return t.id
+      }
+      return undefined
+    }
 
-    const existingGameIds = new Set(games.map((g) => `${g.date}-${g.homeTeam}-${g.awayTeam}`))
+    const existingByKey = new Map(
+      games.map((g) => [`${g.date}-${g.homeTeam}-${g.awayTeam}`, g])
+    )
     const mappedGames: PlaydownGame[] = []
+    let scoreUpdates = 0
 
     for (const g of parsed) {
-      const homeId = nameToId.get(normalize(g.homeTeam))
-      const awayId = nameToId.get(normalize(g.awayTeam))
+      const homeId = fuzzyFind(g.homeTeam)
+      const awayId = fuzzyFind(g.awayTeam)
       // Skip games where either team isn't in the playdown loop
       if (!homeId || !awayId) continue
       const dedupKey = `${g.date}-${homeId}-${awayId}`
-      if (existingGameIds.has(dedupKey)) continue
-      existingGameIds.add(dedupKey)
+      const existing = existingByKey.get(dedupKey)
+      if (existing) {
+        // Update scores if incoming has them and they differ
+        if (
+          g.played &&
+          (g.homeScore !== existing.homeScore || g.awayScore !== existing.awayScore)
+        ) {
+          await updateGame(existing.id, {
+            homeScore: g.homeScore,
+            awayScore: g.awayScore,
+            played: true,
+          })
+          scoreUpdates++
+        }
+        continue
+      }
+      existingByKey.set(dedupKey, { ...g, homeTeam: homeId, awayTeam: awayId })
       mappedGames.push({ ...g, homeTeam: homeId, awayTeam: awayId })
     }
 
-    if (mappedGames.length === 0) return
-
-    const updatedConfig: PlaydownConfig = {
-      teamId: team.id,
-      totalTeams: existingTeams.length,
-      qualifyingSpots: config?.qualifyingSpots ?? Math.ceil(existingTeams.length / 2),
-      gamesPerMatchup: config?.gamesPerMatchup ?? 1,
-      teams: existingTeams,
+    if (mappedGames.length > 0) {
+      const updatedConfig: PlaydownConfig = {
+        teamId: team.id,
+        totalTeams: existingTeams.length,
+        qualifyingSpots: config?.qualifyingSpots ?? Math.ceil(existingTeams.length / 2),
+        gamesPerMatchup: config?.gamesPerMatchup ?? 1,
+        teams: existingTeams,
+      }
+      await setConfigAndGames(updatedConfig, [...games, ...mappedGames])
     }
-    await setConfigAndGames(updatedConfig, [...games, ...mappedGames])
+
+    const loopGames = parsed.filter((g) => fuzzyFind(g.homeTeam) && fuzzyFind(g.awayTeam))
+    setImportResult(
+      `Parsed ${parsed.length} games — ${loopGames.length} matched your loop. Added ${mappedGames.length}, updated ${scoreUpdates} scores.`
+    )
     setImportText("")
     setGamesOpen(false)
   }
@@ -236,6 +246,12 @@ export default function PlaydownManagementPage() {
     const otherField = field === "homeScore" ? "awayScore" : "homeScore"
     updates.played = score !== null && game[otherField] !== null
     await updateGame(gameId, updates)
+  }
+
+  async function handleClearGames() {
+    if (!config) return
+    await setConfigAndGames(config, [])
+    setConfirmClearGames(false)
   }
 
   async function handleClear() {
@@ -352,10 +368,13 @@ export default function PlaydownManagementPage() {
               className="import-textarea"
               placeholder="Paste tab-separated game data"
               value={importText}
-              onChange={(e) => setImportText(e.target.value)}
+              onChange={(e) => { setImportText(e.target.value); setImportResult("") }}
               rows={6}
             />
           </div>
+        )}
+        {importResult && (
+          <p className="px-4 pb-3 text-sm text-muted-foreground">{importResult}</p>
         )}
       </div>
 
@@ -440,7 +459,7 @@ export default function PlaydownManagementPage() {
             </thead>
             <tbody>
               {games.map((g) => (
-                <tr key={g.id}>
+                <tr key={g.id} data-myteam={myPlaydownTeamId && (g.homeTeam === myPlaydownTeamId || g.awayTeam === myPlaydownTeamId) ? "true" : undefined}>
                   <td>{teamMap.get(g.homeTeam) ?? g.homeTeam}</td>
                   <td>{teamMap.get(g.awayTeam) ?? g.awayTeam}</td>
                   <td>{g.date}</td>
@@ -532,7 +551,20 @@ export default function PlaydownManagementPage() {
 
       {/* Clear */}
       {playdown && (
-        <div>
+        <div className="flex flex-col gap-2">
+          {games.length > 0 && (
+            confirmClearGames ? (
+              <div className="playdown-config-row">
+                <span className="text-destructive text-sm">Clear all games?</span>
+                <Button variant="destructive" onClick={handleClearGames}>Confirm</Button>
+                <Button variant="outline" onClick={() => setConfirmClearGames(false)}>Cancel</Button>
+              </div>
+            ) : (
+              <Button variant="outline" onClick={() => setConfirmClearGames(true)}>
+                <Trash2 className="h-4 w-4" /> Clear Games
+              </Button>
+            )
+          )}
           {confirmClear ? (
             <div className="playdown-config-row">
               <span className="text-destructive text-sm">Clear all playdown data?</span>

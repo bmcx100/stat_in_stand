@@ -201,7 +201,7 @@ export function parseOwhaGames(
   for (const line of rawLines) {
     const cleaned = line.replace(/^Curfew in effect\t?/i, "").trim()
     if (!cleaned) continue
-    if (/^\d+/.test(cleaned)) {
+    if (/^\d+\t/.test(cleaned) || /^\d{5,}/.test(cleaned)) {
       mergedLines.push(cleaned)
     } else if (mergedLines.length > 0) {
       mergedLines[mergedLines.length - 1] += "\t" + cleaned
@@ -549,7 +549,7 @@ export function parsePlaydownGames(
   for (const line of rawLines) {
     const trimmed = line.trim()
     if (!trimmed) continue
-    if (/^\d{4,}/.test(trimmed)) {
+    if (/^\d+\t/.test(trimmed) || /^\d{4,}/.test(trimmed)) {
       joined.push(trimmed)
     } else if (joined.length > 0) {
       joined[joined.length - 1] += "\t" + trimmed
@@ -568,8 +568,16 @@ export function parsePlaydownGames(
     const gameNumMatch = filtered[0].match(/^(\d+)$/)
     if (!gameNumMatch) continue
 
-    // DateTime is the second field — split into date and time
-    const dateTimeRaw = filtered[1]
+    // Home and away are always the last two fields — safe regardless of how
+    // many columns precede them (location blank, date/time split, extra cols, etc.)
+    const homeRaw = filtered[filtered.length - 2] ?? ""
+    const visitorRaw = filtered[filtered.length - 1] ?? ""
+
+    // DateTime: check if filtered[2] looks like a standalone time (separate column)
+    let dateTimeRaw = filtered[1]
+    if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(filtered[2] ?? "")) {
+      dateTimeRaw = filtered[1] + " " + filtered[2]
+    }
     const timeMatch = dateTimeRaw.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*$/i)
     let timeStr = ""
     if (timeMatch) {
@@ -584,10 +592,9 @@ export function parsePlaydownGames(
       ? dateTimeRaw.slice(0, timeMatch.index).trim()
       : dateTimeRaw
 
-    // Remaining fields: Location, Home, Away
-    const location = filtered[2] ?? ""
-    const homeRaw = filtered[3] ?? ""
-    const visitorRaw = filtered[4] ?? ""
+    // Location is everything between the datetime block and the last two (home/away) fields
+    const dateEnd = /^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(filtered[2] ?? "") ? 3 : 2
+    const location = filtered.slice(dateEnd, filtered.length - 2).join(" ")
 
     const parseTeamScore = (raw: string) => {
       const scoreMatch = raw.match(/\((\d+)\)\s*$/)
