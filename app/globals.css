@@ -911,11 +911,23 @@ details[open] > .qual-tiebreaker-summary::after {
 }
 
 .qual-standings-row {
-  @apply flex flex-col gap-1 rounded-lg border px-2 pb-2 pt-3;
+  @apply flex flex-col gap-1 rounded-lg border px-2 pb-2 pt-3 bg-muted/40;
+}
+
+.qual-standings-row-selected {
+  @apply bg-accent/40 border-accent font-bold;
 }
 
 .qual-standings-top {
-  @apply flex items-center gap-1.5;
+  @apply flex items-center gap-2;
+}
+
+.qual-standings-left {
+  @apply flex items-center gap-1.5 w-1/2 min-w-0;
+}
+
+.qual-standings-right {
+  @apply flex items-center justify-between w-1/2;
 }
 
 .qual-standings-bottom {
@@ -931,11 +943,11 @@ details[open] > .qual-tiebreaker-summary::after {
 }
 
 .qual-standings-record {
-  @apply text-sm shrink-0 px-3;
+  @apply text-sm shrink-0;
 }
 
 .qual-standings-games {
-  @apply text-sm shrink-0 px-3;
+  @apply text-sm shrink-0 text-muted-foreground;
 }
 
 .qual-standings-divider {
@@ -948,11 +960,11 @@ details[open] > .qual-tiebreaker-summary::after {
 }
 
 .qual-progress-track {
-  @apply relative h-3 rounded-full bg-muted overflow-hidden flex-1;
+  @apply relative h-3 rounded-full overflow-hidden flex-1 bg-[#3d3d3d];
 }
 
 .qual-progress-potential {
-  @apply absolute inset-y-0 left-0 rounded-full bg-foreground/20 transition-all;
+  @apply absolute inset-y-0 left-0 rounded-full bg-[#c8c8c8] transition-all;
 }
 
 .qual-progress-fill {

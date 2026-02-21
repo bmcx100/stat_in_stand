@@ -285,26 +285,30 @@ export default function PlaydownsPage() {
               const fillWidth = maxScale > 0 ? (row.pts / maxScale) * 100 : 0
               const potentialWidth = maxScale > 0 ? (row.maxPts / maxScale) * 100 : 0
               return (
-                <div key={row.teamId} className={`qual-standings-row ${row.teamId === "self" ? "playdown-self-row" : ""}`}>
+                <div key={row.teamId} className={`qual-standings-row ${row.teamId === "self" ? "playdown-self-row" : ""} ${selectedTeamId === row.teamId ? "qual-standings-row-selected" : ""}`}>
                   <div className="qual-standings-top">
-                    <span className="qual-standings-rank">{i + 1}</span>
-                    <span className="qual-standings-name">
-                      {row.teamName || teamName(row.teamId)}
-                      {row.tiedUnresolved && (
-                        <span className="qual-tie-warn-wrap">
-                          <AlertCircle className="qual-tie-warn-icon" />
-                          <span className="qual-tie-warn-tooltip">
-                            Cannot be calculated with current info !!!
-                            <br />5. Most periods won in round-robin play
-                            <br />6. Fewest penalty minutes in round-robin play
-                            <br />7. First goal scored in the series
-                            <br />8. Flip of a coin
+                    <div className="qual-standings-left">
+                      <span className="qual-standings-rank">{i + 1}</span>
+                      <span className="qual-standings-name">
+                        {row.teamName || teamName(row.teamId)}
+                        {row.tiedUnresolved && (
+                          <span className="qual-tie-warn-wrap">
+                            <AlertCircle className="qual-tie-warn-icon" />
+                            <span className="qual-tie-warn-tooltip">
+                              Cannot be calculated with current info !!!
+                              <br />5. Most periods won in round-robin play
+                              <br />6. Fewest penalty minutes in round-robin play
+                              <br />7. First goal scored in the series
+                              <br />8. Flip of a coin
+                            </span>
                           </span>
-                        </span>
-                      )}
-                    </span>
-                    <span className="qual-standings-record">{row.w}-{row.l}-{row.t}</span>
-                    <span className="qual-standings-games">{row.gp}/{row.gp + row.gamesRemaining}</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="qual-standings-right">
+                      <span className="qual-standings-record">{row.w}-{row.l}-{row.t}</span>
+                      <span className="qual-standings-games">{row.gp}/{row.gp + row.gamesRemaining} games</span>
+                    </div>
                   </div>
                   <div className="qual-standings-bottom">
                     <div className="qual-progress-wrap">
