@@ -43,7 +43,8 @@ export default function PlaydownsPage() {
     alive: qualification.filter((r) => r.status === "alive").length,
     out: qualification.filter((r) => r.status === "out").length,
   }
-  const totalMaxPts = (config.totalTeams - 1) * config.gamesPerMatchup * 2
+  const teamCount = config.teams.length || config.totalTeams
+  const totalMaxPts = (teamCount - 1) * config.gamesPerMatchup * 2
   const maxScale = Math.max(totalMaxPts, 1)
   const cutoffPts = qualification.length >= config.qualifyingSpots
     ? qualification[config.qualifyingSpots - 1].pts

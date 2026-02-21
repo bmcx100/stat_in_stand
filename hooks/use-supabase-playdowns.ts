@@ -38,6 +38,16 @@ export function useSupabasePlaydowns(teamId: string | undefined) {
     }
   }, [supabase, teamId, playdown])
 
+  // Atomically update config + games in one upsert — avoids stale-closure
+  // issues when calling setConfig then setGames back-to-back.
+  const setConfigAndGames = useCallback(async (config: PlaydownConfig, games: PlaydownGame[]) => {
+    if (!teamId) return
+    const { error } = await upsertPlaydown(supabase, teamId, config, games)
+    if (!error) {
+      setPlaydown({ config, games })
+    }
+  }, [supabase, teamId])
+
   const setGames = useCallback(async (games: PlaydownGame[]) => {
     if (!teamId || !playdown) return
     const { error } = await upsertPlaydown(supabase, teamId, playdown.config, games)
@@ -72,5 +82,5 @@ export function useSupabasePlaydowns(teamId: string | undefined) {
     }
   }, [supabase, teamId])
 
-  return { playdown, setConfig, setGames, addGame, updateGame, removeGame, clearPlaydown, loading }
+  return { playdown, setConfig, setConfigAndGames, setGames, addGame, updateGame, removeGame, clearPlaydown, loading }
 }

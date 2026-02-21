@@ -9,7 +9,7 @@ import { useSupabaseOpponents } from "@/hooks/use-supabase-opponents"
 import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
 import { useSupabaseTournaments } from "@/hooks/use-supabase-tournaments"
-import { isPlaydownActive, isPlaydownExpired, computePlaydownStandings } from "@/lib/playdowns"
+import { isPlaydownExpired, computePlaydownStandings } from "@/lib/playdowns"
 import { isTournamentExpired } from "@/lib/tournaments"
 import type { Game } from "@/lib/types"
 
@@ -95,7 +95,7 @@ export default function Dashboard() {
     .filter((g) => !g.played && g.date >= today)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-  const showPlaydownCard = playdown && isPlaydownActive(playdown.config, playdown.games)
+  const showPlaydownCard = playdown && playdown.config.teams.length > 0
 
   const playdownSelf = playdown
     ? computePlaydownStandings(playdown.config, playdown.games).find((r) => r.teamId === "self")
@@ -156,9 +156,11 @@ export default function Dashboard() {
 
       <Link href={`/team/${team.slug}/events`} className="dashboard-section-heading dashboard-section-link">Events</Link>
 
-      {showPlaydownCard && playdownSelf && (
+      {showPlaydownCard && (
         <Link href={`/team/${team.slug}/playdowns`} className="dashboard-record-card">
-          <p className="dashboard-record">{playdownSelf.w}-{playdownSelf.l}-{playdownSelf.t}</p>
+          <p className="dashboard-record">
+            {playdownSelf ? `${playdownSelf.w}-${playdownSelf.l}-${playdownSelf.t}` : "—"}
+          </p>
           <p className="dashboard-record-label">Playdowns</p>
         </Link>
       )}

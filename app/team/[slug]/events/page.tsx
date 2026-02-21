@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
 import { useSupabaseTournaments } from "@/hooks/use-supabase-tournaments"
-import { computePlaydownStandings, isPlaydownExpired } from "@/lib/playdowns"
+import { isPlaydownExpired } from "@/lib/playdowns"
 import { isTournamentExpired, computePoolStandings } from "@/lib/tournaments"
 
 export default function EventsPage() {
@@ -41,16 +41,8 @@ export default function EventsPage() {
         <div className="dashboard-nav">
           {hasExpiredPlaydown && (
             <Link href={`/team/${team.slug}/playdowns`} className="dashboard-record-card">
-              <p className="dashboard-record">
-                {(() => {
-                  const standings = computePlaydownStandings(playdown.config, playdown.games)
-                  const self = standings.find((r) => r.teamId === "self")
-                  return self ? `${self.w}-${self.l}-${self.t}` : "—"
-                })()}
-              </p>
-              <p className="dashboard-record-label">
-                Playdowns
-              </p>
+              <p className="dashboard-record">—</p>
+              <p className="dashboard-record-label">Playdowns</p>
             </Link>
           )}
 

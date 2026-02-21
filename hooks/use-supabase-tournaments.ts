@@ -63,6 +63,22 @@ export function useSupabaseTournaments(teamId: string | undefined) {
     }
   }, [supabase, teamId, tournaments])
 
+  // Atomically update config + games — avoids stale-closure bugs when
+  // calling updateConfig then setGames in the same async function.
+  const setConfigAndGames = useCallback(async (
+    tournamentId: string,
+    config: TournamentConfig,
+    games: TournamentGame[]
+  ) => {
+    if (!teamId) return
+    const { error } = await upsertTournament(supabase, teamId, tournamentId, config, games)
+    if (!error) {
+      setTournaments((prev) => prev.map((t) =>
+        t.config.id === tournamentId ? { config, games } : t
+      ))
+    }
+  }, [supabase, teamId])
+
   const addGame = useCallback(async (tournamentId: string, game: TournamentGame) => {
     const existing = tournaments.find((t) => t.config.id === tournamentId)
     if (!existing) return
@@ -96,7 +112,7 @@ export function useSupabaseTournaments(teamId: string | undefined) {
   }, [tournaments])
 
   return {
-    tournaments, addTournament, updateConfig, setGames,
+    tournaments, addTournament, updateConfig, setConfigAndGames, setGames,
     addGame, updateGame, removeGame, removeTournament, getTournament, loading
   }
 }

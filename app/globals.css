@@ -1074,6 +1074,134 @@ details[open] > .qual-tiebreaker-summary::after {
   margin: 0.5rem 0.75rem;
 }
 
+.ob-nav-subitem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.6rem 0.28rem 2.1rem;
+  border-radius: 4px;
+  border-left: 2px solid transparent;
+  color: #888;
+  font-size: 0.78rem;
+  text-decoration: none;
+  transition: background 0.12s, border-left-color 0.12s, color 0.12s;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  background: none;
+}
+
+.ob-nav-subitem:hover {
+  background: #ebebeb;
+  color: #222;
+}
+
+.ob-nav-subitem[data-active="true"] {
+  background: #e8e4f4;
+  border-left-color: oklch(0.5 0.18 285);
+  color: #1a1a1a;
+}
+
+.ob-back-link {
+  @apply text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors;
+}
+
+.event-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.event-card:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+}
+
+.event-card-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.event-card-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: oklch(0.5 0.18 285);
+  flex-shrink: 0;
+}
+
+.event-card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111;
+}
+
+.event-card-meta {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 0.1rem;
+}
+
+.event-card-arrow {
+  width: 1rem;
+  height: 1rem;
+  color: #aaa;
+  flex-shrink: 0;
+}
+
+.event-create-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.event-create-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.875rem 1rem;
+  border: 1px dashed #ccc;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  text-align: left;
+  min-width: 180px;
+  flex: 1;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.event-create-card:hover {
+  background: #f5f5f5;
+  border-color: oklch(0.5 0.18 285);
+}
+
+.event-create-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: oklch(0.5 0.18 285);
+  margin-bottom: 0.25rem;
+}
+
+.event-create-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111;
+}
+
+.event-create-sub {
+  font-size: 0.72rem;
+  color: #999;
+}
+
 .ob-sidebar-bottom {
   margin-top: auto;
   padding: 0.75rem;
@@ -1300,4 +1428,56 @@ details[open] > .qual-tiebreaker-summary::after {
 
 .admin-inline-link {
   @apply flex items-center gap-1.5 text-xs text-muted-foreground;
+}
+
+/* ── Collapsible card sections ────────────────────────────── */
+
+.collapsible-card {
+  @apply rounded-lg border border-border overflow-hidden;
+}
+
+.collapsible-toggle {
+  @apply flex items-center justify-between w-full text-left cursor-pointer gap-3 px-4 py-3 bg-card hover:bg-muted/50 transition-colors;
+}
+
+.collapsible-toggle-right {
+  @apply flex items-center gap-2 shrink-0 text-muted-foreground;
+}
+
+.collapsible-badge {
+  @apply block w-2 h-2 rounded-full bg-green-500;
+}
+
+.collapsible-title {
+  @apply text-sm font-semibold text-foreground;
+}
+
+.collapsible-body {
+  @apply flex flex-col gap-3 p-4 border-t border-border;
+}
+
+/* ── Action buttons ───────────────────────────────────────── */
+
+.btn-save-ready {
+  @apply bg-green-600 hover:bg-green-700 text-white border-transparent;
+}
+
+.event-assign-row {
+  @apply flex items-center gap-3 rounded border border-border px-3 py-2 text-sm cursor-pointer hover:bg-muted/50;
+}
+
+.event-assign-date {
+  @apply shrink-0 w-28 text-xs text-muted-foreground font-mono;
+}
+
+.event-assign-teams {
+  @apply flex-1 font-medium;
+}
+
+.event-assign-score {
+  @apply shrink-0 text-xs text-muted-foreground font-mono;
+}
+
+.event-assign-location {
+  @apply shrink-0 text-xs text-muted-foreground;
 }

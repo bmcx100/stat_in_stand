@@ -5,9 +5,11 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   Vault, ArrowLeft, LayoutDashboard, Gamepad2,
-  Trophy, Users, CalendarDays,
+  Trophy, Users, CalendarDays, Circle,
 } from "lucide-react"
 import { useTeam } from "@/hooks/use-supabase-teams"
+import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
+import { useSupabaseTournaments } from "@/hooks/use-supabase-tournaments"
 import { TeamProvider } from "@/lib/team-context"
 
 export default function AdminTeamLayout({
@@ -21,13 +23,20 @@ export default function AdminTeamLayout({
   const { team, loading } = useTeam(slug)
   const pathname = usePathname()
 
+  // Fetch events data for sidebar sub-items (after team loads)
+  const { playdown } = useSupabasePlaydowns(team?.id)
+  const { tournaments } = useSupabaseTournaments(team?.id)
+
   const navItems = [
     { href: `/admin/team/${slug}`, label: "Overview", icon: LayoutDashboard },
     { href: `/admin/team/${slug}/games`, label: "Games", icon: Gamepad2 },
     { href: `/admin/team/${slug}/standings`, label: "Standings", icon: Trophy },
     { href: `/admin/team/${slug}/opponents`, label: "Opponents", icon: Users },
-    { href: `/admin/team/${slug}/events`, label: "Events", icon: CalendarDays },
   ]
+
+  const eventsBase = `/admin/team/${slug}/events`
+  const isEventsActive = pathname === eventsBase
+  const isPlaydownActive = pathname === `${eventsBase}/playdown`
 
   if (loading) {
     return (
@@ -108,6 +117,8 @@ export default function AdminTeamLayout({
 
           <div className="ob-sidebar-section">
             <p className="ob-sidebar-section-label">team admin</p>
+
+            {/* Main nav items */}
             {navItems.map((item) => {
               const isActive = pathname === item.href
               return (
@@ -115,13 +126,60 @@ export default function AdminTeamLayout({
                   key={item.href}
                   href={item.href}
                   className="ob-nav-link"
-                  data-active={isActive}
+                  data-active={isActive || undefined}
                 >
                   <item.icon className="ob-nav-icon" />
                   {item.label}
                 </Link>
               )
             })}
+
+            {/* Events with sub-items */}
+            <Link
+              href={eventsBase}
+              className="ob-nav-link"
+              data-active={isEventsActive || undefined}
+            >
+              <CalendarDays className="ob-nav-icon" />
+              Events
+            </Link>
+
+            {playdown?.config && (
+              <Link
+                href={`${eventsBase}/playdown`}
+                className="ob-nav-subitem"
+                data-active={isPlaydownActive || undefined}
+              >
+                <Circle className="h-2 w-2 flex-shrink-0" />
+                Playdowns
+              </Link>
+            )}
+
+            <Link
+              href={`${eventsBase}/playoffs`}
+              className="ob-nav-subitem"
+              data-active={pathname === `${eventsBase}/playoffs` || undefined}
+            >
+              <Circle className="h-2 w-2 flex-shrink-0" />
+              Playoffs
+            </Link>
+
+            {tournaments
+              .filter((t) => t.config.id !== "playoffs")
+              .map((t) => {
+                const tHref = `${eventsBase}/tournament/${t.config.id}`
+                return (
+                  <Link
+                    key={t.config.id}
+                    href={tHref}
+                    className="ob-nav-subitem"
+                    data-active={pathname === tHref || undefined}
+                  >
+                    <Circle className="h-2 w-2 flex-shrink-0" />
+                    {t.config.name || "Untitled Tournament"}
+                  </Link>
+                )
+              })}
           </div>
         </aside>
 

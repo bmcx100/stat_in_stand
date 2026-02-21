@@ -54,27 +54,24 @@ export function computePoolStandings(
   for (const game of playedGames) {
     const home = stats.get(game.homeTeam)
     const away = stats.get(game.awayTeam)
-    if (!home || !away) continue
+    // Skip only when neither side is a tracked team (e.g. both synthetic)
+    if (!home && !away) continue
 
     const hs = game.homeScore!
     const as_ = game.awayScore!
 
-    home.gp++
-    away.gp++
-    home.gf += hs
-    home.ga += as_
-    away.gf += as_
-    away.ga += hs
+    if (home) { home.gp++; home.gf += hs; home.ga += as_ }
+    if (away) { away.gp++; away.gf += as_; away.ga += hs }
 
     if (hs > as_) {
-      home.w++
-      away.l++
+      if (home) home.w++
+      if (away) away.l++
     } else if (hs < as_) {
-      home.l++
-      away.w++
+      if (home) home.l++
+      if (away) away.w++
     } else {
-      home.t++
-      away.t++
+      if (home) home.t++
+      if (away) away.t++
     }
   }
 

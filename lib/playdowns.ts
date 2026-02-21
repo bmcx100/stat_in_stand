@@ -46,34 +46,33 @@ export function computePlaydownStandings(
   for (const game of playedGames) {
     const home = stats.get(game.homeTeam)
     const away = stats.get(game.awayTeam)
-    if (!home || !away) continue
+    // Skip only when neither side is a tracked team (e.g. both synthetic)
+    if (!home && !away) continue
 
     const hs = game.homeScore!
     const as_ = game.awayScore!
     const rt = game.resultType ?? "regulation"
 
-    home.gp++
-    away.gp++
-    home.gf += hs
-    home.ga += as_
-    away.gf += as_
-    away.ga += hs
-    home.pim += game.homePim ?? 0
-    away.pim += game.awayPim ?? 0
+    if (home) { home.gp++; home.gf += hs; home.ga += as_; home.pim += game.homePim ?? 0 }
+    if (away) { away.gp++; away.gf += as_; away.ga += hs; away.pim += game.awayPim ?? 0 }
 
     if (hs > as_) {
-      home.w++
-      if (rt === "overtime") away.otl++
-      else if (rt === "shootout") away.sol++
-      else away.l++
+      if (home) home.w++
+      if (away) {
+        if (rt === "overtime") away.otl++
+        else if (rt === "shootout") away.sol++
+        else away.l++
+      }
     } else if (hs < as_) {
-      away.w++
-      if (rt === "overtime") home.otl++
-      else if (rt === "shootout") home.sol++
-      else home.l++
+      if (away) away.w++
+      if (home) {
+        if (rt === "overtime") home.otl++
+        else if (rt === "shootout") home.sol++
+        else home.l++
+      }
     } else {
-      home.t++
-      away.t++
+      if (home) home.t++
+      if (away) away.t++
     }
   }
 
@@ -275,8 +274,9 @@ export function detectTiebreakerResolutions(
  * Derive the earliest and latest game dates from a list of playdown games.
  */
 function getGameDateRange(games: PlaydownGame[]): { start: Date | null; end: Date | null } {
-  if (games.length === 0) return { start: null, end: null }
-  const sorted = games.map((g) => new Date(g.date)).sort((a, b) => a.getTime() - b.getTime())
+  const dates = games.map((g) => new Date(g.date)).filter((d) => !isNaN(d.getTime()))
+  if (dates.length === 0) return { start: null, end: null }
+  const sorted = dates.sort((a, b) => a.getTime() - b.getTime())
   return { start: sorted[0], end: sorted[sorted.length - 1] }
 }
 
@@ -320,7 +320,8 @@ export function computeQualificationStatus(
   config: PlaydownConfig
 ): QualificationRow[] {
   const K = config.qualifyingSpots
-  const expectedGames = (config.totalTeams - 1) * config.gamesPerMatchup
+  const teamCount = config.teams.length || config.totalTeams
+  const expectedGames = (teamCount - 1) * config.gamesPerMatchup
 
   const rows: QualificationRow[] = standings.map((row) => {
     const gamesRemaining = Math.max(0, expectedGames - row.gp)
