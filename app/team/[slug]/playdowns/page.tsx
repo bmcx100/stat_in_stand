@@ -11,6 +11,7 @@ export default function PlaydownsPage() {
   const team = useTeamContext()
   const { playdown, loading } = useSupabasePlaydowns(team.id)
   const [tab, setTab] = useState<"standings" | "graphs">("graphs")
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
 
   if (loading) {
     return (
@@ -49,11 +50,13 @@ export default function PlaydownsPage() {
   const cutoffPts = qualification.length >= config.qualifyingSpots
     ? qualification[config.qualifyingSpots - 1].pts
     : 0
-  const tiebreakers = detectTiebreakerResolutions(standings, games)
-
   const completed = games
     .filter((g) => g.played)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+  const allZeroPoints = qualification.every((r) => r.pts === 0)
+  const anyZeroGamesPlayed = standings.some((r) => r.gp === 0)
+  const tiebreakers = anyZeroGamesPlayed ? [] : detectTiebreakerResolutions(standings, games)
 
   const today = new Date().toISOString().slice(0, 10)
   const upcoming = games
@@ -64,6 +67,14 @@ export default function PlaydownsPage() {
     const t = config.teams.find((t) => t.id === id)
     return t?.name ?? id
   }
+
+  const filteredCompleted = selectedTeamId
+    ? completed.filter((g) => g.homeTeam === selectedTeamId || g.awayTeam === selectedTeamId)
+    : completed
+
+  const filteredUpcoming = selectedTeamId
+    ? upcoming.filter((g) => g.homeTeam === selectedTeamId || g.awayTeam === selectedTeamId)
+    : upcoming
 
   return (
     <div className="dashboard-page">
@@ -116,7 +127,8 @@ export default function PlaydownsPage() {
                   {standings.map((row, i) => (
                     <tr
                       key={row.teamId}
-                      className={`standings-row ${row.teamId === "self" ? "playdown-self-row" : ""} ${i === config.qualifyingSpots - 1 ? "playdown-cutoff" : ""}`}
+                      className={`standings-row standings-row-clickable ${row.teamId === "self" ? "playdown-self-row" : ""} ${i === config.qualifyingSpots - 1 ? "playdown-cutoff" : ""} ${selectedTeamId === row.teamId ? "playdown-row-selected" : ""}`}
+                      onClick={() => setSelectedTeamId(selectedTeamId === row.teamId ? null : row.teamId)}
                     >
                       <td>
                         <span className={`text-xs font-bold ${row.qualifies ? "text-green-600" : "text-muted-foreground"}`}>
@@ -160,53 +172,65 @@ export default function PlaydownsPage() {
           )}
 
           {/* Completed Games */}
-          {completed.length > 0 && (
+          {(completed.length > 0 || selectedTeamId) && (
             <>
-              <h2 className="text-sm font-semibold">Results</h2>
-              <div className="dashboard-nav">
-                {completed.map((game) => (
-                  <div key={game.id} className="game-list-item">
-                    <div>
-                      <p className="text-sm font-medium">
-                        {teamName(game.homeTeam)} vs {teamName(game.awayTeam)}
+              <h2 className="text-sm font-semibold">
+                Results{selectedTeamId ? ` — ${teamName(selectedTeamId)}` : ""}
+              </h2>
+              {filteredCompleted.length === 0 ? (
+                <p className="dashboard-record-label">No Results Available</p>
+              ) : (
+                <div className="dashboard-nav">
+                  {filteredCompleted.map((game) => (
+                    <div key={game.id} className="game-list-item">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {teamName(game.homeTeam)} vs {teamName(game.awayTeam)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {game.date}{game.time ? ` at ${game.time}` : ""}
+                        </p>
+                        {game.location && (
+                          <p className="text-xs text-muted-foreground">{game.location}</p>
+                        )}
+                      </div>
+                      <p className="text-sm font-bold">
+                        {game.homeScore} - {game.awayScore}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {game.date}{game.time ? ` at ${game.time}` : ""}
-                      </p>
-                      {game.location && (
-                        <p className="text-xs text-muted-foreground">{game.location}</p>
-                      )}
                     </div>
-                    <p className="text-sm font-bold">
-                      {game.homeScore} - {game.awayScore}
-                    </p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
           {/* Upcoming Games */}
-          {upcoming.length > 0 && (
+          {(upcoming.length > 0 || selectedTeamId) && (
             <>
-              <h2 className="text-sm font-semibold">Upcoming</h2>
-              <div className="dashboard-nav">
-                {upcoming.map((game) => (
-                  <div key={game.id} className="game-list-item">
-                    <div>
-                      <p className="text-sm font-medium">
-                        {teamName(game.homeTeam)} vs {teamName(game.awayTeam)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {game.date}{game.time ? ` at ${game.time}` : ""}
-                      </p>
-                      {game.location && (
-                        <p className="text-xs text-muted-foreground">{game.location}</p>
-                      )}
+              <h2 className="text-sm font-semibold">
+                Upcoming{selectedTeamId ? ` — ${teamName(selectedTeamId)}` : ""}
+              </h2>
+              {filteredUpcoming.length === 0 ? (
+                <p className="dashboard-record-label">No Results Available</p>
+              ) : (
+                <div className="dashboard-nav">
+                  {filteredUpcoming.map((game) => (
+                    <div key={game.id} className="game-list-item">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {teamName(game.homeTeam)} vs {teamName(game.awayTeam)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {game.date}{game.time ? ` at ${game.time}` : ""}
+                        </p>
+                        {game.location && (
+                          <p className="text-xs text-muted-foreground">{game.location}</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
@@ -313,7 +337,8 @@ export default function PlaydownsPage() {
                 const sameGroup = qualification.filter((r) => r.pts === row.pts)
                 const groupIdx = sameGroup.findIndex((r) => r.teamId === row.teamId)
                 const reversedIdx = sameGroup.length - 1 - groupIdx
-                const offset = (reversedIdx - (sameGroup.length - 1) / 2) * 30
+                const offset = allZeroPoints ? 0 : (reversedIdx - (sameGroup.length - 1) / 2) * 30
+                if (row.pts === 0) return null
                 return (
                   <div
                     key={row.teamId}

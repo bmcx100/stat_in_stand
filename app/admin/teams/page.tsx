@@ -11,10 +11,10 @@ const levelRank = (l: string) => LEVEL_RANK[l.toUpperCase()] ?? 99
 
 function sortTeams<T extends { age_group: string; level: string; organization: string; name: string }>(teams: T[]): T[] {
   return [...teams].sort((a, b) =>
-    a.age_group.localeCompare(b.age_group) ||
-    levelRank(a.level) - levelRank(b.level) ||
     a.organization.localeCompare(b.organization) ||
-    a.name.localeCompare(b.name)
+    a.name.localeCompare(b.name) ||
+    a.age_group.localeCompare(b.age_group, undefined, { sensitivity: "base" }) ||
+    levelRank(a.level) - levelRank(b.level)
   )
 }
 import { createClient } from "@/lib/supabase/client"
@@ -207,12 +207,13 @@ export default function AdminTeamsPage() {
             <LayoutDashboard className="ob-nav-icon" />
             Teams Home
           </Link>
+        </div>
+        <div className="ob-sidebar-bottom">
           <Link href="/admin/teams" className="ob-nav-link" data-active={true}>
             <Settings className="ob-nav-icon" />
             Manage Teams &amp; Admins
           </Link>
-        </div>
-        <div className="ob-sidebar-bottom">
+          <hr className="ob-sidebar-divider" />
           <AdminHelp>
             <div className="help-section">
               <p>Use <strong>Create Team</strong> to add a new team. Fill in location, name, age group, and level.</p>

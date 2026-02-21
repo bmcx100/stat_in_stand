@@ -359,6 +359,39 @@
   @apply text-xs text-muted-foreground;
 }
 
+.dashboard-event-card {
+  @apply block rounded-lg border border-input bg-background px-4 py-2.5 shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboard-event-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.dashboard-event-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.dashboard-event-meta {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+}
+
+.dashboard-event-record {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+  flex-shrink: 0;
+}
+
 .dashboard-nav {
   @apply flex flex-col gap-2;
 }
@@ -477,18 +510,19 @@
 
 .scroll-fade-top,
 .scroll-fade-bottom {
-  @apply pointer-events-none absolute left-0 z-10 h-6 w-full opacity-0;
+  @apply pointer-events-none absolute left-0 z-10 w-full opacity-0;
+  height: 3rem;
   transition: opacity 0.2s;
 }
 
 .scroll-fade-top {
   @apply top-0;
-  background: linear-gradient(to bottom, var(--color-background), transparent);
+  background: linear-gradient(to bottom, var(--color-background) 10%, transparent);
 }
 
 .scroll-fade-bottom {
   @apply bottom-0;
-  background: linear-gradient(to top, var(--color-background), transparent);
+  background: linear-gradient(to top, var(--color-background) 10%, transparent);
 }
 
 .filter-toggle-btn {
@@ -735,6 +769,18 @@
 
 .playdown-cutoff {
   @apply border-b-2 border-green-600;
+}
+
+.standings-row-clickable {
+  cursor: pointer;
+}
+
+.standings-row-clickable:hover {
+  @apply bg-accent/20;
+}
+
+.playdown-row-selected {
+  @apply bg-accent/50 outline outline-1 outline-accent;
 }
 
 /* Tiebreaker warning */
@@ -1157,6 +1203,12 @@ details[open] > .qual-tiebreaker-summary::after {
   border: none;
   border-top: 1px solid #e0e0e0;
   margin: 0.5rem 0.75rem;
+}
+
+.ob-file-divider {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 0.5rem 0;
 }
 
 .ob-nav-subitem {

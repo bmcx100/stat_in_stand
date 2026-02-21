@@ -12,10 +12,10 @@ const levelRank = (l: string) => LEVEL_RANK[l.toUpperCase()] ?? 99
 
 function sortTeams<T extends { age_group: string; level: string; organization: string; name: string }>(teams: T[]): T[] {
   return [...teams].sort((a, b) =>
-    a.age_group.localeCompare(b.age_group) ||
-    levelRank(a.level) - levelRank(b.level) ||
     a.organization.localeCompare(b.organization) ||
-    a.name.localeCompare(b.name)
+    a.name.localeCompare(b.name) ||
+    a.age_group.localeCompare(b.age_group, undefined, { sensitivity: "base" }) ||
+    levelRank(a.level) - levelRank(b.level)
   )
 }
 
@@ -159,15 +159,28 @@ export default function AdminDashboardPage() {
         {teams.length > 0 && (
           <div className="ob-sidebar-section">
             <p className="ob-sidebar-section-label">teams — {teams.length}</p>
-            {teams.map((team) => (
-              <Link
-                key={team.id}
-                href={`/admin/team/${team.slug}`}
-                className="ob-nav-link"
-              >
-                <FileText className="ob-nav-icon" />
-                {team.organization} {team.name} {team.age_group.toUpperCase()} {team.level.toUpperCase()}
-              </Link>
+            {[...teams].sort((a, b) =>
+              a.organization.localeCompare(b.organization) ||
+              a.name.localeCompare(b.name) ||
+              a.age_group.localeCompare(b.age_group, undefined, { sensitivity: "base" }) ||
+              levelRank(a.level) - levelRank(b.level)
+            ).map((team, i, arr) => (
+              <>
+                {i > 0 && (
+                  arr[i - 1].organization.toLowerCase() !== team.organization.toLowerCase() ||
+                  arr[i - 1].age_group.toLowerCase() !== team.age_group.toLowerCase()
+                ) && (
+                  <hr key={`divider-${team.id}`} className="ob-sidebar-divider" />
+                )}
+                <Link
+                  key={team.id}
+                  href={`/admin/team/${team.slug}`}
+                  className="ob-nav-link"
+                >
+                  <FileText className="ob-nav-icon" />
+                  {team.organization} {team.name} {team.age_group.toUpperCase()} {team.level.toUpperCase()}
+                </Link>
+              </>
             ))}
           </div>
         )}
@@ -183,6 +196,7 @@ export default function AdminDashboardPage() {
               Manage Teams &amp; Admins
             </Link>
           )}
+          {role === "super_admin" && <hr className="ob-sidebar-divider" />}
           <AdminHelp>
             <div className="help-section">
               <p>To create teams, click <strong>Manage Teams &amp; Admins</strong> in the sidebar.</p>
@@ -210,7 +224,14 @@ export default function AdminDashboardPage() {
           ) : (
             <div>
 <div className="ob-file-list">
-                {teams.map((team) => (
+                {teams.map((team, i, arr) => (
+                  <>
+                    {i > 0 && (
+                      arr[i - 1].organization.toLowerCase() !== team.organization.toLowerCase() ||
+                      arr[i - 1].age_group.toLowerCase() !== team.age_group.toLowerCase()
+                    ) && (
+                      <hr key={`file-divider-${team.id}`} className="ob-file-divider" />
+                    )}
                   <Link
                     key={team.id}
                     href={`/admin/team/${team.slug}`}
@@ -245,6 +266,7 @@ export default function AdminDashboardPage() {
                       {team.published ? "published" : "draft"}
                     </button>
                   </Link>
+                  </>
                 ))}
               </div>
             </div>

@@ -115,7 +115,7 @@ export default function AdminGamesPage() {
   const { opponents, addOpponents, getById } = useSupabaseOpponents(team.id)
 
   // Import state
-  const [activeTab, setActiveTab] = useState<ImportTab>("teamsnap")
+  const [activeTab, setActiveTab] = useState<ImportTab>("owha-games")
   const [pasteData, setPasteData] = useState("")
   const [owhaGameType, setOwhaGameType] = useState<GameType>("regular")
 
@@ -323,8 +323,8 @@ export default function AdminGamesPage() {
   const sortedGames = [...games].sort((a, b) => b.date.localeCompare(a.date))
 
   const tabs: { key: ImportTab; label: string }[] = [
-    { key: "teamsnap", label: "TeamSnap" },
     { key: "owha-games", label: "OWHA" },
+    { key: "teamsnap", label: "TeamSnap" },
     { key: "mhr-games", label: "MHR" },
   ]
 

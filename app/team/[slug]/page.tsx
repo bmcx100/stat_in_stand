@@ -45,20 +45,18 @@ export default function Dashboard() {
     if (!el) return
 
     function check() {
-      if (!el) return
       setCanScrollUp(el.scrollTop > 2)
       setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 2)
     }
 
-    check()
-    el.addEventListener("scroll", check, { passive: true })
+    const raf = requestAnimationFrame(check)
     const ro = new ResizeObserver(check)
     ro.observe(el)
     return () => {
-      el.removeEventListener("scroll", check)
+      cancelAnimationFrame(raf)
       ro.disconnect()
     }
-  }, [])
+  }, [gamesLoading])
 
   function opponentDisplay(game: Game): string {
     if (game.opponentId) {
@@ -126,7 +124,15 @@ export default function Dashboard() {
       <div className="dashboard-schedule-wrap">
         <div className={`scroll-fade-top ${canScrollUp ? "scroll-fade-visible" : ""}`} />
         <div className={`scroll-fade-bottom ${canScrollDown ? "scroll-fade-visible" : ""}`} />
-        <div ref={scheduleRef} className="dashboard-schedule-list">
+        <div
+          ref={scheduleRef}
+          className="dashboard-schedule-list"
+          onScroll={(e) => {
+            const el = e.currentTarget
+            setCanScrollUp(el.scrollTop > 2)
+            setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 2)
+          }}
+        >
           {upcoming.length === 0 ? (
             <p className="dashboard-record-label">No upcoming games</p>
           ) : (
@@ -157,11 +163,18 @@ export default function Dashboard() {
       <Link href={`/team/${team.slug}/events`} className="dashboard-section-heading dashboard-section-link">Events</Link>
 
       {showPlaydownCard && (
-        <Link href={`/team/${team.slug}/playdowns`} className="dashboard-record-card">
-          <p className="dashboard-record">
+        <Link href={`/team/${team.slug}/playdowns`} className="dashboard-event-card">
+          <div className="dashboard-event-info">
+            <p className="dashboard-event-label">Playdowns</p>
+            <p className="dashboard-event-meta">
+              {playdown.config.totalTeams} teams
+              {playdown.config.qualifyingSpots ? ` · Top ${playdown.config.qualifyingSpots} qualify` : ""}
+              {playdown.config.gamesPerMatchup > 1 ? ` · Best of ${playdown.config.gamesPerMatchup}` : ""}
+            </p>
+          </div>
+          <p className="dashboard-event-record">
             {playdownSelf ? `${playdownSelf.w}-${playdownSelf.l}-${playdownSelf.t}` : "—"}
           </p>
-          <p className="dashboard-record-label">Playdowns</p>
         </Link>
       )}
 
