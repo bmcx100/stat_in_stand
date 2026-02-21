@@ -102,9 +102,13 @@ export default function PlaydownsPage() {
                     <th>W</th>
                     <th>L</th>
                     <th>T</th>
+                    <th>OTL</th>
+                    <th>SOL</th>
                     <th>GF</th>
                     <th>GA</th>
                     <th>DIFF</th>
+                    <th>PIM</th>
+                    <th>Win%</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -140,9 +144,13 @@ export default function PlaydownsPage() {
                       <td>{row.w}</td>
                       <td>{row.l}</td>
                       <td>{row.t}</td>
+                      <td>{row.otl}</td>
+                      <td>{row.sol}</td>
                       <td>{row.gf}</td>
                       <td>{row.ga}</td>
                       <td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
+                      <td>{row.pim}</td>
+                      <td>{(row.winPct * 100).toFixed(1)}%</td>
                     </tr>
                   ))}
                 </tbody>

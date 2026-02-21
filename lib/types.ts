@@ -88,6 +88,9 @@ export type PlaydownGame = {
   awayScore: number | null
   location: string
   played: boolean
+  resultType?: "regulation" | "overtime" | "shootout"
+  homePim?: number
+  awayPim?: number
 }
 
 export type PlaydownStandingsRow = {
@@ -97,10 +100,14 @@ export type PlaydownStandingsRow = {
   w: number
   l: number
   t: number
+  otl: number
+  sol: number
   pts: number
   gf: number
   ga: number
   diff: number
+  pim: number
+  winPct: number
   qualifies: boolean
   tiedUnresolved: boolean
 }
@@ -196,10 +203,14 @@ export type TournamentStandingsRow = {
   w: number
   l: number
   t: number
+  otl: number
+  sol: number
   pts: number
   gf: number
   ga: number
   diff: number
+  pim: number
+  winPct: number
   qualifies: boolean
   tiedUnresolved: boolean
 }

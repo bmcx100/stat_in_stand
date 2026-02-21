@@ -472,6 +472,9 @@ function PlaydownsSection() {
                 <th>Time</th>
                 <th>H</th>
                 <th>A</th>
+                <th>Type</th>
+                <th>HPIM</th>
+                <th>APIM</th>
                 <th></th>
               </tr>
             </thead>
@@ -499,6 +502,33 @@ function PlaydownsSection() {
                     />
                   </td>
                   <td>
+                    <select
+                      className="games-table-input"
+                      value={g.resultType ?? "regulation"}
+                      onChange={(e) => updateGame(g.id, { resultType: e.target.value as "regulation" | "overtime" | "shootout" })}
+                    >
+                      <option value="regulation">REG</option>
+                      <option value="overtime">OT</option>
+                      <option value="shootout">SO</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      className="games-table-input"
+                      value={g.homePim ?? ""}
+                      onChange={(e) => updateGame(g.id, { homePim: e.target.value === "" ? undefined : parseInt(e.target.value, 10) })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      className="games-table-input"
+                      value={g.awayPim ?? ""}
+                      onChange={(e) => updateGame(g.id, { awayPim: e.target.value === "" ? undefined : parseInt(e.target.value, 10) })}
+                    />
+                  </td>
+                  <td>
                     <button className="games-table-delete" onClick={() => removeGame(g.id)}>
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -523,10 +553,14 @@ function PlaydownsSection() {
                 <th>W</th>
                 <th>L</th>
                 <th>T</th>
-                <th>Pts</th>
+                <th>OTL</th>
+                <th>SOL</th>
+                <th>PTS</th>
                 <th>GF</th>
                 <th>GA</th>
-                <th>Diff</th>
+                <th>DIFF</th>
+                <th>PIM</th>
+                <th>Win%</th>
               </tr>
             </thead>
             <tbody>
@@ -541,10 +575,14 @@ function PlaydownsSection() {
                   <td>{row.w}</td>
                   <td>{row.l}</td>
                   <td>{row.t}</td>
+                  <td>{row.otl}</td>
+                  <td>{row.sol}</td>
                   <td>{row.pts}</td>
                   <td>{row.gf}</td>
                   <td>{row.ga}</td>
                   <td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
+                  <td>{row.pim}</td>
+                  <td>{(row.winPct * 100).toFixed(1)}%</td>
                 </tr>
               ))}
             </tbody>

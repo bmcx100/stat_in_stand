@@ -24,8 +24,11 @@ export function computePlaydownStandings(
     w: number
     l: number
     t: number
+    otl: number
+    sol: number
     gf: number
     ga: number
+    pim: number
   }>()
 
   // Initialize all teams
@@ -33,7 +36,7 @@ export function computePlaydownStandings(
     stats.set(team.id, {
       teamId: team.id,
       teamName: team.name,
-      gp: 0, w: 0, l: 0, t: 0, gf: 0, ga: 0,
+      gp: 0, w: 0, l: 0, t: 0, otl: 0, sol: 0, gf: 0, ga: 0, pim: 0,
     })
   }
 
@@ -47,6 +50,7 @@ export function computePlaydownStandings(
 
     const hs = game.homeScore!
     const as_ = game.awayScore!
+    const rt = game.resultType ?? "regulation"
 
     home.gp++
     away.gp++
@@ -54,26 +58,36 @@ export function computePlaydownStandings(
     home.ga += as_
     away.gf += as_
     away.ga += hs
+    home.pim += game.homePim ?? 0
+    away.pim += game.awayPim ?? 0
 
     if (hs > as_) {
       home.w++
-      away.l++
+      if (rt === "overtime") away.otl++
+      else if (rt === "shootout") away.sol++
+      else away.l++
     } else if (hs < as_) {
-      home.l++
       away.w++
+      if (rt === "overtime") home.otl++
+      else if (rt === "shootout") home.sol++
+      else home.l++
     } else {
       home.t++
       away.t++
     }
   }
 
-  const rows: PlaydownStandingsRow[] = Array.from(stats.values()).map((s) => ({
-    ...s,
-    pts: s.w * 2 + s.t,
-    diff: s.gf - s.ga,
-    qualifies: false,
-    tiedUnresolved: false,
-  }))
+  const rows: PlaydownStandingsRow[] = Array.from(stats.values()).map((s) => {
+    const pts = s.w * 2 + s.t + s.otl + s.sol
+    return {
+      ...s,
+      pts,
+      diff: s.gf - s.ga,
+      winPct: s.gp > 0 ? Math.round((s.w / s.gp) * 1000) / 1000 : 0,
+      qualifies: false,
+      tiedUnresolved: false,
+    }
+  })
 
   // Head-to-head points for a subset of team IDs
   function headToHeadPoints(teamIds: Set<string>): Map<string, number> {
@@ -102,6 +116,8 @@ export function computePlaydownStandings(
     if (a.pts !== b.pts) return b.pts - a.pts
     // Tiebreaker 1: wins
     if (a.w !== b.w) return b.w - a.w
+    // Tiebreaker 1b: fewest OTL+SOL (regulation wins preferred)
+    if ((a.otl + a.sol) !== (b.otl + b.sol)) return (a.otl + a.sol) - (b.otl + b.sol)
     // Tiebreaker 2: head-to-head (computed for the tied group)
     const tiedGroup = new Set(
       rows.filter((r) => r.pts === a.pts && r.w === a.w).map((r) => r.teamId)

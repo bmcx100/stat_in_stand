@@ -31,15 +31,18 @@ export function computePoolStandings(
     w: number
     l: number
     t: number
+    otl: number
+    sol: number
     gf: number
     ga: number
+    pim: number
   }>()
 
   for (const team of poolTeams) {
     stats.set(team.id, {
       teamId: team.id,
       teamName: team.name,
-      gp: 0, w: 0, l: 0, t: 0, gf: 0, ga: 0,
+      gp: 0, w: 0, l: 0, t: 0, otl: 0, sol: 0, gf: 0, ga: 0, pim: 0,
     })
   }
 
@@ -78,8 +81,9 @@ export function computePoolStandings(
   const rows: TournamentStandingsRow[] = Array.from(stats.values()).map((s) => ({
     ...s,
     poolId,
-    pts: s.w * 2 + s.t,
+    pts: s.w * 2 + s.t + s.otl + s.sol,
     diff: s.gf - s.ga,
+    winPct: s.gp > 0 ? Math.round((s.w / s.gp) * 1000) / 1000 : 0,
     qualifies: false,
     tiedUnresolved: false,
   }))
