@@ -45,8 +45,8 @@ export default function Dashboard() {
     if (!el) return
 
     function check() {
-      setCanScrollUp(el.scrollTop > 2)
-      setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 2)
+      setCanScrollUp(el!.scrollTop > 2)
+      setCanScrollDown(el!.scrollTop + el!.clientHeight < el!.scrollHeight - 2)
     }
 
     const raf = requestAnimationFrame(check)
