@@ -149,7 +149,6 @@ export default function AdminGamesPage() {
   const handleTabChange = useCallback((tab: ImportTab) => {
     setActiveTab(tab)
     setPasteData("")
-    setSourceUrl("")
     resetImport()
   }, [resetImport])
 
