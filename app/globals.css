@@ -176,6 +176,82 @@
   @apply mr-2 shrink-0 text-[#e3e3e3] transition-colors [&_svg]:size-6;
 }
 
+/* Add Teams button (home header — icon only) */
+.add-teams-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  color: #555;
+  background: #fff;
+  text-decoration: none;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.add-teams-btn:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+}
+
+/* Home empty state — full-page centered tap target */
+.home-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex: 1;
+  padding: 4rem 0;
+  text-decoration: none;
+  color: #ccc;
+  transition: color 0.15s;
+}
+
+.home-empty:hover {
+  color: #999;
+}
+
+.home-empty-icon {
+  width: 4rem;
+  height: 4rem;
+  stroke-width: 1.2;
+}
+
+.home-empty-label {
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Back link on /teams page — circled */
+.teams-back-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  color: #555;
+  background: #fff;
+  text-decoration: none;
+  transition: background 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+
+.teams-back-link:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+}
+
+/* Done button wrapper */
+.teams-done-wrap {
+  padding: 1.5rem 0 0.5rem;
+}
+
 /* Add teams header */
 .add-teams-header {
   @apply mb-2 flex items-center justify-between;
@@ -1012,6 +1088,7 @@ details[open] > .qual-tiebreaker-summary::after {
   position: relative;
 }
 
+
 .ob-brand-icon {
   width: 1.05rem;
   height: 1.05rem;
@@ -1412,6 +1489,234 @@ details[open] > .qual-tiebreaker-summary::after {
 
 .admin-section-title {
   @apply text-sm font-medium text-muted-foreground uppercase tracking-wide;
+}
+
+/* Admin page heading row — title + info card side by side */
+.admin-page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.admin-page-heading .ob-page-title,
+.admin-page-heading .admin-section-title {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* Admin info card — collapsible instructions beside page headings */
+.admin-info-card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.admin-info-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: #555;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+
+.admin-info-toggle:hover {
+  background: #333;
+}
+
+.admin-info-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+}
+
+.admin-info-chevron {
+  width: 0.65rem;
+  height: 0.65rem;
+  flex-shrink: 0;
+}
+
+.admin-info-body {
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  background: #fafafa;
+  font-size: 0.78rem;
+  color: #555;
+  line-height: 1.6;
+  max-width: 28rem;
+}
+
+.admin-info-body p + p {
+  margin-top: 0.4rem;
+}
+
+/* ── Help panel ── */
+.help-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.help-panel {
+  position: fixed;
+  top: 0;
+  left: 224px;
+  bottom: 0;
+  width: 300px;
+  z-index: 50;
+  background: #fff;
+  border-right: 1px solid #e0e0e0;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.help-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1rem 0.75rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.help-panel-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1a1a1a;
+}
+
+.help-panel-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #aaa;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.15rem;
+  transition: color 0.12s;
+}
+
+.help-panel-close:hover {
+  color: #333;
+}
+
+.help-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.help-section {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.76rem;
+  color: #555;
+  line-height: 1.6;
+}
+
+.help-section:last-child {
+  border-bottom: none;
+}
+
+.help-section-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #999;
+  margin-bottom: 0.4rem;
+}
+
+.help-section p + p {
+  margin-top: 0.35rem;
+}
+
+.help-steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  list-style: decimal;
+}
+
+.help-steps li + li {
+  margin-top: 0.25rem;
+}
+
+/* Vault icon link — lift above decorative layers */
+.ob-brand-title a {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+  transition: opacity 0.12s;
+}
+
+.ob-brand-title a:hover {
+  opacity: 0.7;
+}
+
+/* Setup collapsible inside InfoCard */
+.admin-setup-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 0.6rem;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.admin-setup-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: #555;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+
+.admin-setup-toggle:hover {
+  background: #333;
+}
+
+.admin-setup-steps {
+  margin: 0;
+  padding-left: 1.2rem;
+  list-style: decimal;
+}
+
+.admin-setup-steps li + li {
+  margin-top: 0.3rem;
 }
 
 .admin-card {

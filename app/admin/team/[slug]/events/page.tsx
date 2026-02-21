@@ -51,9 +51,8 @@ export default function AdminEventsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="admin-page-heading">
         <h1 className="ob-page-title">Events</h1>
-        <p className="text-sm text-muted-foreground">Manage playdowns, playoffs, and tournaments for this team.</p>
       </div>
 
       {/* Fixed events: Playdowns + Playoffs */}

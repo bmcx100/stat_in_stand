@@ -267,7 +267,9 @@ export default function PlaydownManagementPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="sub-page-header">
-        <h1 className="ob-page-title">Playdowns</h1>
+        <div className="admin-page-heading">
+          <h1 className="ob-page-title">Playdowns</h1>
+        </div>
         <Link href={`/admin/team/${team.slug}/events`} className="ob-back-link">
           <ArrowLeft className="h-4 w-4" />
           Events

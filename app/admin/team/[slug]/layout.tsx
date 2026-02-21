@@ -2,12 +2,14 @@
 
 import { use } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   Vault, ArrowLeft, LayoutDashboard, Gamepad2,
-  Trophy, Users, CalendarDays, Circle,
+  Trophy, Users, CalendarDays, Circle, LogOut,
 } from "lucide-react"
+import { AdminHelp } from "@/components/admin-help"
 import { useTeam } from "@/hooks/use-supabase-teams"
+import { createClient } from "@/lib/supabase/client"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
 import { useSupabaseTournaments } from "@/hooks/use-supabase-tournaments"
 import { TeamProvider } from "@/lib/team-context"
@@ -22,6 +24,8 @@ export default function AdminTeamLayout({
   const { slug } = use(params)
   const { team, loading } = useTeam(slug)
   const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
 
   // Fetch events data for sidebar sub-items (after team loads)
   const { playdown } = useSupabasePlaydowns(team?.id)
@@ -47,7 +51,7 @@ export default function AdminTeamLayout({
             <div className="ob-sidebar-glow" />
             <p className="ob-brand-label">stat in stand</p>
             <p className="ob-brand-title">
-              <Vault className="ob-brand-icon" />
+              <Link href="/"><Vault className="ob-brand-icon" /></Link>
               Admin Vault
             </p>
           </div>
@@ -68,14 +72,14 @@ export default function AdminTeamLayout({
             <div className="ob-sidebar-glow" />
             <p className="ob-brand-label">stat in stand</p>
             <p className="ob-brand-title">
-              <Vault className="ob-brand-icon" />
+              <Link href="/"><Vault className="ob-brand-icon" /></Link>
               Admin Vault
             </p>
           </div>
           <div className="ob-sidebar-section">
             <Link href="/admin/dashboard" className="ob-nav-link">
               <ArrowLeft className="ob-nav-icon" />
-              Dashboard
+              Teams Home
             </Link>
           </div>
         </aside>
@@ -96,7 +100,7 @@ export default function AdminTeamLayout({
             <div className="ob-sidebar-glow" />
             <p className="ob-brand-label">stat in stand</p>
             <p className="ob-brand-title">
-              <Vault className="ob-brand-icon" />
+              <Link href="/"><Vault className="ob-brand-icon" /></Link>
               Admin Vault
             </p>
           </div>
@@ -105,7 +109,7 @@ export default function AdminTeamLayout({
             <p className="ob-sidebar-section-label">navigate</p>
             <Link href="/admin/dashboard" className="ob-nav-link">
               <ArrowLeft className="ob-nav-icon" />
-              Dashboard
+              Teams Home
             </Link>
           </div>
 
@@ -180,6 +184,76 @@ export default function AdminTeamLayout({
                   </Link>
                 )
               })}
+
+          </div>
+
+          <div className="ob-sidebar-bottom">
+            <AdminHelp>
+              {pathname === `/admin/team/${slug}` && (
+                <div className="help-section">
+                  <p>This is your team overview. Use the sidebar to navigate to Games, Standings, Opponents, and Events.</p>
+                  <p>Record and counts update automatically as you add games and opponents.</p>
+                  <p className="help-section-label" style={{ marginTop: "0.6rem" }}>Setup</p>
+                  <ol className="help-steps">
+                    <li>Click on the sidebar to set up.</li>
+                    <li>First, do opponents using MHR.</li>
+                    <li>Second, input standings for regular season from OWHA.</li>
+                    <li>Third, import list of games from OWHA for regular season and then MHR for tournaments and others.</li>
+                  </ol>
+                </div>
+              )}
+              {pathname === `/admin/team/${slug}/games` && (
+                <div className="help-section">
+                  <p>Import games by pasting data from <strong>TeamSnap</strong>, <strong>OWHA</strong>, or <strong>MHR</strong> into the appropriate tab, then click <strong>Parse</strong> and <strong>Confirm Import</strong>.</p>
+                  <p>Scores, result, date, location, and game type are all editable inline in the table below.</p>
+                  <p>Re-importing after results are posted will automatically update scores for existing games.</p>
+                </div>
+              )}
+              {pathname === `/admin/team/${slug}/standings` && (
+                <div className="help-section">
+                  <p>Paste standings data from the <strong>OWHA website</strong> into the text area and click <strong>Parse</strong>.</p>
+                  <p>Review the preview, then click <strong>Confirm Import</strong> to save.</p>
+                  <p>Re-importing will replace the existing standings table.</p>
+                </div>
+              )}
+              {pathname === `/admin/team/${slug}/opponents` && (
+                <div className="help-section">
+                  <p>Import opponents from <strong>My Hockey Rankings</strong> or <strong>OWHA</strong> by pasting the team list and clicking <strong>Parse</strong>.</p>
+                  <p>Review and adjust the location / name split before clicking <strong>Confirm Import</strong>.</p>
+                  <p>Opponents are used to link games to a registry entry for consistent naming across the schedule.</p>
+                </div>
+              )}
+              {pathname === eventsBase && (
+                <div className="help-section">
+                  <p>Select <strong>Playdowns</strong> or <strong>Playoffs</strong> to configure those events.</p>
+                  <p>Use <strong>New Tournament</strong> to create a named tournament with pools and tiebreakers.</p>
+                  <p>Events appear publicly on the team page once they have teams and games configured.</p>
+                </div>
+              )}
+              {(pathname === `${eventsBase}/playdown` || pathname === `${eventsBase}/playoffs`) && (
+                <div className="help-section">
+                  <p><strong>1.</strong> Paste OWHA standings into <strong>Import Standings</strong> to set up the teams in your loop.</p>
+                  <p><strong>2.</strong> Paste the full province schedule into <strong>Import Schedule / Results</strong> — only games between your loop teams are imported.</p>
+                  <p><strong>3.</strong> Re-import the schedule after games are played to update scores automatically.</p>
+                  <p>Use <strong>Clear Games</strong> to reset the schedule without losing the team list.</p>
+                </div>
+              )}
+              {pathname.startsWith(`${eventsBase}/tournament/`) && (
+                <div className="help-section">
+                  <p>Import standings first to define the team list, then import the game schedule.</p>
+                  <p>Re-importing the schedule after games are played will update scores automatically.</p>
+                  <p>Use <strong>Clear Games</strong> to reset the schedule without losing the team list.</p>
+                </div>
+              )}
+            </AdminHelp>
+            <hr className="ob-sidebar-divider" />
+            <button
+              onClick={async () => { await supabase.auth.signOut(); router.replace("/admin") }}
+              className="ob-nav-link"
+            >
+              <LogOut className="ob-nav-icon" />
+              Logout
+            </button>
           </div>
         </aside>
 

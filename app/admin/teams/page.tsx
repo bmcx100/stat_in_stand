@@ -3,7 +3,20 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Plus, Trash2, UserPlus, X, Vault, Settings, LayoutDashboard } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, UserPlus, X, Vault, Settings, LayoutDashboard, LogOut } from "lucide-react"
+import { AdminHelp } from "@/components/admin-help"
+
+const LEVEL_RANK: Record<string, number> = { AAA: 0, AA: 1, A: 2, BB: 3, B: 4, C: 5 }
+const levelRank = (l: string) => LEVEL_RANK[l.toUpperCase()] ?? 99
+
+function sortTeams<T extends { age_group: string; level: string; organization: string; name: string }>(teams: T[]): T[] {
+  return [...teams].sort((a, b) =>
+    a.age_group.localeCompare(b.age_group) ||
+    levelRank(a.level) - levelRank(b.level) ||
+    a.organization.localeCompare(b.organization) ||
+    a.name.localeCompare(b.name)
+  )
+}
 import { createClient } from "@/lib/supabase/client"
 
 type Team = {
@@ -74,8 +87,7 @@ export default function AdminTeamsPage() {
       const { data: allTeams } = await supabase
         .from("teams")
         .select("*")
-        .order("age_group").order("level").order("organization").order("name")
-      setTeams(allTeams ?? [])
+      setTeams(sortTeams(allTeams ?? []))
 
       const { data: allAdmins } = await supabase
         .from("team_admins")
@@ -99,7 +111,7 @@ export default function AdminTeamsPage() {
       .single()
 
     if (!error && data) {
-      setTeams((prev) => [...prev, data])
+      setTeams((prev) => sortTeams([...prev, data]))
       setOrg("")
       setTeamName("")
       setAgeGroup("")
@@ -170,7 +182,7 @@ export default function AdminTeamsPage() {
             <div className="ob-sidebar-dots" />
             <div className="ob-sidebar-glow" />
             <p className="ob-brand-label">stat in stand</p>
-            <p className="ob-brand-title"><Vault className="ob-brand-icon" />Admin Vault</p>
+            <p className="ob-brand-title"><Link href="/"><Vault className="ob-brand-icon" /></Link>Admin Vault</p>
           </div>
         </aside>
         <main className="ob-content"><p className="ob-empty">Loading...</p></main>
@@ -187,23 +199,39 @@ export default function AdminTeamsPage() {
           <div className="ob-sidebar-dots" />
           <div className="ob-sidebar-glow" />
           <p className="ob-brand-label">stat in stand</p>
-          <p className="ob-brand-title"><Vault className="ob-brand-icon" />Admin Vault</p>
+          <p className="ob-brand-title"><Link href="/"><Vault className="ob-brand-icon" /></Link>Admin Vault</p>
         </div>
         <div className="ob-sidebar-section">
           <p className="ob-sidebar-section-label">navigation</p>
           <Link href="/admin/dashboard" className="ob-nav-link">
             <LayoutDashboard className="ob-nav-icon" />
-            Dashboard
+            Teams Home
           </Link>
           <Link href="/admin/teams" className="ob-nav-link" data-active={true}>
             <Settings className="ob-nav-icon" />
             Manage Teams &amp; Admins
           </Link>
         </div>
+        <div className="ob-sidebar-bottom">
+          <AdminHelp>
+            <div className="help-section">
+              <p>Use <strong>Create Team</strong> to add a new team. Fill in location, name, age group, and level.</p>
+              <p>Click <strong>Draft</strong> / <strong>Published</strong> to toggle a team's visibility on the public site.</p>
+              <p>Use <strong>Add Admin</strong> on a team card to invite a coach or manager by email.</p>
+            </div>
+          </AdminHelp>
+          <hr className="ob-sidebar-divider" />
+          <button onClick={async () => { await supabase.auth.signOut(); router.replace("/admin") }} className="ob-nav-link">
+            <LogOut className="ob-nav-icon" />
+            Logout
+          </button>
+        </div>
       </aside>
       <main className="ob-content">
       <div className="ob-content-inner">
-      <h1 className="ob-page-title">Teams &amp; Admins</h1>
+      <div className="admin-page-heading">
+        <h1 className="ob-page-title">Teams &amp; Admins</h1>
+      </div>
 
       {/* Create Team */}
       {showCreate ? (

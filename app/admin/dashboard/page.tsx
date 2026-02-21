@@ -4,7 +4,20 @@ import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { FileText, Settings, LogOut, Vault } from "lucide-react"
+import { AdminHelp } from "@/components/admin-help"
 import { createClient } from "@/lib/supabase/client"
+
+const LEVEL_RANK: Record<string, number> = { AAA: 0, AA: 1, A: 2, BB: 3, B: 4, C: 5 }
+const levelRank = (l: string) => LEVEL_RANK[l.toUpperCase()] ?? 99
+
+function sortTeams<T extends { age_group: string; level: string; organization: string; name: string }>(teams: T[]): T[] {
+  return [...teams].sort((a, b) =>
+    a.age_group.localeCompare(b.age_group) ||
+    levelRank(a.level) - levelRank(b.level) ||
+    a.organization.localeCompare(b.organization) ||
+    a.name.localeCompare(b.name)
+  )
+}
 
 type TeamRow = {
   id: string
@@ -53,8 +66,7 @@ export default function AdminDashboardPage() {
         const { data: allTeams } = await supabase
           .from("teams")
           .select("id, slug, organization, name, age_group, level, published")
-          .order("age_group").order("level").order("organization").order("name")
-        rows = allTeams ?? []
+        rows = sortTeams(allTeams ?? [])
       } else {
         const teamIds = adminRows.map((r) => r.team_id).filter(Boolean)
         if (teamIds.length > 0) {
@@ -62,8 +74,7 @@ export default function AdminDashboardPage() {
             .from("teams")
             .select("id, slug, organization, name, age_group, level, published")
             .in("id", teamIds)
-            .order("age_group").order("level").order("organization").order("name")
-          rows = myTeams ?? []
+          rows = sortTeams(myTeams ?? [])
         }
       }
 
@@ -119,7 +130,7 @@ export default function AdminDashboardPage() {
             <div className="ob-sidebar-glow" />
             <p className="ob-brand-label">stat in stand</p>
             <p className="ob-brand-title">
-              <Vault className="ob-brand-icon" />
+              <Link href="/"><Vault className="ob-brand-icon" /></Link>
               Admin Vault
             </p>
           </div>
@@ -172,6 +183,13 @@ export default function AdminDashboardPage() {
               Manage Teams &amp; Admins
             </Link>
           )}
+          <AdminHelp>
+            <div className="help-section">
+              <p>To create teams, click <strong>Manage Teams &amp; Admins</strong> in the sidebar.</p>
+              <p>Select a team from the list to begin editing.</p>
+              <p>Newly created teams are <em>draft</em> by default and not publicly visible. Click the badge on a team card to publish it.</p>
+            </div>
+          </AdminHelp>
           <hr className="ob-sidebar-divider" />
           <button onClick={handleLogout} className="ob-nav-link">
             <LogOut className="ob-nav-icon" />
@@ -183,14 +201,15 @@ export default function AdminDashboardPage() {
       {/* ── Content ── */}
       <main className="ob-content">
         <div className="ob-content-inner">
-          <h1 className="ob-page-title">Dashboard</h1>
+          <div className="admin-page-heading">
+            <h1 className="ob-page-title">Teams Home</h1>
+          </div>
 
           {teams.length === 0 ? (
             <p className="ob-empty">No teams assigned to this vault.</p>
           ) : (
             <div>
-              <p className="ob-section-label">your teams</p>
-              <div className="ob-file-list">
+<div className="ob-file-list">
                 {teams.map((team) => (
                   <Link
                     key={team.id}

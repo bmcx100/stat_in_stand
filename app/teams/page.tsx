@@ -2,10 +2,11 @@
 
 import { useSyncExternalStore } from "react"
 import Link from "next/link"
-import { Heart, Plus } from "lucide-react"
+import { Heart, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTeams } from "@/hooks/use-supabase-teams"
 import { useFavorites } from "@/hooks/use-favorites"
+import { useRouter } from "next/navigation"
 
 const LEVEL_RANK: Record<string, number> = { AAA: 0, AA: 1, A: 2, BB: 3, B: 4, C: 5 }
 const levelRank = (l: string) => LEVEL_RANK[l.toUpperCase()] ?? 99
@@ -24,9 +25,15 @@ const BANNER_MAP: Record<string, string> = {
   "ottawa-ice": "/images/ice_short_banner.png",
 }
 
-export default function Home() {
+function getBanner(slug: string): string | undefined {
+  const key = Object.keys(BANNER_MAP).find((k) => slug.includes(k))
+  return key ? BANNER_MAP[key] : undefined
+}
+
+export default function TeamsPage() {
   const { teams, loading } = useTeams()
   const { toggleFavorite, isFavorite } = useFavorites()
+  const router = useRouter()
   const hydrated = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -41,31 +48,24 @@ export default function Home() {
     )
   }
 
-  function getBanner(slug: string): string | undefined {
-    const key = Object.keys(BANNER_MAP).find((k) => slug.includes(k))
-    return key ? BANNER_MAP[key] : undefined
-  }
-
-  const favoriteTeams = sortTeams(teams.filter((t) => isFavorite(t.slug)))
+  const sorted = sortTeams(teams)
 
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1 className="page-title">My Teams</h1>
-        <Link href="/teams" className="add-teams-btn">
-          <Plus className="size-4" />
+        <h1 className="page-title">All Teams</h1>
+        <Link href="/" className="teams-back-link">
+          <ArrowLeft className="size-4" />
         </Link>
       </div>
 
-      {favoriteTeams.length === 0 ? (
-        <Link href="/teams" className="home-empty">
-          <Plus className="home-empty-icon" />
-          <span className="home-empty-label">Add Teams</span>
-        </Link>
+      {sorted.length === 0 ? (
+        <p className="text-muted-foreground">No teams available yet.</p>
       ) : (
         <div className="team-list">
-          {favoriteTeams.map((team) => {
+          {sorted.map((team) => {
             const banner = getBanner(team.slug)
+            const fav = isFavorite(team.slug)
             return (
               <div
                 key={team.id}
@@ -76,10 +76,10 @@ export default function Home() {
                   variant="ghost"
                   size="icon"
                   className="heart-button"
-                  data-active={true}
+                  data-active={fav}
                   onClick={() => toggleFavorite(team.slug)}
                 >
-                  <Heart fill="#e3e3e3" />
+                  <Heart fill={fav ? "#e3e3e3" : "none"} />
                 </Button>
                 <Link href={`/team/${team.slug}`} className="team-card-link">
                   <span className="team-card-name">
@@ -93,6 +93,12 @@ export default function Home() {
           })}
         </div>
       )}
+
+      <div className="teams-done-wrap">
+        <Button className="w-full" onClick={() => router.push("/")}>
+          Done
+        </Button>
+      </div>
     </div>
   )
 }

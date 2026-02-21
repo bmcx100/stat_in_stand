@@ -338,7 +338,9 @@ export default function AdminGamesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="admin-section-title">Games</h1>
+      <div className="admin-page-heading">
+        <h1 className="admin-section-title">Games</h1>
+      </div>
 
       {/* Import Section */}
       <div className="import-section">

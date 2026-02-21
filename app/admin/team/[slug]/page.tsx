@@ -22,7 +22,12 @@ export default function AdminTeamHub() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="admin-section-title">{team.organization} {team.name}</h1>
+      <div className="admin-page-heading">
+        <div>
+          <h1 className="admin-section-title">{team.organization} {team.name}</h1>
+          <p className="admin-team-meta">{team.age_group.toUpperCase()} · {team.level.toUpperCase()}</p>
+        </div>
+      </div>
 
       <div className="dashboard-records">
         <div className="dashboard-record-card">
