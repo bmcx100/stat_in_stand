@@ -9,6 +9,7 @@ import { computePlaydownStandings } from "@/lib/playdowns"
 import { parsePlaydownGames } from "@/lib/parsers"
 import type { PlaydownConfig, PlaydownGame, PlaydownTeam } from "@/lib/types"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
 
 function generateId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -29,6 +30,12 @@ export default function PlaydownManagementPage() {
   const [importResult, setImportResult] = useState("")
   const [confirmClear, setConfirmClear] = useState(false)
   const [confirmClearGames, setConfirmClearGames] = useState(false)
+
+  const [owhaEvent, setOwhaEvent] = useState(false)
+  const [owhaUrl, setOwhaUrl] = useState("")
+  const [owhaConfigSaving, setOwhaConfigSaving] = useState(false)
+  const [owhaConfigSaved, setOwhaConfigSaved] = useState(false)
+  const supabase = createClient()
 
   const [newDate, setNewDate] = useState("")
   const [newTime, setNewTime] = useState("")
@@ -52,6 +59,34 @@ export default function PlaydownManagementPage() {
       setGamesPerMatchup(config.gamesPerMatchup)
     }
   }, [config?.totalTeams, config?.qualifyingSpots, config?.gamesPerMatchup]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load OWHA fields from playdowns row
+  useEffect(() => {
+    if (!team.id) return
+    supabase
+      .from("playdowns")
+      .select("owha_event, owha_url")
+      .eq("team_id", team.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setOwhaEvent(data.owha_event ?? false)
+          setOwhaUrl(data.owha_url ?? "")
+        }
+      })
+  }, [team.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSaveOwhaConfig() {
+    setOwhaConfigSaving(true)
+    await fetch("/api/owha-config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamId: team.id, type: "playdown", owha_event: owhaEvent, owha_url: owhaUrl }),
+    })
+    setOwhaConfigSaving(false)
+    setOwhaConfigSaved(true)
+    setTimeout(() => setOwhaConfigSaved(false), 2000)
+  }
 
   const configDirty = useMemo(() => {
     if (!config) return totalTeams > 0 || qualifyingSpots > 0 || gamesPerMatchup !== 1
@@ -315,6 +350,40 @@ export default function PlaydownManagementPage() {
         >
           Save Config
         </Button>
+
+        <div className="playdown-config-row" style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}>
+          <label className="game-form-label" style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={owhaEvent}
+              onChange={(e) => { setOwhaEvent(e.target.checked); setOwhaConfigSaved(false) }}
+            />
+            OWHA Event
+          </label>
+        </div>
+        {owhaEvent && (
+          <div className="owha-sync-url-row">
+            <input
+              className="owha-sync-url-input"
+              placeholder="https://www.owha.on.ca/division/0/XXXXX/playdowns"
+              value={owhaUrl}
+              onChange={(e) => { setOwhaUrl(e.target.value); setOwhaConfigSaved(false) }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveOwhaConfig}
+              disabled={owhaConfigSaving}
+            >
+              {owhaConfigSaved ? "Saved" : owhaConfigSaving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        )}
+        {!owhaEvent && (
+          <Button variant="outline" size="sm" onClick={handleSaveOwhaConfig} disabled={owhaConfigSaving}>
+            {owhaConfigSaved ? "Saved" : owhaConfigSaving ? "Saving…" : "Save OWHA Setting"}
+          </Button>
+        )}
       </div>
 
       {/* Import Standings — collapsible */}

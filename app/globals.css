@@ -1887,6 +1887,48 @@ details[open] > .qual-tiebreaker-summary::after {
   @apply shrink-0 text-xs text-muted-foreground;
 }
 
+/* ── OWHA sync sections (team overview) ───────────────────── */
+
+.owha-sync-section {
+  @apply flex flex-col gap-3 rounded-lg border border-border p-4;
+}
+
+.owha-sync-heading {
+  @apply text-sm font-semibold;
+}
+
+.owha-sync-url-row {
+  @apply flex gap-2 items-center;
+}
+
+.owha-sync-url-input {
+  @apply flex-1 text-sm rounded border border-border bg-background px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring;
+}
+
+.owha-sync-stats {
+  @apply grid grid-cols-3 gap-2;
+}
+
+.owha-sync-stat {
+  @apply flex flex-col items-center justify-center rounded border border-border bg-muted/30 px-2 py-2 text-center;
+}
+
+.owha-sync-stat-value {
+  @apply text-lg font-bold tabular-nums;
+}
+
+.owha-sync-stat-label {
+  @apply text-xs text-muted-foreground leading-tight mt-0.5;
+}
+
+.owha-sync-result {
+  @apply text-sm text-muted-foreground;
+}
+
+.owha-sync-result-error {
+  @apply text-sm text-destructive;
+}
+
 /* ── OWHA schedule test table ─────────────────────────────── */
 
 .owha-wrap {

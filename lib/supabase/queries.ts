@@ -109,6 +109,47 @@ export async function deletePlaydown(supabase: SupabaseClient, teamId: string) {
   return { error }
 }
 
+// === OWHA config ===
+
+export async function updateTeamOwhaUrl(supabase: SupabaseClient, teamId: string, url: string | null) {
+  const { error } = await supabase
+    .from("teams")
+    .update({ owha_url_regular: url })
+    .eq("id", teamId)
+  return { error }
+}
+
+export async function updateTeamOwhaLastSynced(supabase: SupabaseClient, teamId: string) {
+  const { error } = await supabase
+    .from("teams")
+    .update({ owha_last_synced_at: new Date().toISOString() })
+    .eq("id", teamId)
+  return { error }
+}
+
+export async function updatePlaydownOwha(
+  supabase: SupabaseClient,
+  teamId: string,
+  fields: { owha_event?: boolean; owha_url?: string | null; owha_last_synced_at?: string }
+) {
+  const { error } = await supabase.from("playdowns").update(fields).eq("team_id", teamId)
+  return { error }
+}
+
+export async function updateTournamentOwha(
+  supabase: SupabaseClient,
+  teamId: string,
+  tournamentId: string,
+  fields: { owha_event?: boolean; owha_url?: string | null; owha_last_synced_at?: string }
+) {
+  const { error } = await supabase
+    .from("tournaments")
+    .update(fields)
+    .eq("team_id", teamId)
+    .eq("tournament_id", tournamentId)
+  return { error }
+}
+
 // === Tournaments ===
 
 export async function fetchTournaments(supabase: SupabaseClient, teamId: string) {
