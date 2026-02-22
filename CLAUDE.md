@@ -6,7 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Dev server:** `npm run dev` (Next.js on port 3000)
 - **Build:** `npm run build`
-- **Start production:** `npm start`
 - **Lint:** `npm run lint` (ESLint with Next.js TypeScript + core web vitals rules)
 
 No test framework is configured.
@@ -15,7 +14,7 @@ No test framework is configured.
 
 A mobile-first hockey team tracker for coaches/parents to manage game schedules, results, standings, and playoff tournaments across multiple youth hockey teams. Uses Supabase as the backend with admin authentication.
 
-- **Framework:** Next.js 16.1.6 with React 19, TypeScript 5
+- **Framework:** Next.js with React 19, TypeScript 5
 - **Styling:** Tailwind CSS v4 via `@tailwindcss/postcss` plugin
 - **Component library:** shadcn/ui (New York style, Lucide icons)
 - **Theming:** CSS variables in `app/globals.css` using OKLCH color space, light/dark mode
@@ -25,107 +24,161 @@ A mobile-first hockey team tracker for coaches/parents to manage game schedules,
 ### Environment Variables
 
 Required in `.env.local` (not committed):
-- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon/public key
-- `SUPABASE_SERVICE_ROLE_KEY` — Service role key (server-side only, for admin invites)
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` — server-side only, for admin operations that bypass RLS
 
 ### Data Layer
 
-Data is stored in Supabase PostgreSQL with Row Level Security. Public read access for all tables, authenticated write access scoped by `team_admins` membership. Each hook uses `useState` + `useEffect` for data fetching and provides mutation functions.
+Public read access on all tables; authenticated write access scoped by `team_admins` membership via RLS. Each hook uses `useState` + `useEffect` for fetching with mutation functions that update both DB and local state.
 
 | Hook | Supabase Table | Purpose |
 |------|---------------|---------|
 | `useSupabaseTeams()` | `teams` | Team registry with slug, org, banner |
 | `useSupabaseGames()` | `games` | Game schedules and results per team |
-| `useSupabaseStandings()` | `standings` | OWHA standings data per team |
+| `useSupabaseStandings()` | `standings` | OWHA standings data per team (one row per team, `rows` JSONB blob) |
 | `useSupabaseOpponents()` | `opponents` | Opponent team registry per team |
 | `useSupabasePlaydowns()` | `playdowns` | Playdown config + games per team |
 | `useSupabaseTournaments()` | `tournaments` | Tournament config + games per team |
-| `useFavorites()` | localStorage | User's favorited teams (client-side) |
+| `useFavorites()` | localStorage | User's favorited teams (client-side only) |
 
-### Supabase Client Utilities
+Centralized query functions live in `lib/supabase/queries.ts`. Hooks import from there rather than calling Supabase directly inline.
 
-- `lib/supabase/client.ts` — Browser client using `createBrowserClient()` from `@supabase/ssr`
-- `lib/supabase/server.ts` — Server client using `createServerClient()` with Next.js cookie handling
+- `lib/supabase/client.ts` — Browser client (`createBrowserClient()` from `@supabase/ssr`)
+- `lib/supabase/server.ts` — Server client with Next.js cookie handling
 
 ### Database Schema
 
 Tables: `teams`, `team_admins`, `opponents`, `games`, `standings`, `playdowns`, `tournaments`
 
-Migrations in `supabase/migrations/`:
-- `001_schema.sql` — Table definitions
-- `002_rls.sql` — Row Level Security policies
+Migrations in `supabase/migrations/`: `001_schema.sql` (tables), `002_rls.sql` (RLS policies), `003_owha_sync.sql` (OWHA columns added to tables).
+
+Key non-obvious schema details:
+- `standings` table has **one row per team** with a `rows` JSONB blob — no per-type separation. Only regular season standings are persisted; playoff standings are returned from the API but not saved.
+- `games.game_type` stores the type (`regular`, `playoffs`, `playdowns`, `tournament`, `exhibition`, `provincials`). Duplicate detection in OWHA sync includes `.eq("game_type", gameType)` to prevent cross-type collisions.
+- `playdowns` and `tournaments` tables store `config` + `games` as JSONB blobs alongside relational metadata.
 
 ### Auth & Middleware
 
-- `middleware.ts` — Refreshes Supabase auth session, protects `/admin/*` routes (redirects unauthenticated users to `/admin` login)
-- Roles: `super_admin` (manages all teams + admins), `team_admin` (manages assigned teams)
+- `middleware.ts` — Refreshes Supabase auth session, protects `/admin/*` routes
+- Roles: `super_admin` (all teams + admins), `team_admin` (assigned teams only)
+- Admin API routes use a service role client (bypasses RLS) after verifying the caller via `team_admins` table
 
 ### Key Domain Types (`lib/types.ts`)
 
-- **Game:** Core entity with date, opponent, scores, result (W/L/T), gameType (regular/playoffs/playdowns/tournament/exhibition/provincials), source (owha/mhr/teamsnap/manual)
-- **GameType/ImportSource:** Union string types controlling filtering and import behavior
-- **PlaydownConfig:** Tournament setup (total teams, qualifying spots, games per matchup)
+- **Game:** `gameType` union: `"unlabeled" | "regular" | "tournament" | "exhibition" | "playoffs" | "playdowns" | "provincials"`; `source` union: `"owha" | "mhr" | "teamsnap" | "manual"`
+- **PlaydownConfig:** tournament setup (totalTeams, qualifyingSpots, gamesPerMatchup, teams)
+- **StandingsRow:** per-team row stored in the `rows` JSONB blob (gp, w, l, t, otl, sol, pts, gf, ga)
 
-### Parsers (`lib/parsers.ts`)
+### OWHA Sync System (`app/api/owha-sync/route.ts`)
 
-Robust multi-source import system handling tab-separated data from OWHA, MHR, and TeamSnap. Key functions:
-- `normalizeDate()` — converts any date format to ISO YYYY-MM-DD
-- `parseOwhaGames()`, `parseMhrGames()`, `parseTeamsnapGames()` — source-specific parsers
-- `findDuplicates()` — detects duplicate games with score mismatch detection
-- `matchOpponent()` — fuzzy matches opponent names against the registry
+The most complex part of the codebase. A single POST endpoint handles multiple sync types via the `type` field in the request body:
 
-### Season Logic (`lib/season.ts`)
+| `type` value | What it does |
+|---|---|
+| `"regular"` | Syncs regular season games using `GTID_REGULAR` (5069) |
+| `"playoffs"` | Syncs playoff games using same division URL but `GTID_PLAYOFFS` (5387) |
+| `"standings"` | Syncs regular season standings, persisted to DB |
+| `"playoffs-standings"` | Fetches playoff standings with `GTID_PLAYOFFS`, returned but **not persisted** |
+| `"event"` + `eventType: "playdown"` | Syncs playdown games from configured URL |
+| `"event"` + `eventType: "tournament"` | Syncs tournament games |
 
-Hockey seasons span Aug-Jul. `inferYear()` handles mid-season date imports where month abbreviations lack year context.
+**OWHA uses two separate API systems:**
+- Regular/playoffs: `AID=2788, SID=12488` (SID changes each season — check DevTools)
+- Playdowns: `AID=3617, SID=13359` (also changes annually)
 
-### Playdowns (`lib/playdowns.ts`)
+**Playdown loop filtering:** The playdowns standings API returns all teams province-wide. The sync fetches standings first, finds the team's `SDID` (subdivision/loop ID), then uses the loop's team names to pre-filter games to only those between teams in the same loop — because the games API also returns province-wide data and `HomeTID`/`AwayTID` in games don't match `TID` in standings (different ID systems cross-API).
 
-- `computePlaydownStandings()` — standings with tiebreakers (wins, h2h, goal diff, GA)
-- `isPlaydownActive()` / `isPlaydownExpired()` — visibility windowing (1 month before to 1 week after)
+**URL conversion helpers:**
+- `toApiBaseUrl(divisionUrl)` — converts OWHA division page URL to games API URL
+- `toStandingsUrl(divisionUrl)` — converts to standings API URL (handles CATID=0 playdowns vs CATID!=0 regular)
+
+The success response includes a `debug` object (populated for playdowns) with standings fetch details, loop SDID, loop team names, and game counts at each filter stage.
+
+### Admin Overview (`app/admin/team/[slug]/page.tsx`)
+
+Three `SeasonCard` components (Regular Season, Playoffs, Playdowns), each containing:
+- `SyncPanel` (left half): Sync Games + Sync Standings buttons with last-synced timestamps
+- `MismatchStat` (right half): shows W/L/T record and GP with green animated checkmark when matching standings, or red mismatch indicator with tooltip when not
+
+Mismatch detection compares game-derived stats (filtered to `gameType === "regular"`) against the stored standings rows via fuzzy team name matching. Only the Regular Season card does this comparison — Playoffs and Playdowns cards don't have standings to compare against.
+
+### Admin Standings Page (`app/admin/team/[slug]/standings/page.tsx`)
+
+Type filter dropdown (Regular Season / Playoffs / Playdowns / tournaments / Provincials). Only `selectedType === "regular"` shows data and Edit/Clear controls — all other types show "Standings are not available for this type" because only regular season standings are persisted to DB.
+
+### Super Admin Configure Panel (`app/admin/teams/page.tsx`)
+
+The "Configure" button on each team card expands a panel with:
+1. OWHA Regular Season URL → saved to `teams.owha_url_regular`
+2. OWHA Playdowns URL → saved to `playdowns.owha_url` (creates the playdowns row with empty default config if none exists)
+
+Both saved simultaneously with one Save button via parallel `fetch` calls to `/api/owha-config`.
 
 ### Route Structure
 
 ```
 app/
-  page.tsx              — Landing page: list published teams
+  page.tsx                     — Landing: list published teams
   team/[slug]/
-    layout.tsx          — Public team layout with banner + bottom nav (Home/Schedule/Standings)
-    page.tsx            — Dashboard: history cards, scrollable schedule, events
-    results/            — All games: filterable list with opponent selection, Last N summary
-    standings/          — Standings table with Regular Season / Playdowns mode dropdown
-    schedule/           — Upcoming games
-    playdowns/          — Playdown bracket + standings
-    events/             — Archived events (expired playdowns/tournaments)
-    tournaments/[id]/   — Tournament view with pools, standings, graphs
+    layout.tsx                 — Public layout: sticky banner + bottom nav
+    page.tsx                   — Dashboard: history cards, schedule, events
+    results/                   — All games filterable list + Last N summary
+    standings/                 — Standings table with mode dropdown
+    schedule/                  — Upcoming games
+    playdowns/                 — Playdown bracket + standings
+    events/                    — Archived expired events
+    tournaments/[id]/          — Tournament pools, standings, graphs
   admin/
-    page.tsx            — Login page
-    layout.tsx          — Admin layout
-    dashboard/          — Admin home: list managed teams
-    teams/              — Super admin: create/edit/delete teams, manage admins
+    page.tsx                   — Login
+    dashboard/                 — Admin home
+    teams/                     — Super admin: team + admin management
     team/[slug]/
-      layout.tsx        — Team admin layout with tab nav
-      page.tsx          — Team overview (record, counts)
-      games/            — Game management: import + CRUD
-      standings/        — Standings import + display
-      opponents/        — Opponent management: import + CRUD
-      events/           — Playdown + tournament management
+      layout.tsx               — Tab nav sidebar
+      page.tsx                 — Overview: season cards with sync + mismatch detection
+      games/                   — Game management (Add Game card, type filter, Clear modal)
+      standings/               — Standings display + inline edit (type-scoped)
+      opponents/               — Opponent management
+      events/                  — Events list
+      events/playdown/         — Playdown config
+      events/playoffs/         — Playoffs config
+      events/tournament/[id]/  — Tournament config
   api/
-    invite-admin/       — Server-side admin invitation endpoint
+    invite-admin/              — POST: super_admin invite by email
+    owha-sync/                 — POST: OWHA games + standings sync (all types)
+    owha-config/               — PATCH: save OWHA URLs for regular/playdown/tournament
 ```
+
+### Parsers (`lib/parsers.ts`)
+
+Multi-source import: `parseOwhaGames()`, `parseMhrGames()`, `parseTeamsnapGames()`. `findDuplicates()` detects same game from different sources with score mismatch flagging. `matchOpponent()` fuzzy-matches names against registry.
+
+### Playdowns Logic (`lib/playdowns.ts`)
+
+`computePlaydownStandings()` implements multi-level tiebreakers (wins → h2h → goal diff → GA) with `TiebreakerResolution` tracking. Qualification status: `"locked"` (clinched), `"alive"` (still possible), `"out"` (eliminated). `isPlaydownActive()` / `isPlaydownExpired()` use a visibility window (1 month before to 1 week after).
+
+### Season Logic (`lib/season.ts`)
+
+Hockey seasons span Aug–Jul. `inferYear()` handles mid-season imports where month abbreviations lack year context.
 
 ### Team Context
 
-`lib/team-context.tsx` provides `TeamProvider` and `useTeamContext()` for passing team data from layout to child pages without re-fetching. Used in both public and admin team layouts.
+`lib/team-context.tsx` provides `TeamProvider` + `useTeamContext()` — passes team data from layout to child pages without re-fetching.
 
 ### Scroll Pattern
 
-Several pages use a shared pattern: JS `useEffect` modifies the parent element to `overflow: hidden; display: flex; flex-direction: column`, then uses `absolute inset-0` scroll areas with `ResizeObserver` for fade indicators.
+Several pages use `useEffect` to set parent to `overflow: hidden; display: flex; flex-direction: column`, then `absolute inset-0` scroll containers with `ResizeObserver` for top/bottom fade indicators.
+
+### CSS / Styling
+
+- Do **not** apply multiple Tailwind classes inline in JSX. Use `@apply` in `globals.css` for compound styles. One class inline is acceptable.
+- Admin pages use "Obsidian" sidebar layout (`.ob-*` classes): 224px fixed sidebar + flexible content
+- Public pages constrain to `max-w-[430px]` (mobile-first)
+- `app/globals.css` is the single source of truth for all component styles (~2200+ lines)
 
 ## Coding Preferences
 
-- Do NOT use semicolons
-- Do NOT apply multiple Tailwind classes directly in templates. Use `@apply` in `globals.css` for compound styles. One class inline is acceptable.
-- Use minimal project dependencies
+- Do **not** use semicolons
 - Use `git switch -c` for new branches, not `git checkout`
 - When planning from an existing spec document: PLAN then STOP. Do not implement without explicit user request.
+- Use minimal project dependencies
