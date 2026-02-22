@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
-import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { useSupabaseOpponents } from "@/hooks/use-supabase-opponents"
 import { createClient } from "@/lib/supabase/client"
+import type { Game } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Info } from "lucide-react"
+import { RefreshCw } from "lucide-react"
 
 type SyncResult = { inserted: number; updated: number; skipped: number; errors: string[] }
 
@@ -26,63 +26,40 @@ function formatSynced(ts: string | null): string {
   })
 }
 
-function SyncSection({
+function gameRecord(games: Game[]) {
+  const played = games.filter((g) => g.played)
+  return {
+    w: played.filter((g) => g.result === "W").length,
+    l: played.filter((g) => g.result === "L").length,
+    t: played.filter((g) => g.result === "T").length,
+    scored: played.length,
+    scheduled: games.filter((g) => !g.played).length,
+  }
+}
+
+function SyncPanel({
   teamId,
-  label,
   url,
-  lastSynced: initialLastSynced,
   syncType,
   eventType,
   eventId,
-  owhaGamedScored,
-  owhaGamesScheduled,
-  onUrlChange,
+  initialLastSynced,
 }: {
   teamId: string
-  label: string
   url: string
-  lastSynced: string | null
   syncType: "regular" | "event"
   eventType?: "playdown" | "tournament"
   eventId?: string
-  owhaGamedScored: number
-  owhaGamesScheduled: number
-  onUrlChange?: (url: string) => void
+  initialLastSynced: string | null
 }) {
-  const [localUrl, setLocalUrl] = useState(url)
-  const [urlDirty, setUrlDirty] = useState(false)
-  const [urlSaving, setUrlSaving] = useState(false)
-  const [urlSaved, setUrlSaved] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [result, setResult] = useState<SyncResult | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [lastSynced, setLastSynced] = useState(initialLastSynced)
 
-  async function handleSaveUrl() {
-    setUrlSaving(true)
-    const body: Record<string, unknown> = { teamId }
-    if (syncType === "regular") {
-      body.owha_url_regular = localUrl
-    } else if (eventType === "playdown") {
-      body.type = "playdown"
-      body.owha_event = true
-      body.owha_url = localUrl
-    } else if (eventType === "tournament" && eventId) {
-      body.tournamentId = eventId
-      body.owha_event = true
-      body.owha_url = localUrl
-    }
-    await fetch("/api/owha-config", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-    setUrlSaving(false)
-    setUrlSaved(true)
-    setUrlDirty(false)
-    onUrlChange?.(localUrl)
-    setTimeout(() => setUrlSaved(false), 2000)
-  }
+  const [syncingStandings, setSyncingStandings] = useState(false)
+  const [lastSyncedStandings, setLastSyncedStandings] = useState<string | null>(null)
+  const [standingsError, setStandingsError] = useState<string | null>(null)
 
   async function handleSync() {
     setSyncing(true)
@@ -113,75 +90,105 @@ function SyncSection({
     }
   }
 
-  const activeUrl = syncType === "regular" ? localUrl : url
+  async function handleSyncStandings() {
+    setSyncingStandings(true)
+    setStandingsError(null)
+    try {
+      const body: Record<string, unknown> = { teamId, type: "standings" }
+      if (syncType === "event") {
+        body.eventType = eventType
+        body.eventId = eventId
+      }
+      const res = await fetch("/api/owha-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setStandingsError(data.error ?? "Sync failed")
+      } else {
+        setLastSyncedStandings(new Date().toISOString())
+      }
+    } catch (err) {
+      setStandingsError(String(err))
+    } finally {
+      setSyncingStandings(false)
+    }
+  }
 
   return (
-    <div className="owha-sync-section">
-      <p className="owha-sync-heading">{label}</p>
-
-      {syncType === "regular" && (
-        <div className="flex flex-col gap-1">
-          <div className="owha-sync-url-row">
-            <input
-              className="owha-sync-url-input"
-              placeholder="https://www.owha.on.ca/division/1590/14802/games"
-              value={localUrl}
-              onChange={(e) => { setLocalUrl(e.target.value); setUrlSaved(false); setUrlDirty(true) }}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSaveUrl}
-              disabled={urlSaving}
-              style={urlDirty ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
-            >
-              {urlSaved ? "Saved" : urlSaving ? "Saving…" : "Save"}
-            </Button>
-          </div>
-          <p className="owha-sync-tip">
-            <Info className="owha-sync-tip-icon" />
-            Paste the OWHA division page URL from your browser. If sync stops working, refer to comments labeled "OWHA API" in app/api/owha-sync/route.ts
-          </p>
-        </div>
-      )}
-
-      {syncType === "event" && url && (
-        <p className="owha-sync-result">{url}</p>
-      )}
-
-      <div className="owha-sync-stats">
-        <div className="owha-sync-stat">
-          <span className="owha-sync-stat-value">{owhaGamedScored}</span>
-          <span className="owha-sync-stat-label">OWHA Games Scored</span>
-        </div>
-        <div className="owha-sync-stat">
-          <span className="owha-sync-stat-value">{owhaGamesScheduled}</span>
-          <span className="owha-sync-stat-label">OWHA Games Scheduled</span>
-        </div>
-        <div className="owha-sync-stat">
-          <span className="owha-sync-stat-value" style={{ fontSize: "0.7rem" }}>{formatSynced(lastSynced)}</span>
-          <span className="owha-sync-stat-label">Last Sync</span>
-        </div>
-      </div>
-
-      <div className="owha-sync-url-row">
+    <div className="overview-sync-row">
+      <div className="sync-btn-group">
         <Button
           variant="outline"
           size="sm"
           onClick={handleSync}
-          disabled={syncing || !activeUrl}
-          style={activeUrl && !syncing ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
+          disabled={syncing || !url}
+          className="sync-btn-padded"
+          style={url && !syncing ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
         >
           <RefreshCw className={syncing ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-          {syncing ? "Syncing…" : "Sync OWHA Scores"}
+          {syncing ? "Syncing…" : "Sync Games"}
         </Button>
-        {result && result.inserted !== undefined && (
+        <span className="sync-last-date">{formatSynced(lastSynced)}</span>
+        {(result && result.inserted !== undefined) && (
           <span className="owha-sync-result">
             {result.inserted} added · {result.updated} updated · {result.skipped} unchanged
             {result.errors?.length > 0 ? ` · ${result.errors.length} error(s)` : ""}
           </span>
         )}
         {syncError && <span className="owha-sync-result-error">{syncError}</span>}
+      </div>
+
+      <div className="sync-btn-group">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSyncStandings}
+          disabled={syncingStandings || !url}
+          className="sync-btn-padded"
+          style={url && !syncingStandings ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
+        >
+          <RefreshCw className={syncingStandings ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+          {syncingStandings ? "Syncing…" : "Sync Standings"}
+        </Button>
+        <span className="sync-last-date">{formatSynced(lastSyncedStandings)}</span>
+        {standingsError && <span className="owha-sync-result-error">{standingsError}</span>}
+      </div>
+    </div>
+  )
+}
+
+function SeasonCard({
+  title,
+  games,
+  syncProps,
+}: {
+  title: string
+  games: Game[]
+  syncProps?: React.ComponentProps<typeof SyncPanel>
+}) {
+  const { w, l, t, scored } = gameRecord(games)
+  return (
+    <div className="owha-sync-section">
+      <div className="owha-sync-header">
+        <p className="owha-sync-heading">{title}</p>
+      </div>
+      <div className="season-card-row">
+        <div className="season-half">
+          {syncProps && <SyncPanel {...syncProps} />}
+        </div>
+        <div className="season-half">
+          <div className="owha-sync-stat">
+            <span className="owha-sync-stat-value">{w}-{l}-{t}</span>
+            <span className="owha-sync-stat-label">Record</span>
+          </div>
+          <div className="owha-sync-stat">
+            <span className="owha-sync-stat-value">{scored}</span>
+            <span className="owha-sync-stat-label">Played</span>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -190,7 +197,6 @@ function SyncSection({
 export default function AdminTeamHub() {
   const team = useTeamContext()
   const { games, loading: gamesLoading } = useSupabaseGames(team.id)
-  const { standings } = useSupabaseStandings(team.id)
   const { opponents } = useSupabaseOpponents(team.id)
   const supabase = createClient()
 
@@ -199,7 +205,6 @@ export default function AdminTeamHub() {
   const [owhaEvents, setOwhaEvents] = useState<OwhaEventSection[]>([])
 
   useEffect(() => {
-    // Load team OWHA config
     supabase
       .from("teams")
       .select("owha_url_regular, owha_last_synced_at")
@@ -212,7 +217,6 @@ export default function AdminTeamHub() {
         }
       })
 
-    // Load OWHA event sections (playdowns + tournaments with owha_event=true)
     Promise.all([
       supabase
         .from("playdowns")
@@ -254,75 +258,72 @@ export default function AdminTeamHub() {
     return <p className="text-muted-foreground">Loading...</p>
   }
 
-  const played = games.filter((g) => g.played)
-  const wins = played.filter((g) => g.result === "W").length
-  const losses = played.filter((g) => g.result === "L").length
-  const ties = played.filter((g) => g.result === "T").length
-
-  const owhaGames = games.filter((g) => g.source === "owha" && g.gameType === "regular")
-  const owhaScored = owhaGames.filter((g) => g.played).length
-  const owhaScheduled = owhaGames.filter((g) => !g.played).length
+  const playdownEvent = owhaEvents.find((e) => e.eventType === "playdown")
 
   return (
     <div className="flex flex-col gap-4">
       <div className="admin-page-heading">
-        <div>
-          <h1 className="admin-section-title">{team.organization} {team.name}</h1>
-          <p className="admin-team-meta">{team.age_group.toUpperCase()} · {team.level.toUpperCase()}</p>
+        <p className="admin-team-title">
+          {team.organization} {team.name} · {team.age_group.toUpperCase()} · {team.level.toUpperCase()}
+        </p>
+      </div>
+
+      <div className="owha-sync-section">
+        <div className="owha-sync-header">
+          <p className="owha-sync-heading">Overall</p>
+        </div>
+        <div className="owha-sync-stats">
+          <div className="owha-sync-stat">
+            <span className="owha-sync-stat-value">{gameRecord(games).w}-{gameRecord(games).l}-{gameRecord(games).t}</span>
+            <span className="owha-sync-stat-label">Overall Record</span>
+          </div>
+          <div className="owha-sync-stat">
+            <span className="owha-sync-stat-value">{games.length}</span>
+            <span className="owha-sync-stat-label">Total Games</span>
+          </div>
+          <div className="owha-sync-stat">
+            <span className="owha-sync-stat-value">{opponents.length}</span>
+            <span className="owha-sync-stat-label">Opponents</span>
+          </div>
         </div>
       </div>
 
-      <div className="dashboard-records">
-        <div className="dashboard-record-card">
-          <p className="dashboard-record">{wins}-{losses}-{ties}</p>
-          <p className="dashboard-record-label">Record</p>
-        </div>
-        <div className="dashboard-record-card">
-          <p className="dashboard-record">{games.length}</p>
-          <p className="dashboard-record-label">Total Games</p>
-        </div>
-        <div className="dashboard-record-card">
-          <p className="dashboard-record">{opponents.length}</p>
-          <p className="dashboard-record-label">Opponents</p>
-        </div>
-        <div className="dashboard-record-card">
-          <p className="dashboard-record">{standings ? standings.rows.length : 0}</p>
-          <p className="dashboard-record-label">Standings Rows</p>
-        </div>
-      </div>
-
-      <SyncSection
-        teamId={team.id}
-        label="Regular Season — OWHA Sync"
-        url={owhaUrlRegular}
-        lastSynced={owhaLastSynced}
-        syncType="regular"
-        owhaGamedScored={owhaScored}
-        owhaGamesScheduled={owhaScheduled}
-        onUrlChange={setOwhaUrlRegular}
+      <SeasonCard
+        title="Regular Season"
+        games={games.filter((g) => g.gameType === "regular")}
+        syncProps={{
+          teamId: team.id,
+          url: owhaUrlRegular,
+          syncType: "regular",
+          initialLastSynced: owhaLastSynced,
+        }}
       />
 
-      {owhaEvents.map((ev) => {
-        const evGames = games.filter(
-          (g) =>
-            g.source === "owha" &&
-            (ev.eventType === "playdown" ? g.gameType === "playdowns" : g.gameType === "tournament")
-        )
-        return (
-          <SyncSection
-            key={`${ev.eventType}-${ev.eventId}`}
-            teamId={team.id}
-            label={`${ev.label} — OWHA Sync`}
-            url={ev.url}
-            lastSynced={ev.lastSynced}
-            syncType="event"
-            eventType={ev.eventType}
-            eventId={ev.eventId}
-            owhaGamedScored={evGames.filter((g) => g.played).length}
-            owhaGamesScheduled={evGames.filter((g) => !g.played).length}
-          />
-        )
-      })}
+      <SeasonCard
+        title="Playoffs"
+        games={games.filter((g) => g.gameType === "playoffs")}
+        syncProps={{
+          teamId: team.id,
+          url: "",
+          syncType: "event",
+          eventType: "tournament",
+          eventId: "playoffs",
+          initialLastSynced: null,
+        }}
+      />
+
+      <SeasonCard
+        title="Playdowns"
+        games={games.filter((g) => g.gameType === "playdowns")}
+        syncProps={{
+          teamId: team.id,
+          url: playdownEvent?.url ?? "",
+          syncType: "event",
+          eventType: "playdown",
+          eventId: "playdown",
+          initialLastSynced: playdownEvent?.lastSynced ?? null,
+        }}
+      />
     </div>
   )
 }

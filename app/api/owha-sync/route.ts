@@ -124,6 +124,27 @@ function toApiBaseUrl(url: string): string {
   return `https://www.owha.on.ca/api/leaguegame/get/${AID}/${SID}/${catId}/${divisionId}/${GTID_REGULAR}/`
 }
 
+// Convert a division page URL to the standings API URL.
+// See the OWHA API comment block above for URL patterns.
+function toStandingsUrl(url: string): string {
+  const m = url.match(/\/division\/(\d+)\/(\d+)/)
+  if (!m) return url
+  const [, catId, divisionId] = m
+  if (catId === "0") {
+    const { AID, SID } = OWHA_PLAYDOWNS
+    return `https://www.owha.on.ca/api/leaguegame/getstandings3wsdcached/${AID}/${SID}/0/0/${divisionId}/0`
+  }
+  const { AID, SID, GTID_REGULAR } = OWHA_REGULAR
+  return `https://www.owha.on.ca/api/leaguegame/getstandings3cached/${AID}/${SID}/${GTID_REGULAR}/${catId}/${divisionId}/0/0`
+}
+
+const OWHA_FETCH_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "application/json, text/javascript, */*",
+  "X-Requested-With": "XMLHttpRequest",
+  "Referer": "https://www.owha.on.ca/",
+}
+
 // Fetch all pages from the OWHA leaguegame JSON API
 async function fetchAllOwhaGames(baseUrl: string): Promise<OwhaApiGame[]> {
   const all: OwhaApiGame[] = []
@@ -134,15 +155,7 @@ async function fetchAllOwhaGames(baseUrl: string): Promise<OwhaApiGame[]> {
     const url = `${base}${page}/`
     let res: Response
     try {
-      res = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "application/json, text/javascript, */*",
-          "X-Requested-With": "XMLHttpRequest",
-          "Referer": "https://www.owha.on.ca/",
-        },
-        cache: "no-store",
-      })
+      res = await fetch(url, { headers: OWHA_FETCH_HEADERS, cache: "no-store" })
     } catch (err) {
       throw new Error(`Failed to fetch OWHA API page ${page}: ${String(err)}`)
     }
@@ -203,33 +216,75 @@ export async function POST(request: Request) {
   let owhaUrl: string | null = null
   let gameType: GameType = "regular"
 
-  if (type === "regular") {
+  if ((type === "regular" || type === "standings") && !eventType) {
     owhaUrl = team.owha_url_regular
     gameType = "regular"
-  } else if (type === "event" && eventType && eventId) {
-    if (eventType === "playdown") {
-      const { data: pd } = await serviceSupabase
-        .from("playdowns")
-        .select("owha_url")
-        .eq("team_id", teamId)
-        .single()
-      owhaUrl = pd?.owha_url ?? null
-      gameType = "playdowns"
-    } else if (eventType === "tournament") {
-      const { data: trn } = await serviceSupabase
-        .from("tournaments")
-        .select("owha_url")
-        .eq("team_id", teamId)
-        .eq("tournament_id", eventId)
-        .single()
-      owhaUrl = trn?.owha_url ?? null
-      gameType = "tournament"
-    }
+  } else if (eventType === "playdown") {
+    const { data: pd } = await serviceSupabase
+      .from("playdowns")
+      .select("owha_url")
+      .eq("team_id", teamId)
+      .single()
+    owhaUrl = pd?.owha_url ?? null
+    gameType = "playdowns"
+  } else if (eventType === "tournament" && eventId) {
+    const { data: trn } = await serviceSupabase
+      .from("tournaments")
+      .select("owha_url")
+      .eq("team_id", teamId)
+      .eq("tournament_id", eventId)
+      .single()
+    owhaUrl = trn?.owha_url ?? null
+    gameType = "tournament"
   }
 
   if (!owhaUrl) {
     return NextResponse.json({ error: "No OWHA URL configured for this sync type" }, { status: 400 })
   }
+
+  // ── Standings sync ───────────────────────────────────────
+  if (type === "standings") {
+    const standingsUrl = toStandingsUrl(owhaUrl)
+    let raw: Record<string, unknown>[]
+    try {
+      const res = await fetch(standingsUrl, { headers: OWHA_FETCH_HEADERS, cache: "no-store" })
+      if (!res.ok) throw new Error(`OWHA standings API returned ${res.status}`)
+      raw = await res.json()
+    } catch (err) {
+      return NextResponse.json({ error: String(err) }, { status: 502 })
+    }
+
+    if (!Array.isArray(raw) || raw.length === 0) {
+      return NextResponse.json({ error: "No standings data returned from OWHA API" }, { status: 422 })
+    }
+
+    const rows = raw.map((r, i) => ({
+      rank: i + 1,
+      teamName: String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").trim(),
+      gp: Number(r.GamesPlayed ?? 0),
+      w: Number(r.Wins ?? 0),
+      l: Number(r.Losses ?? 0),
+      t: Number(r.Ties ?? 0),
+      otl: Number(r.OTL ?? 0),
+      sol: Number(r.SOL ?? 0),
+      pts: Number(r.Points ?? 0),
+      gf: Number(r.GF ?? 0),
+      ga: Number(r.GA ?? 0),
+    }))
+
+    const { error } = await serviceSupabase
+      .from("standings")
+      .upsert(
+        { team_id: teamId, rows, source_url: owhaUrl, updated_at: new Date().toISOString() },
+        { onConflict: "team_id" }
+      )
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ synced: rows.length })
+  }
+
+  // ── Games sync ───────────────────────────────────────────
 
   // Fetch all games from OWHA JSON API
   let allGames: OwhaApiGame[]
