@@ -4,10 +4,11 @@ import { useEffect, useState } from "react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
 import { useSupabaseOpponents } from "@/hooks/use-supabase-opponents"
+import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { createClient } from "@/lib/supabase/client"
 import type { Game } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, Check } from "lucide-react"
 
 type SyncResult = { inserted: number; updated: number; skipped: number; errors: string[] }
 
@@ -160,14 +161,47 @@ function SyncPanel({
   )
 }
 
+type StandingsCompare = { w: number; l: number; t: number; gp: number }
+
+function MismatchStat({
+  value,
+  standingsValue,
+  label,
+}: {
+  value: string | number
+  standingsValue?: string | number
+  label: string
+}) {
+  const hasComparison = standingsValue !== undefined
+  const mismatch = hasComparison && String(value) !== String(standingsValue)
+  const match = hasComparison && !mismatch
+  return (
+    <div className="owha-sync-stat">
+      {match && <Check className="stat-match-check" />}
+      <span className={mismatch ? "stat-mismatch-wrap" : undefined}>
+        <span className={`owha-sync-stat-value${mismatch ? " stat-mismatch-value" : ""}`}>{value}</span>
+        {mismatch && (
+          <>
+            <span className="stat-stnd-mobile">stnd: {standingsValue}</span>
+            <span className="stat-tooltip">Standings: {standingsValue}</span>
+          </>
+        )}
+      </span>
+      <span className="owha-sync-stat-label">{label}</span>
+    </div>
+  )
+}
+
 function SeasonCard({
   title,
   games,
   syncProps,
+  standingsCompare,
 }: {
   title: string
   games: Game[]
   syncProps?: React.ComponentProps<typeof SyncPanel>
+  standingsCompare?: StandingsCompare
 }) {
   const { w, l, t, scored } = gameRecord(games)
   return (
@@ -180,14 +214,16 @@ function SeasonCard({
           {syncProps && <SyncPanel {...syncProps} />}
         </div>
         <div className="season-half">
-          <div className="owha-sync-stat">
-            <span className="owha-sync-stat-value">{w}-{l}-{t}</span>
-            <span className="owha-sync-stat-label">Record</span>
-          </div>
-          <div className="owha-sync-stat">
-            <span className="owha-sync-stat-value">{scored}</span>
-            <span className="owha-sync-stat-label">Played</span>
-          </div>
+          <MismatchStat
+            value={`${w}-${l}-${t}`}
+            standingsValue={standingsCompare ? `${standingsCompare.w}-${standingsCompare.l}-${standingsCompare.t}` : undefined}
+            label="Record"
+          />
+          <MismatchStat
+            value={scored}
+            standingsValue={standingsCompare?.gp}
+            label="Played"
+          />
         </div>
       </div>
     </div>
@@ -198,6 +234,7 @@ export default function AdminTeamHub() {
   const team = useTeamContext()
   const { games, loading: gamesLoading } = useSupabaseGames(team.id)
   const { opponents } = useSupabaseOpponents(team.id)
+  const { standings } = useSupabaseStandings(team.id)
   const supabase = createClient()
 
   const [owhaUrlRegular, setOwhaUrlRegular] = useState<string>("")
@@ -260,6 +297,20 @@ export default function AdminTeamHub() {
 
   const playdownEvent = owhaEvents.find((e) => e.eventType === "playdown")
 
+  function normTeam(s: string) {
+    return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+  }
+  const myStandingsRow = standings?.rows.find((r) => {
+    const rowN = normTeam(r.teamName)
+    const fullN = normTeam(`${team.organization} ${team.name}`)
+    const nameN = normTeam(team.name)
+    const orgN = normTeam(team.organization)
+    return rowN === fullN || rowN.includes(nameN) || rowN.includes(orgN) || fullN.includes(rowN)
+  })
+  const standingsCompare: StandingsCompare | undefined = myStandingsRow
+    ? { w: myStandingsRow.w, l: myStandingsRow.l, t: myStandingsRow.t, gp: myStandingsRow.gp }
+    : undefined
+
   return (
     <div className="flex flex-col gap-4">
       <div className="admin-page-heading">
@@ -291,6 +342,7 @@ export default function AdminTeamHub() {
       <SeasonCard
         title="Regular Season"
         games={games.filter((g) => g.gameType === "regular")}
+        standingsCompare={standingsCompare}
         syncProps={{
           teamId: team.id,
           url: owhaUrlRegular,
