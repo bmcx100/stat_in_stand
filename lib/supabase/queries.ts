@@ -40,6 +40,11 @@ export async function deleteGame(supabase: SupabaseClient, gameId: string) {
   return { error }
 }
 
+export async function clearGames(supabase: SupabaseClient, teamId: string) {
+  const { error } = await supabase.from("games").delete().eq("team_id", teamId)
+  return { error }
+}
+
 // === Standings ===
 
 export async function fetchStandings(supabase: SupabaseClient, teamId: string) {

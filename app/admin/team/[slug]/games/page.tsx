@@ -111,7 +111,7 @@ function MhrUnmatchedResolver({
 
 export default function AdminGamesPage() {
   const team = useTeamContext()
-  const { games, addGames, updateGame, removeGame, loading: gamesLoading } = useSupabaseGames(team.id)
+  const { games, addGames, updateGame, removeGame, clearGames, loading: gamesLoading } = useSupabaseGames(team.id)
   const { opponents, addOpponents, getById } = useSupabaseOpponents(team.id)
 
   // Import state
@@ -127,6 +127,7 @@ export default function AdminGamesPage() {
 
   // Game list state
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmClear, setConfirmClear] = useState(false)
 
   function opponentDisplay(game: Game): string {
     if (game.opponentId) {
@@ -457,6 +458,27 @@ export default function AdminGamesPage() {
 
 
       </div>
+
+      {/* Clear all games */}
+      {games.length > 0 && (
+        confirmClear ? (
+          <div className="flex items-center gap-2">
+            <span className="text-destructive text-sm">Delete all {games.length} games?</span>
+            <Button variant="destructive" size="sm" onClick={async () => { await clearGames(); setConfirmClear(false) }}>
+              Confirm
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setConfirmClear(false)}>
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <div>
+            <Button variant="outline" size="sm" onClick={() => setConfirmClear(true)}>
+              <Trash2 className="h-4 w-4" /> Clear All Games
+            </Button>
+          </div>
+        )
+      )}
 
       {/* Game List Section */}
       <div className="games-table-wrap">

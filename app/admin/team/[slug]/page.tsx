@@ -50,6 +50,7 @@ function SyncSection({
   onUrlChange?: (url: string) => void
 }) {
   const [localUrl, setLocalUrl] = useState(url)
+  const [urlDirty, setUrlDirty] = useState(false)
   const [urlSaving, setUrlSaving] = useState(false)
   const [urlSaved, setUrlSaved] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -78,6 +79,7 @@ function SyncSection({
     })
     setUrlSaving(false)
     setUrlSaved(true)
+    setUrlDirty(false)
     onUrlChange?.(localUrl)
     setTimeout(() => setUrlSaved(false), 2000)
   }
@@ -123,9 +125,15 @@ function SyncSection({
             className="owha-sync-url-input"
             placeholder="https://www.owha.on.ca/division/0/XXXXX/games"
             value={localUrl}
-            onChange={(e) => { setLocalUrl(e.target.value); setUrlSaved(false) }}
+            onChange={(e) => { setLocalUrl(e.target.value); setUrlSaved(false); setUrlDirty(true) }}
           />
-          <Button variant="outline" size="sm" onClick={handleSaveUrl} disabled={urlSaving}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveUrl}
+            disabled={urlSaving}
+            style={urlDirty ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
+          >
             {urlSaved ? "Saved" : urlSaving ? "Saving…" : "Save"}
           </Button>
         </div>
@@ -156,14 +164,15 @@ function SyncSection({
           size="sm"
           onClick={handleSync}
           disabled={syncing || !activeUrl}
+          style={activeUrl && !syncing ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
         >
           <RefreshCw className={syncing ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
           {syncing ? "Syncing…" : "Sync OWHA Scores"}
         </Button>
-        {result && (
+        {result && result.inserted !== undefined && (
           <span className="owha-sync-result">
             {result.inserted} added · {result.updated} updated · {result.skipped} unchanged
-            {result.errors.length > 0 ? ` · ${result.errors.length} error(s)` : ""}
+            {result.errors?.length > 0 ? ` · ${result.errors.length} error(s)` : ""}
           </span>
         )}
         {syncError && <span className="owha-sync-result-error">{syncError}</span>}

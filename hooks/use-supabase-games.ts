@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { fetchGames, insertGames, updateGame as updateGameQuery, deleteGame as deleteGameQuery } from "@/lib/supabase/queries"
+import { fetchGames, insertGames, updateGame as updateGameQuery, deleteGame as deleteGameQuery, clearGames as clearGamesQuery } from "@/lib/supabase/queries"
 import type { Game } from "@/lib/types"
 
 type DbGame = {
@@ -20,6 +20,7 @@ type DbGame = {
   source: string
   source_game_id: string
   played: boolean
+  home: boolean | null
   created_at: string
 }
 
@@ -39,6 +40,7 @@ function dbToGame(row: DbGame): Game {
     source: row.source as Game["source"],
     sourceGameId: row.source_game_id || "",
     played: row.played,
+    home: row.home ?? undefined,
   }
 }
 
@@ -57,6 +59,7 @@ function gameToDb(game: Partial<Game> & { teamId: string }) {
     source: game.source || "manual",
     source_game_id: game.sourceGameId || "",
     played: game.played ?? false,
+    home: game.home ?? null,
   }
 }
 
@@ -94,6 +97,7 @@ export function useSupabaseGames(teamId: string | undefined) {
     if (updates.location !== undefined) dbUpdates.location = updates.location
     if (updates.time !== undefined) dbUpdates.time = updates.time
     if (updates.date !== undefined) dbUpdates.date = updates.date
+    if (updates.home !== undefined) dbUpdates.home = updates.home ?? null
 
     const { error } = await updateGameQuery(supabase, gameId, dbUpdates)
     if (!error) {
@@ -108,5 +112,13 @@ export function useSupabaseGames(teamId: string | undefined) {
     }
   }, [supabase])
 
-  return { games, addGames, updateGame, removeGame, loading }
+  const clearGames = useCallback(async () => {
+    if (!teamId) return
+    const { error } = await clearGamesQuery(supabase, teamId)
+    if (!error) {
+      setGames([])
+    }
+  }, [supabase, teamId])
+
+  return { games, addGames, updateGame, removeGame, clearGames, loading }
 }

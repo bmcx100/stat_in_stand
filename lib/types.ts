@@ -35,6 +35,7 @@ export type Game = {
   source: ImportSource
   sourceGameId: string
   played: boolean
+  home?: boolean
   tournamentName?: string
 }
 
