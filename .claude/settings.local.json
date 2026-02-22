@@ -16,7 +16,9 @@
       "Bash(head:*)",
       "Bash(cd \"D:\\\\1 Projects\\\\WebDev\\\\stat_in_stand\" && npx supabase --version 2>&1)",
       "Bash(cd \"D:\\\\1 Projects\\\\WebDev\\\\stat_in_stand\" && npx supabase db push 2>&1)",
-      "Bash(cd \"D:\\\\1 Projects\\\\WebDev\\\\stat_in_stand\" && npx supabase link --project-ref lkiqgvtabhzhalfqmjpf 2>&1)"
+      "Bash(cd \"D:\\\\1 Projects\\\\WebDev\\\\stat_in_stand\" && npx supabase link --project-ref lkiqgvtabhzhalfqmjpf 2>&1)",
+      "Bash(echo no supabase cli:*)",
+      "Bash(cd \"D:/1 Projects/WebDev/stat_in_stand\" && node -e \"\nconst fs = require\\('fs'\\)\nrequire\\('dotenv'\\).config\\({ path: '.env.local' }\\)\n\nconst sql = fs.readFileSync\\('supabase/migrations/004_standings_type.sql', 'utf8'\\)\n  .split\\('\\\\n'\\).filter\\(l => !l.trim\\(\\).startsWith\\('--'\\) && l.trim\\(\\)\\).join\\(' '\\)\n\nconst key = process.env.SUPABASE_SERVICE_ROLE_KEY\nconst url = process.env.NEXT_PUBLIC_SUPABASE_URL\n\n// Run each statement separately\nconst stmts = sql.split\\(';'\\).map\\(s => s.trim\\(\\)\\).filter\\(Boolean\\)\n\nasync function run\\(\\) {\n  for \\(const stmt of stmts\\) {\n    console.log\\('Running:', stmt.substring\\(0, 80\\) + '...'\\)\n    const res = await fetch\\(url + '/rest/v1/rpc/exec_sql', {\n      method: 'POST',\n      headers: {\n        'apikey': key,\n        'Authorization': 'Bearer ' + key,\n        'Content-Type': 'application/json',\n      },\n      body: JSON.stringify\\({ sql: stmt }\\)\n    }\\)\n    const data = await res.json\\(\\)\n    console.log\\('Status:', res.status, JSON.stringify\\(data\\)\\)\n  }\n}\nrun\\(\\).catch\\(console.error\\)\n\" 2>&12221)"
     ]
   },
   "hooks": {
