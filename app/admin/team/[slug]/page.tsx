@@ -141,6 +141,22 @@ function SyncPanel({
         <Button
           variant="outline"
           size="sm"
+          onClick={handleSyncStandings}
+          disabled={syncingStandings || !url}
+          className="sync-btn-padded"
+          style={url && !syncingStandings ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
+        >
+          <RefreshCw className={syncingStandings ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+          {syncingStandings ? "Syncing…" : "Sync Standings"}
+        </Button>
+        <span className="sync-last-date">{formatSynced(lastSyncedStandings)}</span>
+        {standingsError && <span className="owha-sync-result-error">{standingsError}</span>}
+      </div>
+
+      <div className="sync-btn-group">
+        <Button
+          variant="outline"
+          size="sm"
           onClick={handleSync}
           disabled={syncing || !url}
           className="sync-btn-padded"
@@ -157,22 +173,6 @@ function SyncPanel({
           </span>
         )}
         {syncError && <span className="owha-sync-result-error">{syncError}</span>}
-      </div>
-
-      <div className="sync-btn-group">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSyncStandings}
-          disabled={syncingStandings || !url}
-          className="sync-btn-padded"
-          style={url && !syncingStandings ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
-        >
-          <RefreshCw className={syncingStandings ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-          {syncingStandings ? "Syncing…" : "Sync Standings"}
-        </Button>
-        <span className="sync-last-date">{formatSynced(lastSyncedStandings)}</span>
-        {standingsError && <span className="owha-sync-result-error">{standingsError}</span>}
       </div>
     </div>
   )
