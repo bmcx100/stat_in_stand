@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
+import { useSupabaseTournaments } from "@/hooks/use-supabase-tournaments"
 import type { StandingsRow } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Pencil, Check, Trash2 } from "lucide-react"
@@ -12,7 +13,9 @@ const NUM_COLS: (keyof StandingsRow)[] = ["gp", "w", "l", "t", "otl", "sol", "pt
 export default function AdminStandingsPage() {
   const team = useTeamContext()
   const { standings, setStandings, loading } = useSupabaseStandings(team.id)
+  const { tournaments } = useSupabaseTournaments(team.id)
 
+  const [selectedType, setSelectedType] = useState("regular")
   const [editing, setEditing] = useState(false)
   const [rows, setRows] = useState<StandingsRow[]>([])
   const [saving, setSaving] = useState(false)
@@ -45,48 +48,71 @@ export default function AdminStandingsPage() {
 
   if (loading) return <p className="text-muted-foreground">Loading...</p>
 
-  const displayRows = editing ? rows : (standings?.rows ?? [])
+  const namedTournaments = tournaments.filter((t) => t.config.id !== "playoffs")
+  const filterOptions = [
+    { value: "regular", label: "Regular Season" },
+    { value: "playoffs", label: "Playoffs" },
+    { value: "playdowns", label: "Playdowns" },
+    ...namedTournaments.map((t) => ({ value: `tournament:${t.config.id}`, label: t.config.name || "Tournament" })),
+    { value: "provincials", label: "Provincials" },
+  ]
+
+  // Standings are only stored for regular season (one row per team in DB).
+  // For all other types, show empty — no fallback to regular season data.
+  const hasStandingsForType = selectedType === "regular"
+  const displayRows = hasStandingsForType ? (editing ? rows : (standings?.rows ?? [])) : []
 
   return (
     <div className="flex flex-col gap-6">
       <div className="admin-page-heading">
         <h1 className="admin-section-title">Standings</h1>
       </div>
+      <select
+        className="games-table-select"
+        value={selectedType}
+        onChange={(e) => { setSelectedType(e.target.value); setEditing(false) }}
+      >
+        {filterOptions.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
 
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="owha-sync-heading">Current Standings</h2>
-          <div className="flex items-center gap-2">
-            {confirmClear ? (
-              <>
-                <span className="text-destructive text-sm">Clear all standings?</span>
-                <Button variant="destructive" size="sm" onClick={async () => { await setStandings("", []); setConfirmClear(false) }}>
-                  Confirm
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setConfirmClear(false)}>
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <>
-                {editing ? (
-                  <Button size="sm" onClick={handleSave} disabled={saving}
-                    style={{ backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" }}>
-                    <Check className="h-4 w-4" /> {saving ? "Saving…" : "Save"}
+          {hasStandingsForType && (
+            <div className="flex items-center gap-2">
+              {confirmClear ? (
+                <>
+                  <span className="text-destructive text-sm">Clear all standings?</span>
+                  <Button variant="destructive" size="sm" onClick={async () => { await setStandings("", []); setConfirmClear(false) }}>
+                    Confirm
                   </Button>
-                ) : (
-                  <>
-                    <Button variant="outline" size="sm" onClick={handleEdit}>
-                      <Pencil className="h-4 w-4" /> Edit
+                  <Button variant="outline" size="sm" onClick={() => setConfirmClear(false)}>
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {editing ? (
+                    <Button size="sm" onClick={handleSave} disabled={saving}
+                      style={{ backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" }}>
+                      <Check className="h-4 w-4" /> {saving ? "Saving…" : "Save"}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => setConfirmClear(true)}>
-                      <Trash2 className="h-4 w-4" /> Clear All
-                    </Button>
-                  </>
-                )}
-              </>
-            )}
-          </div>
+                  ) : (
+                    <>
+                      <Button variant="outline" size="sm" onClick={handleEdit}>
+                        <Pencil className="h-4 w-4" /> Edit
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setConfirmClear(true)}>
+                        <Trash2 className="h-4 w-4" /> Clear All
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {displayRows.length > 0 ? (
@@ -140,7 +166,11 @@ export default function AdminStandingsPage() {
             </table>
           </div>
         ) : (
-          <p className="text-muted-foreground">No standings data yet. Use Sync Standings on the Overview page.</p>
+          <p className="text-muted-foreground">
+            {hasStandingsForType
+              ? "No standings data yet. Use Sync Standings on the Overview page."
+              : "Standings are not available for this type."}
+          </p>
         )}
       </div>
     </div>

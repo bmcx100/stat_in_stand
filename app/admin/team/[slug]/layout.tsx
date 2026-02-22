@@ -148,16 +148,14 @@ export default function AdminTeamLayout({
               Events
             </Link>
 
-            {playdown?.config && (
-              <Link
-                href={`${eventsBase}/playdown`}
-                className="ob-nav-subitem"
-                data-active={isPlaydownActive || undefined}
-              >
-                <Circle className="h-2 w-2 flex-shrink-0" />
-                Playdowns
-              </Link>
-            )}
+            <Link
+              href={`${eventsBase}/regular-season`}
+              className="ob-nav-subitem"
+              data-active={pathname === `${eventsBase}/regular-season` || undefined}
+            >
+              <Circle className="h-2 w-2 flex-shrink-0" />
+              Regular Season
+            </Link>
 
             <Link
               href={`${eventsBase}/playoffs`}
@@ -166,6 +164,15 @@ export default function AdminTeamLayout({
             >
               <Circle className="h-2 w-2 flex-shrink-0" />
               Playoffs
+            </Link>
+
+            <Link
+              href={`${eventsBase}/playdown`}
+              className="ob-nav-subitem"
+              data-active={pathname === `${eventsBase}/playdown` || undefined}
+            >
+              <Circle className="h-2 w-2 flex-shrink-0" />
+              Playdowns
             </Link>
 
             {tournaments

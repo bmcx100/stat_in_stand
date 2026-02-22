@@ -4,6 +4,7 @@ import { useState, useCallback } from "react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
 import { useSupabaseOpponents } from "@/hooks/use-supabase-opponents"
+import { useSupabaseTournaments } from "@/hooks/use-supabase-tournaments"
 import type { Game, GameType } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Plus, Trash2, X } from "lucide-react"
@@ -20,11 +21,13 @@ const GAME_TYPE_OPTIONS = [
 
 export default function AdminGamesPage() {
   const team = useTeamContext()
-  const { games, addGames, updateGame, removeGame, clearGames, loading: gamesLoading } = useSupabaseGames(team.id)
+  const { games, addGames, updateGame, removeGame, clearGames, clearByType, loading: gamesLoading } = useSupabaseGames(team.id)
   const { getById } = useSupabaseOpponents(team.id)
+  const { tournaments } = useSupabaseTournaments(team.id)
 
+  const [selectedType, setSelectedType] = useState("all")
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [confirmClear, setConfirmClear] = useState(false)
+  const [clearModal, setClearModal] = useState(false)
 
   const [addOpen, setAddOpen] = useState(false)
   const [newDate, setNewDate] = useState("")
@@ -70,7 +73,26 @@ export default function AdminGamesPage() {
     setAddOpen(false)
   }
 
+  const namedTournaments = tournaments.filter((t) => t.config.id !== "playoffs")
+  const hasProvincials = games.some((g) => g.gameType === "provincials")
+  const hasExhibition = games.some((g) => g.gameType === "exhibition")
+
+  const filterOptions = [
+    { value: "all", label: "All Games" },
+    { value: "regular", label: "Regular Season" },
+    { value: "playoffs", label: "Playoffs" },
+    { value: "playdowns", label: "Playdowns" },
+    ...namedTournaments.map((t) => ({ value: `tournament:${t.config.id}`, label: t.config.name || "Tournament" })),
+    ...(hasProvincials ? [{ value: "provincials", label: "Provincials" }] : []),
+    ...(hasExhibition ? [{ value: "exhibition", label: "Exhibition" }] : []),
+  ]
+
   const sortedGames = [...games].sort((a, b) => b.date.localeCompare(a.date))
+  const filteredGames = selectedType === "all"
+    ? sortedGames
+    : selectedType.startsWith("tournament:")
+      ? sortedGames.filter((g) => g.gameType === "tournament")
+      : sortedGames.filter((g) => g.gameType === selectedType)
 
   if (gamesLoading) {
     return <p className="text-muted-foreground">Loading...</p>
@@ -81,6 +103,15 @@ export default function AdminGamesPage() {
       <div className="admin-page-heading">
         <h1 className="admin-section-title">Games</h1>
       </div>
+      <select
+        className="games-table-select"
+        value={selectedType}
+        onChange={(e) => setSelectedType(e.target.value)}
+      >
+        {filterOptions.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
 
       <div className="flex items-start justify-between">
         <Button
@@ -91,21 +122,30 @@ export default function AdminGamesPage() {
         >
           <Plus className="h-4 w-4" /> Add Game
         </Button>
-        {/* Clear all games */}
+        {/* Clear games */}
         {games.length > 0 && (
-          confirmClear ? (
-            <div className="flex items-center gap-2">
-              <span className="text-destructive text-sm">Delete all {games.length} games?</span>
-              <Button variant="destructive" size="sm" onClick={async () => { await clearGames(); setConfirmClear(false) }}>
-                Confirm
+          clearModal ? (
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {selectedType !== "all" && (
+                <Button variant="destructive" size="sm" onClick={async () => {
+                  const gt = selectedType.startsWith("tournament:") ? "tournament" : selectedType
+                  await clearByType(gt)
+                  setClearModal(false)
+                }}>
+                  <Trash2 className="h-4 w-4" />
+                  Clear {filterOptions.find((o) => o.value === selectedType)?.label ?? "Filtered"} Games
+                </Button>
+              )}
+              <Button variant="destructive" size="sm" onClick={async () => { await clearGames(); setClearModal(false) }}>
+                <Trash2 className="h-4 w-4" /> Clear All Games
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setConfirmClear(false)}>
+              <Button variant="outline" size="sm" onClick={() => setClearModal(false)}>
                 Cancel
               </Button>
             </div>
           ) : (
-            <Button variant="outline" size="sm" onClick={() => setConfirmClear(true)}>
-              <Trash2 className="h-4 w-4" /> Clear All Games
+            <Button variant="outline" size="sm" onClick={() => setClearModal(true)}>
+              <Trash2 className="h-4 w-4" /> Clear Games
             </Button>
           )
         )}
@@ -169,7 +209,7 @@ export default function AdminGamesPage() {
             </tr>
           </thead>
           <tbody>
-            {sortedGames.map((game) => (
+            {filteredGames.map((game) => (
               <tr key={game.id}>
                 <td>
                   <input

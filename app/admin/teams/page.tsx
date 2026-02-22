@@ -66,6 +66,7 @@ export default function AdminTeamsPage() {
   // Configure section
   const [configOpenId, setConfigOpenId] = useState<string | null>(null)
   const [configUrls, setConfigUrls] = useState<Record<string, string>>({})
+  const [configPlaydownUrls, setConfigPlaydownUrls] = useState<Record<string, string>>({})
   const [configSaving, setConfigSaving] = useState<string | null>(null)
   const [configSaved, setConfigSaved] = useState<string | null>(null)
 
@@ -86,6 +87,18 @@ export default function AdminTeamsPage() {
       newTeamRef.current = null
     }
   }, [configOpenId])
+
+  useEffect(() => {
+    if (!configOpenId) return
+    supabase
+      .from("playdowns")
+      .select("owha_url")
+      .eq("team_id", configOpenId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setConfigPlaydownUrls((prev) => ({ ...prev, [configOpenId]: data?.owha_url ?? "" }))
+      })
+  }, [configOpenId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     async function load() {
@@ -189,11 +202,19 @@ export default function AdminTeamsPage() {
   async function handleSaveConfig(team: Team) {
     setConfigSaving(team.id)
     const url = configUrls[team.id] ?? team.owha_url_regular ?? ""
-    await fetch("/api/owha-config", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ teamId: team.id, owha_url_regular: url }),
-    })
+    const playdownUrl = configPlaydownUrls[team.id] ?? ""
+    await Promise.all([
+      fetch("/api/owha-config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId: team.id, owha_url_regular: url }),
+      }),
+      fetch("/api/owha-config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId: team.id, type: "playdown", owha_event: !!playdownUrl, owha_url: playdownUrl }),
+      }),
+    ])
     setTeams((prev) => prev.map((t) => t.id === team.id ? { ...t, owha_url_regular: url } : t))
     setConfigSaving(null)
     setConfigSaved(team.id)
@@ -347,7 +368,7 @@ export default function AdminTeamsPage() {
               {/* Configure section */}
               {configOpenId === team.id && (
                 <div className="team-config-section">
-                  <p className="team-config-label">OWHA Regular Season Games URL</p>
+                  <p className="team-config-label">OWHA Regular Season URL</p>
                   <div className="owha-sync-url-row">
                     <input
                       className="owha-sync-url-input"
@@ -355,19 +376,30 @@ export default function AdminTeamsPage() {
                       value={configUrls[team.id] ?? ""}
                       onChange={(e) => setConfigUrls((prev) => ({ ...prev, [team.id]: e.target.value }))}
                     />
+                  </div>
+                  <p className="team-config-label">OWHA Playdowns URL</p>
+                  <div className="owha-sync-url-row">
+                    <input
+                      className="owha-sync-url-input"
+                      placeholder="https://www.owha.on.ca/division/0/27230/games"
+                      value={configPlaydownUrls[team.id] ?? ""}
+                      onChange={(e) => setConfigPlaydownUrls((prev) => ({ ...prev, [team.id]: e.target.value }))}
+                    />
+                  </div>
+                  <div className="owha-sync-url-row">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleSaveConfig(team)}
                       disabled={configSaving === team.id}
-                      style={{ minWidth: "5rem", ...((configUrls[team.id] ?? "") !== (team.owha_url_regular ?? "") ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : {}) }}
+                      style={{ minWidth: "5rem", backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" }}
                     >
                       {configSaved === team.id ? "Saved" : configSaving === team.id ? "Saving…" : "Save"}
                     </Button>
                   </div>
                   <p className="owha-sync-tip">
                     <Info className="owha-sync-tip-icon" />
-                    Paste the OWHA division page URL from your browser address bar. If sync stops working, refer to comments labeled "OWHA API" in app/api/owha-sync/route.ts
+                    Paste OWHA division page URLs from your browser. Playdowns use /division/0/… Regular season uses /division/1590/…
                   </p>
                 </div>
               )}

@@ -48,7 +48,7 @@ function SyncPanel({
 }: {
   teamId: string
   url: string
-  syncType: "regular" | "event"
+  syncType: "regular" | "event" | "playoffs"
   eventType?: "playdown" | "tournament"
   eventId?: string
   initialLastSynced: string | null
@@ -71,6 +71,9 @@ function SyncPanel({
       if (syncType === "event") {
         body.eventType = eventType
         body.eventId = eventId
+      }
+      if (syncType === "playoffs") {
+        body.type = "playoffs"
       }
       const res = await fetch("/api/owha-sync", {
         method: "POST",
@@ -99,6 +102,9 @@ function SyncPanel({
       if (syncType === "event") {
         body.eventType = eventType
         body.eventId = eventId
+      }
+      if (syncType === "playoffs") {
+        body.type = "playoffs-standings"
       }
       const res = await fetch("/api/owha-sync", {
         method: "POST",
@@ -356,10 +362,8 @@ export default function AdminTeamHub() {
         games={games.filter((g) => g.gameType === "playoffs")}
         syncProps={{
           teamId: team.id,
-          url: "",
-          syncType: "event",
-          eventType: "tournament",
-          eventId: "playoffs",
+          url: owhaUrlRegular,
+          syncType: "playoffs",
           initialLastSynced: null,
         }}
       />

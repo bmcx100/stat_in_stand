@@ -219,6 +219,9 @@ export async function POST(request: Request) {
   if ((type === "regular" || type === "standings") && !eventType) {
     owhaUrl = team.owha_url_regular
     gameType = "regular"
+  } else if (type === "playoffs" || type === "playoffs-standings") {
+    owhaUrl = team.owha_url_regular
+    gameType = "playoffs"
   } else if (eventType === "playdown") {
     const { data: pd } = await serviceSupabase
       .from("playdowns")
@@ -242,6 +245,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No OWHA URL configured for this sync type" }, { status: 400 })
   }
 
+  // ── Playoffs standings sync ──────────────────────────────
+  if (type === "playoffs-standings") {
+    const m = owhaUrl.match(/\/division\/(\d+)\/(\d+)/)
+    if (!m) return NextResponse.json({ error: "Invalid OWHA URL" }, { status: 400 })
+    const [, catId, divisionId] = m
+    const { AID, SID, GTID_PLAYOFFS } = OWHA_REGULAR
+    const standingsUrl = `https://www.owha.on.ca/api/leaguegame/getstandings3cached/${AID}/${SID}/${GTID_PLAYOFFS}/${catId}/${divisionId}/0/0`
+    let raw: Record<string, unknown>[]
+    try {
+      const res = await fetch(standingsUrl, { headers: OWHA_FETCH_HEADERS, cache: "no-store" })
+      if (!res.ok) throw new Error(`OWHA standings API returned ${res.status}`)
+      raw = await res.json()
+    } catch (err) {
+      return NextResponse.json({ error: String(err) }, { status: 502 })
+    }
+    if (!Array.isArray(raw) || raw.length === 0) {
+      return NextResponse.json({ error: "No playoff standings data returned from OWHA API" }, { status: 422 })
+    }
+    const rows = raw.map((r, i) => ({
+      rank: i + 1,
+      teamName: String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").trim(),
+      gp: Number(r.GamesPlayed ?? 0),
+      w: Number(r.Wins ?? 0),
+      l: Number(r.Losses ?? 0),
+      t: Number(r.Ties ?? 0),
+      otl: Number(r.OTL ?? 0),
+      sol: Number(r.SOL ?? 0),
+      pts: Number(r.Points ?? 0),
+      gf: Number(r.GF ?? 0),
+      ga: Number(r.GA ?? 0),
+    }))
+    // Playoff standings are not persisted — storing them would overwrite regular season
+    // standings (single row per team). Return the data for display only.
+    return NextResponse.json({ synced: rows.length, rows })
+  }
+
   // ── Standings sync ───────────────────────────────────────
   if (type === "standings") {
     const standingsUrl = toStandingsUrl(owhaUrl)
@@ -258,7 +297,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No standings data returned from OWHA API" }, { status: 422 })
     }
 
-    const rows = raw.map((r, i) => ({
+    // For playdowns (CATID=0), the standings API returns all loops province-wide.
+    // Filter to only our team's loop using SDID, and exclude region-label rows (TID=0).
+    let filtered = raw
+    const m = owhaUrl.match(/\/division\/(\d+)\//)
+    if (m && m[1] === "0") {
+      const ourEntry = raw.find((r) => teamMatches(String(r.TeamName ?? ""), team.organization, team.name))
+      if (ourEntry) {
+        const ourSDID = String(ourEntry.SDID ?? "")
+        if (ourSDID && ourSDID !== "0") {
+          filtered = raw.filter((r) => String(r.SDID ?? "") === ourSDID && Number(r.TID ?? 0) !== 0)
+        }
+      }
+    }
+
+    const rows = filtered.map((r, i) => ({
       rank: i + 1,
       teamName: String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").trim(),
       gp: Number(r.GamesPlayed ?? 0),
@@ -287,9 +340,20 @@ export async function POST(request: Request) {
   // ── Games sync ───────────────────────────────────────────
 
   // Fetch all games from OWHA JSON API
+  // Playoffs use the same division URL as regular season but with GTID_PLAYOFFS
+  let gamesApiUrl = toApiBaseUrl(owhaUrl)
+  if (type === "playoffs") {
+    const m = owhaUrl.match(/\/division\/(\d+)\/(\d+)/)
+    if (m) {
+      const [, catId, divisionId] = m
+      const { AID, SID, GTID_PLAYOFFS } = OWHA_REGULAR
+      gamesApiUrl = `https://www.owha.on.ca/api/leaguegame/get/${AID}/${SID}/${catId}/${divisionId}/${GTID_PLAYOFFS}/`
+    }
+  }
+
   let allGames: OwhaApiGame[]
   try {
-    allGames = await fetchAllOwhaGames(toApiBaseUrl(owhaUrl))
+    allGames = await fetchAllOwhaGames(gamesApiUrl)
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 502 })
   }
@@ -298,16 +362,78 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No games returned from OWHA API — check the URL" }, { status: 422 })
   }
 
-  // Filter to games involving this team
+  // For playdowns, the games API returns ALL games province-wide.
+  // Strategy: fetch standings → find our team's SDID (loop ID) → collect all TIDs in that
+  // loop → pre-filter allGames to only games where BOTH teams are in our loop.
+  // Falls back to name matching if standings fetch fails or SDID is unavailable.
+  const debug: Record<string, unknown> = {}
+
+  if (gameType === "playdowns") {
+    try {
+      const standingsUrl = toStandingsUrl(owhaUrl)
+      debug.standingsUrl = standingsUrl
+      const sRes = await fetch(standingsUrl, { headers: OWHA_FETCH_HEADERS, cache: "no-store" })
+      debug.standingsStatus = sRes.status
+      if (sRes.ok) {
+        const sData: Record<string, unknown>[] = await sRes.json()
+        debug.standingsCount = sData.length
+        const ourEntry = Array.isArray(sData)
+          ? sData.find((r) => teamMatches(String(r.TeamName ?? ""), team.organization, team.name))
+          : null
+        debug.ourEntry = ourEntry ? { TeamName: ourEntry.TeamName, TID: ourEntry.TID, SDID: ourEntry.SDID } : null
+
+        if (ourEntry) {
+          const ourSDID = String(ourEntry.SDID ?? "")
+
+          // Use team names (not TIDs) to filter games to our loop.
+          // The games API uses different TID values than the standings API,
+          // so TID-based filtering doesn't work cross-API.
+          if (ourSDID && ourSDID !== "0" && ourSDID !== "undefined") {
+            const loopEntries = sData.filter((r) => String(r.SDID ?? "") === ourSDID)
+            const loopNames = loopEntries.map((r) => normName(String(r.TeamName ?? "")))
+            debug.loopSDID = ourSDID
+            debug.loopTeamCount = loopEntries.length
+            debug.loopNames = loopNames
+
+            const nameInLoop = (raw: string) => {
+              const n = normName(raw)
+              return loopNames.some((ln) => n.includes(ln) || ln.includes(n))
+            }
+
+            // Pre-filter allGames to only games where both teams are in our loop
+            const loopGames = allGames.filter(
+              (g) => nameInLoop(g.HomeTeamName) && nameInLoop(g.AwayTeamName)
+            )
+            debug.loopGamesFound = loopGames.length
+            if (loopGames.length > 0) {
+              allGames = loopGames
+            }
+          } else {
+            debug.sdidWarning = "SDID is 0 or missing — cannot isolate loop by SDID"
+          }
+        }
+      }
+    } catch (err) {
+      debug.standingsError = String(err)
+    }
+  }
+
+  // Filter to games involving this team.
+  // For playdowns: allGames is already pre-filtered to our loop's teams by name (above),
+  // so name matching here only picks from that restricted set — no cross-loop contamination.
+  // For regular/playoffs: name matching is reliable within a single division.
   const teamGames = allGames.filter(
     (g) =>
       teamMatches(g.HomeTeamName, team.organization, team.name) ||
       teamMatches(g.AwayTeamName, team.organization, team.name)
   )
 
+  debug.teamGamesFound = teamGames.length
+
   if (teamGames.length === 0) {
     return NextResponse.json({
       error: `Team "${team.organization} ${team.name}" was not found in the OWHA API response. Check the URL is correct for this team.`,
+      debug,
     }, { status: 422 })
   }
 
@@ -368,6 +494,7 @@ export async function POST(request: Request) {
       .eq("team_id", teamId)
       .eq("source_game_id", owhaId)
       .eq("source", "owha")
+      .eq("game_type", gameType)
       .maybeSingle()
 
     if (existing) {
@@ -425,5 +552,5 @@ export async function POST(request: Request) {
       .eq("tournament_id", eventId)
   }
 
-  return NextResponse.json({ inserted, updated, skipped, errors })
+  return NextResponse.json({ inserted, updated, skipped, errors, debug })
 }

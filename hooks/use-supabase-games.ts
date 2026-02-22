@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { fetchGames, insertGames, updateGame as updateGameQuery, deleteGame as deleteGameQuery, clearGames as clearGamesQuery } from "@/lib/supabase/queries"
+import { fetchGames, insertGames, updateGame as updateGameQuery, deleteGame as deleteGameQuery, clearGames as clearGamesQuery, clearGamesByType as clearGamesByTypeQuery } from "@/lib/supabase/queries"
 import type { Game } from "@/lib/types"
 
 type DbGame = {
@@ -120,5 +120,13 @@ export function useSupabaseGames(teamId: string | undefined) {
     }
   }, [supabase, teamId])
 
-  return { games, addGames, updateGame, removeGame, clearGames, loading }
+  const clearByType = useCallback(async (gameType: string) => {
+    if (!teamId) return
+    const { error } = await clearGamesByTypeQuery(supabase, teamId, gameType)
+    if (!error) {
+      setGames((prev) => prev.filter((g) => g.gameType !== gameType))
+    }
+  }, [supabase, teamId])
+
+  return { games, addGames, updateGame, removeGame, clearGames, clearByType, loading }
 }

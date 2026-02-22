@@ -49,13 +49,32 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: true })
   }
 
-  // Playdown OWHA config
+  // Playdown OWHA config — update if row exists, insert with default config if not
   if (body.type === "playdown") {
-    const { error } = await serviceSupabase
+    const { data: existing } = await serviceSupabase
       .from("playdowns")
-      .update({ owha_event: body.owha_event ?? false, owha_url: body.owha_url || null })
+      .select("id")
       .eq("team_id", teamId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      .maybeSingle()
+
+    if (existing) {
+      const { error } = await serviceSupabase
+        .from("playdowns")
+        .update({ owha_event: body.owha_event ?? true, owha_url: body.owha_url || null })
+        .eq("team_id", teamId)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    } else {
+      const { error } = await serviceSupabase
+        .from("playdowns")
+        .insert({
+          team_id: teamId,
+          config: { teamId, totalTeams: 0, qualifyingSpots: 0, gamesPerMatchup: 0, teams: [] },
+          games: [],
+          owha_event: body.owha_event ?? true,
+          owha_url: body.owha_url || null,
+        })
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    }
     return NextResponse.json({ success: true })
   }
 
