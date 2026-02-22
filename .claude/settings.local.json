@@ -12,7 +12,11 @@
       "Bash(npm install:*)",
       "Bash(git switch:*)",
       "Bash(git merge:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(head:*)",
+      "Bash(cd \"D:\\\\1 Projects\\\\WebDev\\\\stat_in_stand\" && npx supabase --version 2>&1)",
+      "Bash(cd \"D:\\\\1 Projects\\\\WebDev\\\\stat_in_stand\" && npx supabase db push 2>&1)",
+      "Bash(cd \"D:\\\\1 Projects\\\\WebDev\\\\stat_in_stand\" && npx supabase link --project-ref lkiqgvtabhzhalfqmjpf 2>&1)"
     ]
   },
   "hooks": {

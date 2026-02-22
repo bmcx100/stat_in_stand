@@ -365,7 +365,7 @@ export default function PlaydownManagementPage() {
           <div className="owha-sync-url-row">
             <input
               className="owha-sync-url-input"
-              placeholder="https://www.owha.on.ca/division/0/XXXXX/playdowns"
+              placeholder="https://www.owha.on.ca/division/1590/27230/games"
               value={owhaUrl}
               onChange={(e) => { setOwhaUrl(e.target.value); setOwhaConfigSaved(false) }}
             />

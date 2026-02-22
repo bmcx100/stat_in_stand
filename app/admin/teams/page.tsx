@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Plus, Trash2, UserPlus, X, Vault, Settings, LayoutDashboard, LogOut } from "lucide-react"
+import { Plus, Trash2, UserPlus, X, Vault, Settings, LayoutDashboard, LogOut, FileText, Info } from "lucide-react"
 import { AdminHelp } from "@/components/admin-help"
+import { Button } from "@/components/ui/button"
 
 const LEVEL_RANK: Record<string, number> = { AAA: 0, AA: 1, A: 2, BB: 3, B: 4, C: 5 }
 const levelRank = (l: string) => LEVEL_RANK[l.toUpperCase()] ?? 99
@@ -28,6 +29,7 @@ type Team = {
   level: string
   banner_url: string | null
   published: boolean
+  owha_url_regular: string | null
 }
 
 type AdminRow = {
@@ -61,6 +63,12 @@ export default function AdminTeamsPage() {
   const [level, setLevel] = useState("")
   const [creating, setCreating] = useState(false)
 
+  // Configure section
+  const [configOpenId, setConfigOpenId] = useState<string | null>(null)
+  const [configUrls, setConfigUrls] = useState<Record<string, string>>({})
+  const [configSaving, setConfigSaving] = useState<string | null>(null)
+  const [configSaved, setConfigSaved] = useState<string | null>(null)
+
   // Invite admin form
   const [inviteTeamId, setInviteTeamId] = useState<string | null>(null)
   const [inviteEmail, setInviteEmail] = useState("")
@@ -69,6 +77,15 @@ export default function AdminTeamsPage() {
 
   const router = useRouter()
   const supabase = createClient()
+  const newTeamRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (configOpenId && newTeamRef.current === configOpenId) {
+      const el = document.getElementById(`team-card-${configOpenId}`)
+      el?.scrollIntoView({ behavior: "smooth", block: "center" })
+      newTeamRef.current = null
+    }
+  }, [configOpenId])
 
   useEffect(() => {
     async function load() {
@@ -112,11 +129,14 @@ export default function AdminTeamsPage() {
 
     if (!error && data) {
       setTeams((prev) => sortTeams([...prev, data]))
-      setOrg("")
-      setTeamName("")
+      setOrg("Nepean")
+      setTeamName("Wildcats")
       setAgeGroup("")
       setLevel("")
       setShowCreate(false)
+      newTeamRef.current = data.id
+      setConfigOpenId(data.id)
+      setConfigUrls((prev) => ({ ...prev, [data.id]: "" }))
     }
     setCreating(false)
   }
@@ -164,6 +184,20 @@ export default function AdminTeamsPage() {
       setInviteTeamId(null)
     }
     setInviting(false)
+  }
+
+  async function handleSaveConfig(team: Team) {
+    setConfigSaving(team.id)
+    const url = configUrls[team.id] ?? team.owha_url_regular ?? ""
+    await fetch("/api/owha-config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamId: team.id, owha_url_regular: url }),
+    })
+    setTeams((prev) => prev.map((t) => t.id === team.id ? { ...t, owha_url_regular: url } : t))
+    setConfigSaving(null)
+    setConfigSaved(team.id)
+    setTimeout(() => setConfigSaved(null), 2000)
   }
 
   async function handleRemoveAdmin(adminId: string) {
@@ -246,7 +280,12 @@ export default function AdminTeamsPage() {
           <input className="game-form-input" placeholder="Age group (e.g. U15)" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value.toUpperCase())} required />
           <input className="game-form-input" placeholder="Level (e.g. A)" value={level} onChange={(e) => setLevel(e.target.value.toUpperCase())} required />
           <p className="text-xs text-muted-foreground">Slug: {slugify(org, teamName, ageGroup, level) || "..."}</p>
-          <button type="submit" className="admin-btn" disabled={creating}>
+          <button
+            type="submit"
+            className="admin-btn"
+            disabled={creating}
+            style={org && teamName && ageGroup && level ? { background: "#16a34a" } : undefined}
+          >
             {creating ? "Creating..." : "Create Team"}
           </button>
         </form>
@@ -262,13 +301,37 @@ export default function AdminTeamsPage() {
         {teams.map((team) => {
           const teamAdmins = admins.filter((a) => a.team_id === team.id && a.role === "team_admin")
           return (
-            <div key={team.id} className="admin-team-card">
+            <div key={team.id} id={`team-card-${team.id}`} className="admin-team-card">
               <div className="admin-team-header">
-                <div>
+                <Link href={`/admin/team/${team.slug}`} className="admin-team-enter">
+                  <FileText className="size-4" />
+                </Link>
+                <div className="admin-team-info">
                   <p className="text-sm font-medium">{team.organization} - {team.name} - {team.age_group.toUpperCase()} - {team.level.toUpperCase()}</p>
                   <p className="text-xs text-muted-foreground">/{team.slug}</p>
                 </div>
                 <div className="admin-team-actions">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setConfigOpenId(configOpenId === team.id ? null : team.id)
+                      if (configOpenId !== team.id) {
+                        setConfigUrls((prev) => ({ ...prev, [team.id]: team.owha_url_regular ?? "" }))
+                      }
+                    }}
+                  >
+                    <Settings className="size-3" />
+                    Configure
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setInviteTeamId(inviteTeamId === team.id ? null : team.id)}
+                  >
+                    <UserPlus className="size-3" />
+                    Add Admin
+                  </Button>
                   <button
                     onClick={() => handleTogglePublished(team)}
                     className={`admin-badge ${team.published ? "admin-badge-published" : "admin-badge-draft"}`}
@@ -281,49 +344,67 @@ export default function AdminTeamsPage() {
                 </div>
               </div>
 
-              {/* Team admins */}
-              {teamAdmins.length > 0 && (
-                <div className="admin-team-admins">
-                  {teamAdmins.map((a) => (
-                    <div key={a.id} className="admin-team-admin-row">
-                      <span className="text-xs">{a.user_id.slice(0, 8)}...</span>
-                      <button onClick={() => handleRemoveAdmin(a.id)}>
-                        <X className="size-3 text-muted-foreground" />
-                      </button>
-                    </div>
-                  ))}
+              {/* Configure section */}
+              {configOpenId === team.id && (
+                <div className="team-config-section">
+                  <p className="team-config-label">OWHA Regular Season Games URL</p>
+                  <div className="owha-sync-url-row">
+                    <input
+                      className="owha-sync-url-input"
+                      placeholder="https://www.owha.on.ca/division/1590/14802/games"
+                      value={configUrls[team.id] ?? ""}
+                      onChange={(e) => setConfigUrls((prev) => ({ ...prev, [team.id]: e.target.value }))}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSaveConfig(team)}
+                      disabled={configSaving === team.id}
+                      style={{ minWidth: "5rem", ...((configUrls[team.id] ?? "") !== (team.owha_url_regular ?? "") ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : {}) }}
+                    >
+                      {configSaved === team.id ? "Saved" : configSaving === team.id ? "Saving…" : "Save"}
+                    </Button>
+                  </div>
+                  <p className="owha-sync-tip">
+                    <Info className="owha-sync-tip-icon" />
+                    Paste the OWHA division page URL from your browser address bar. If sync stops working, refer to comments labeled "OWHA API" in app/api/owha-sync/route.ts
+                  </p>
                 </div>
               )}
 
               {/* Invite admin */}
-              {inviteTeamId === team.id ? (
-                <form onSubmit={handleInviteAdmin} className="admin-invite-form">
-                  <input
-                    className="game-form-input"
-                    type="email"
-                    placeholder="Admin email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    required
-                  />
-                  {inviteError && <p className="admin-error">{inviteError}</p>}
-                  <div className="admin-invite-actions">
-                    <button type="submit" className="admin-btn" disabled={inviting}>
-                      {inviting ? "Inviting..." : "Invite"}
-                    </button>
-                    <button type="button" onClick={() => { setInviteTeamId(null); setInviteError("") }}>
-                      <X className="size-4" />
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <button
-                  onClick={() => setInviteTeamId(team.id)}
-                  className="admin-inline-link"
-                >
-                  <UserPlus className="size-3" />
-                  Add Admin
-                </button>
+              {inviteTeamId === team.id && (
+                <div className="team-config-section">
+                  <p className="team-config-label">Invite Admin</p>
+                  {teamAdmins.length > 0 && (
+                    <div className="admin-team-admins">
+                      {teamAdmins.map((a) => (
+                        <div key={a.id} className="admin-team-admin-row">
+                          <span className="text-xs">{a.user_id.slice(0, 8)}...</span>
+                          <button onClick={() => handleRemoveAdmin(a.id)}>
+                            <X className="size-3 text-muted-foreground" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <form onSubmit={handleInviteAdmin}>
+                    <div className="owha-sync-url-row">
+                      <input
+                        className="owha-sync-url-input"
+                        type="email"
+                        placeholder="Admin email address"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        required
+                      />
+                      <Button variant="outline" size="sm" type="submit" disabled={inviting} style={{ minWidth: "5rem" }}>
+                        {inviting ? "Inviting…" : "Invite"}
+                      </Button>
+                    </div>
+                    {inviteError && <p className="admin-error">{inviteError}</p>}
+                  </form>
+                </div>
               )}
             </div>
           )

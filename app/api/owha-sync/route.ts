@@ -3,6 +3,55 @@ import { createClient as createServerClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import type { GameType } from "@/lib/types"
 
+// ── OWHA API ────────────────────────────────────────────────
+//
+// OWHA uses two separate API systems depending on game type.
+// All URLs are discovered by opening the OWHA division page in a browser,
+// opening DevTools → Network tab → filtering by XHR, then reading the
+// Request URLs that appear when the page loads.
+//
+// HOW TO FIND URLS FOR A NEW SEASON:
+//   1. Visit the team's OWHA division page (e.g. https://www.owha.on.ca/division/1590/14802/games)
+//   2. Open DevTools → Network → XHR
+//   3. Reload the page and look for calls to /api/leaguegame/get/...
+//   4. The URL segments reveal all the constants below
+//
+// REGULAR SEASON + PLAYOFFS (CATID != 0 in division URL)
+//   Division page URL: https://www.owha.on.ca/division/{CATID}/{DID}/games
+//   Games API:         /api/leaguegame/get/{AID}/{SID}/{CATID}/{DID}/{GTID}/{page}/
+//   Standings API:     /api/leaguegame/getstandings3cached/{AID}/{SID}/{GTID}/{CATID}/{DID}/0/0
+//
+//   Known constants (verify each new season via DevTools):
+//     AID  = 2788   — OWHA Association ID (likely stable)
+//     SID  = 12488  — Season ID (WILL CHANGE each season — check DevTools)
+//     GTID = 5069   — Game Type ID for Regular Season
+//     GTID = 5387   — Game Type ID for Playoffs (same division URL, different GTID)
+//
+// PLAYDOWNS (CATID = 0 in division URL — provincial scope)
+//   Division page URL: https://www.owha.on.ca/division/0/{DID}/games
+//   Games API:         /api/leaguegame/get/{AID}/{SID}/0/{DID}/0/{page}/
+//   Standings API:     /api/leaguegame/getstandings3wsdcached/{AID}/{SID}/0/0/{DID}/0
+//
+//   Known constants (verify each new season via DevTools):
+//     AID  = 3617   — Different AID for playdowns (likely stable)
+//     SID  = 13359  — Season ID for playdowns (WILL CHANGE each season — check DevTools)
+//     GTID = 0      — Playdowns use 0 for game type
+//
+// SUBDIVISION (LOOP) FILTERING:
+//   Playdowns standings return ALL loops in the province.
+//   Filter by SDID (SubDivisionID) to isolate your team's loop.
+//   Your team's SDID is in the standings response under the "SDID" field.
+//   SubDivName contains loop name + qualifying info e.g. "Region C (2 of 4 teams advance)"
+//
+// IF SYNC BREAKS NEXT SEASON:
+//   Most likely cause is SID changed. Open DevTools on any OWHA division page,
+//   check the XHR calls, find the new SID value, and update the constants below.
+//
+// ────────────────────────────────────────────────────────────
+
+const OWHA_REGULAR = { AID: 2788, SID: 12488, GTID_REGULAR: 5069, GTID_PLAYOFFS: 5387 }
+const OWHA_PLAYDOWNS = { AID: 3617, SID: 13359, GTID: 0 }
+
 // ── OWHA JSON API types ─────────────────────────────────────
 
 type OwhaApiGame = {
@@ -56,6 +105,23 @@ function parseSDate(sDate: string): { date: string; time: string } {
     date: datePart || "",
     time: timePart ? timePart.slice(0, 5) : "",
   }
+}
+
+// Convert a division page URL to the leaguegame API base URL.
+// Handles both regular season (CATID != 0) and playdowns (CATID = 0).
+// See the OWHA API comment block above if this needs updating next season.
+function toApiBaseUrl(url: string): string {
+  const m = url.match(/\/division\/(\d+)\/(\d+)/)
+  if (!m) return url // already an API URL or unknown format, use as-is
+  const [, catId, divisionId] = m
+  if (catId === "0") {
+    // Playdowns — provincial scope
+    const { AID, SID, GTID } = OWHA_PLAYDOWNS
+    return `https://www.owha.on.ca/api/leaguegame/get/${AID}/${SID}/0/${divisionId}/${GTID}/`
+  }
+  // Regular season (use GTID_REGULAR; playoffs uses same URL with GTID_PLAYOFFS — handled separately)
+  const { AID, SID, GTID_REGULAR } = OWHA_REGULAR
+  return `https://www.owha.on.ca/api/leaguegame/get/${AID}/${SID}/${catId}/${divisionId}/${GTID_REGULAR}/`
 }
 
 // Fetch all pages from the OWHA leaguegame JSON API
@@ -168,7 +234,7 @@ export async function POST(request: Request) {
   // Fetch all games from OWHA JSON API
   let allGames: OwhaApiGame[]
   try {
-    allGames = await fetchAllOwhaGames(owhaUrl)
+    allGames = await fetchAllOwhaGames(toApiBaseUrl(owhaUrl))
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 502 })
   }

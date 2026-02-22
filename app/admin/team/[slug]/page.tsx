@@ -7,7 +7,7 @@ import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { useSupabaseOpponents } from "@/hooks/use-supabase-opponents"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, Info } from "lucide-react"
 
 type SyncResult = { inserted: number; updated: number; skipped: number; errors: string[] }
 
@@ -120,22 +120,28 @@ function SyncSection({
       <p className="owha-sync-heading">{label}</p>
 
       {syncType === "regular" && (
-        <div className="owha-sync-url-row">
-          <input
-            className="owha-sync-url-input"
-            placeholder="https://www.owha.on.ca/division/0/XXXXX/games"
-            value={localUrl}
-            onChange={(e) => { setLocalUrl(e.target.value); setUrlSaved(false); setUrlDirty(true) }}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSaveUrl}
-            disabled={urlSaving}
-            style={urlDirty ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
-          >
-            {urlSaved ? "Saved" : urlSaving ? "Saving…" : "Save"}
-          </Button>
+        <div className="flex flex-col gap-1">
+          <div className="owha-sync-url-row">
+            <input
+              className="owha-sync-url-input"
+              placeholder="https://www.owha.on.ca/division/1590/14802/games"
+              value={localUrl}
+              onChange={(e) => { setLocalUrl(e.target.value); setUrlSaved(false); setUrlDirty(true) }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveUrl}
+              disabled={urlSaving}
+              style={urlDirty ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
+            >
+              {urlSaved ? "Saved" : urlSaving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+          <p className="owha-sync-tip">
+            <Info className="owha-sync-tip-icon" />
+            Paste the OWHA division page URL from your browser. If sync stops working, refer to comments labeled "OWHA API" in app/api/owha-sync/route.ts
+          </p>
         </div>
       )}
 
