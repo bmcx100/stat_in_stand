@@ -5,15 +5,77 @@ import Link from "next/link"
 import { ArrowLeft, AlertCircle } from "lucide-react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
+import { useSupabaseGames } from "@/hooks/use-supabase-games"
+import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { computePlaydownStandings, computeQualificationStatus, detectTiebreakerResolutions } from "@/lib/playdowns"
+import type { PlaydownConfig, PlaydownGame, PlaydownStandingsRow, StandingsRow } from "@/lib/types"
+import type { Game } from "@/lib/types"
+
+function normName(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+}
+
+function owhaGamesToPlaydownGames(owhaGames: Game[], config: PlaydownConfig): PlaydownGame[] {
+  return owhaGames
+    .filter((g) => g.played)
+    .map((g): PlaydownGame | null => {
+      const needle = normName(g.opponent)
+      const oppTeam = config.teams.find((t) => {
+        if (t.id === "self") return false
+        const hay = normName(t.name)
+        return hay === needle || hay.includes(needle) || needle.includes(hay)
+      })
+      if (!oppTeam) return null
+      const isHome = g.home !== false
+      return {
+        id: g.id,
+        teamId: "self",
+        date: g.date,
+        time: g.time ?? "",
+        homeTeam: isHome ? "self" : oppTeam.id,
+        awayTeam: isHome ? oppTeam.id : "self",
+        homeScore: isHome ? g.teamScore : g.opponentScore,
+        awayScore: isHome ? g.opponentScore : g.teamScore,
+        location: g.location ?? "",
+        played: true,
+      }
+    })
+    .filter((g): g is PlaydownGame => g !== null)
+}
+
+function owhaStandingsToPlaydownRows(
+  rows: StandingsRow[],
+  orgName: string,
+  teamName: string
+): PlaydownStandingsRow[] {
+  return rows.map((r, i) => {
+    const n = normName(r.teamName)
+    const isSelf = n.includes(normName(orgName)) || n.includes(normName(teamName))
+    return {
+      teamId: isSelf ? "self" : `owha-${i}`,
+      teamName: r.teamName,
+      gp: r.gp, w: r.w, l: r.l, t: r.t,
+      otl: r.otl ?? 0, sol: r.sol ?? 0,
+      pts: r.pts,
+      gf: r.gf ?? 0, ga: r.ga ?? 0,
+      diff: (r.gf ?? 0) - (r.ga ?? 0),
+      pim: 0,
+      winPct: r.gp > 0 ? r.w / r.gp : 0,
+      qualifies: false,
+      tiedUnresolved: false,
+    }
+  })
+}
 
 export default function PlaydownsPage() {
   const team = useTeamContext()
   const { playdown, loading } = useSupabasePlaydowns(team.id)
+  const { games: allGames, loading: gamesLoading } = useSupabaseGames(team.id)
+  const { standingsMap, loading: standingsLoading } = useSupabaseStandings(team.id)
   const [tab, setTab] = useState<"standings" | "graphs">("graphs")
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
 
-  if (loading) {
+  if (loading || gamesLoading || standingsLoading) {
     return (
       <div className="dashboard-page">
         <p className="text-muted-foreground">Loading...</p>
@@ -37,7 +99,219 @@ export default function PlaydownsPage() {
   }
 
   const { config, games } = playdown
-  const standings = computePlaydownStandings(config, games)
+
+  // ── OWHA mode: standings sync has populated teamNames in config ───────────
+  // Use synced OWHA standings + playdown.games JSONB (all loop games) directly.
+  const isOwhaMode = (config.teamNames?.length ?? 0) > 0 && config.teams.length === 0
+  if (isOwhaMode) {
+    const owhaRows = standingsMap["playdowns"]?.rows ?? []
+    const playdownStandings = owhaStandingsToPlaydownRows(owhaRows, team.organization, team.name)
+    const totalTeams = config.teamNames?.length || config.totalTeams || owhaRows.length
+    const qualifyingSpots = config.qualifyingSpots || 0
+    // Count total games per team (played + scheduled) from the JSONB schedule.
+    // This is reliable regardless of how many games have been played so far.
+    const gameCountByTeam = new Map<string, number>()
+    for (const g of games) {
+      gameCountByTeam.set(g.homeTeam, (gameCountByTeam.get(g.homeTeam) ?? 0) + 1)
+      gameCountByTeam.set(g.awayTeam, (gameCountByTeam.get(g.awayTeam) ?? 0) + 1)
+    }
+    const maxScheduledGames = gameCountByTeam.size > 0 ? Math.max(...gameCountByTeam.values()) : 0
+    const gamesPerMatchup = maxScheduledGames > 0 && totalTeams > 1
+      ? Math.max(1, Math.round(maxScheduledGames / (totalTeams - 1)))
+      : Math.max(1, config.gamesPerMatchup || 1)
+    const syntheticConfig: PlaydownConfig = {
+      teamId: team.id, totalTeams, qualifyingSpots, gamesPerMatchup, teams: [],
+    }
+    const qualification = computeQualificationStatus(playdownStandings, syntheticConfig)
+    const statusCounts = {
+      locked: qualification.filter((r) => r.status === "locked").length,
+      alive: qualification.filter((r) => r.status === "alive").length,
+      out: qualification.filter((r) => r.status === "out").length,
+    }
+    const totalGamesPerTeam = (totalTeams - 1) * gamesPerMatchup
+    const totalMaxPts = totalGamesPerTeam * 2
+    const maxScale = Math.max(totalMaxPts, 1)
+    const cutoffPts = qualifyingSpots > 0 && qualification.length >= qualifyingSpots
+      ? qualification[qualifyingSpots - 1].pts : 0
+    const allZeroPoints = qualification.every((r) => r.pts === 0)
+    const today = new Date().toISOString().slice(0, 10)
+    const completed = games.filter((g) => g.played).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    const upcoming = games.filter((g) => !g.played && g.date >= today).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    const filteredCompleted = selectedTeamId
+      ? completed.filter((g) => g.homeTeam === selectedTeamId || g.awayTeam === selectedTeamId)
+      : completed
+    const filteredUpcoming = selectedTeamId
+      ? upcoming.filter((g) => g.homeTeam === selectedTeamId || g.awayTeam === selectedTeamId)
+      : upcoming
+
+    return (
+      <div className="dashboard-page">
+        <div className="sub-page-header">
+          <h1 className="page-title">Playdowns</h1>
+          <Link href={`/team/${team.slug}`} className="back-link">Back<ArrowLeft className="size-4" /></Link>
+        </div>
+        {config.teamNames && (
+          <p className="text-sm text-center font-bold">
+            {totalTeams} Teams · Top {qualifyingSpots} qualify · {totalGamesPerTeam} games each
+          </p>
+        )}
+        <div className="import-tabs">
+          <button className="import-tab" data-active={tab === "standings"} onClick={() => setTab("standings")}>Standings / Schedule</button>
+          <button className="import-tab" data-active={tab === "graphs"} onClick={() => setTab("graphs")}>Graphs</button>
+        </div>
+
+        {tab === "standings" && (
+          <>
+            {playdownStandings.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="standings-table">
+                  <thead><tr>
+                    <th></th><th>Team</th><th>PTS</th><th>GP</th><th>W</th><th>L</th><th>T</th><th>OTL</th><th>SOL</th><th>GF</th><th>GA</th><th>DIFF</th>
+                  </tr></thead>
+                  <tbody>
+                    {playdownStandings.map((row, i) => (
+                      <tr
+                        key={row.teamId}
+                        className={`standings-row standings-row-clickable ${row.teamId === "self" ? "playdown-self-row" : ""} ${i === qualifyingSpots - 1 ? "playdown-cutoff" : ""} ${selectedTeamId === row.teamName ? "playdown-row-selected" : ""}`}
+                        onClick={() => setSelectedTeamId(selectedTeamId === row.teamName ? null : row.teamName)}
+                      >
+                        <td><span className={`text-xs font-bold ${row.qualifies ? "text-green-600" : "text-muted-foreground"}`}>{i + 1}</span></td>
+                        <td className="font-medium">{row.teamName}</td>
+                        <td className="font-bold">{row.pts}</td>
+                        <td>{row.gp}/{totalGamesPerTeam}</td><td>{row.w}</td><td>{row.l}</td><td>{row.t}</td>
+                        <td>{row.otl}</td><td>{row.sol}</td><td>{row.gf}</td><td>{row.ga}</td>
+                        <td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {completed.length > 0 && (
+              <>
+                <h2 className="text-sm font-semibold">
+                  Results{selectedTeamId ? ` — ${selectedTeamId}` : ""}
+                </h2>
+                <div className="dashboard-nav">
+                  {filteredCompleted.map((g) => (
+                    <div key={g.id} className="game-list-item">
+                      <div>
+                        <p className="text-sm font-medium">{g.homeTeam} vs {g.awayTeam}</p>
+                        <p className="text-xs text-muted-foreground">{g.date}{g.time ? ` at ${g.time}` : ""}</p>
+                        {g.location && <p className="text-xs text-muted-foreground">{g.location}</p>}
+                      </div>
+                      <p className="text-sm font-bold">{g.homeScore} - {g.awayScore}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            {upcoming.length > 0 && (
+              <>
+                <h2 className="text-sm font-semibold">
+                  Upcoming{selectedTeamId ? ` — ${selectedTeamId}` : ""}
+                </h2>
+                <div className="dashboard-nav">
+                  {filteredUpcoming.map((g) => (
+                    <div key={g.id} className="game-list-item">
+                      <div>
+                        <p className="text-sm font-medium">{g.homeTeam} vs {g.awayTeam}</p>
+                        <p className="text-xs text-muted-foreground">{g.date}{g.time ? ` at ${g.time}` : ""}</p>
+                        {g.location && <p className="text-xs text-muted-foreground">{g.location}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            {completed.length === 0 && upcoming.length === 0 && (
+              <p className="dashboard-record-label">No playdown games yet. Sync games from the Admin panel.</p>
+            )}
+          </>
+        )}
+
+        {tab === "graphs" && qualification.length > 0 && !allZeroPoints && (
+          <>
+            <div className="qual-standings-list">
+              <p className="qual-standings-header"># | Team Name | Record | Points</p>
+              {qualification.map((row, i) => {
+                const fillWidth = maxScale > 0 ? (row.pts / maxScale) * 100 : 0
+                const potentialWidth = maxScale > 0 ? (row.maxPts / maxScale) * 100 : 0
+                return (
+                  <div key={row.teamId} className={`qual-standings-row ${row.teamId === "self" ? "playdown-self-row" : ""}`}>
+                    <div className="qual-standings-top">
+                      <div className="qual-standings-left">
+                        <span className="qual-standings-rank">{i + 1}</span>
+                        <span className="qual-standings-name">{row.teamName}</span>
+                      </div>
+                      <div className="qual-standings-right">
+                        <span className="qual-standings-record">{row.w}-{row.l}-{row.t}</span>
+                        <span className="qual-standings-games">{row.gp}/{row.gp + row.gamesRemaining} games</span>
+                      </div>
+                    </div>
+                    <div className="qual-standings-bottom">
+                      <div className="qual-progress-wrap">
+                        <div className="qual-progress-track">
+                          <div className="qual-progress-potential" style={{ width: `${potentialWidth}%` }} />
+                          <div className="qual-progress-fill" data-status={row.status} style={{ width: `${fillWidth}%` }} />
+                        </div>
+                        <span className="qual-progress-label">{row.pts}/{totalMaxPts} pts</span>
+                      </div>
+                      <span className="qual-standings-divider" />
+                      <span className="qual-status-badge" data-status={row.status}>
+                        {row.status === "locked" ? "IN" : row.status === "out" ? "OUT" : "ALIVE"}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="qual-number-line-wrap">
+              <div className="qual-number-line">
+                <div className="qual-cutoff-line" style={{ left: `${(cutoffPts / maxScale) * 100}%` }} />
+                <span className="qual-zone-label" data-zone="outside">Outside</span>
+                <span className="qual-zone-label" data-zone="qualifying">Qualifying Zone</span>
+                {qualification.map((row, i) => {
+                  const sameGroup = qualification.filter((r) => r.pts === row.pts)
+                  const groupIdx = sameGroup.findIndex((r) => r.teamId === row.teamId)
+                  const reversedIdx = sameGroup.length - 1 - groupIdx
+                  const offset = (reversedIdx - (sameGroup.length - 1) / 2) * 30
+                  if (row.pts === 0) return null
+                  return (
+                    <div key={row.teamId} className="qual-team-dot-wrap" style={{ left: `${(row.pts / maxScale) * 100}%`, marginLeft: `${offset}px` }}>
+                      <div className="qual-team-dot" data-status={row.status}>{i + 1}</div>
+                      <div className="qual-team-tooltip">{row.teamName}: {row.pts} pts ({row.w}-{row.l}-{row.t})</div>
+                    </div>
+                  )
+                })}
+                {Array.from({ length: maxScale + 1 }, (_, n) => (
+                  <span key={n} className="qual-axis-tick" style={{ left: `${(n / maxScale) * 100}%` }}>{n}</span>
+                ))}
+              </div>
+            </div>
+            <div className="qual-status-strip">
+              <div className="qual-status-segment" data-status="out"><span className="qual-status-count">{statusCounts.out}</span><span className="qual-status-label">OUT</span></div>
+              <div className="qual-status-segment" data-status="alive"><span className="qual-status-count">{statusCounts.alive}</span><span className="qual-status-label">ALIVE</span></div>
+              <div className="qual-status-segment" data-status="locked"><span className="qual-status-count">{statusCounts.locked}</span><span className="qual-status-label">LOCKED</span></div>
+            </div>
+          </>
+        )}
+        {tab === "graphs" && allZeroPoints && (
+          <p className="dashboard-record-label">No points recorded yet.</p>
+        )}
+      </div>
+    )
+  }
+  // ── End OWHA mode ─────────────────────────────────────────
+
+  // Merge manually-entered bracket games with OWHA-synced games from the games table.
+  // OWHA games are converted to PlaydownGame format by matching opponent names to config.teams.
+  const owhaPlaydownGames = allGames.filter((g) => g.gameType === "playdowns")
+  const convertedOwhaGames = owhaGamesToPlaydownGames(owhaPlaydownGames, config)
+  // Deduplicate: only add converted games whose IDs aren't already in the JSONB blob
+  const existingIds = new Set(games.map((g) => g.id))
+  const mergedGames = [...games, ...convertedOwhaGames.filter((g) => !existingIds.has(g.id))]
+  const standings = computePlaydownStandings(config, mergedGames)
   const qualification = computeQualificationStatus(standings, config)
   const statusCounts = {
     locked: qualification.filter((r) => r.status === "locked").length,
@@ -47,19 +321,19 @@ export default function PlaydownsPage() {
   const teamCount = config.teams.length || config.totalTeams
   const totalMaxPts = (teamCount - 1) * config.gamesPerMatchup * 2
   const maxScale = Math.max(totalMaxPts, 1)
-  const cutoffPts = qualification.length >= config.qualifyingSpots
+  const cutoffPts = config.qualifyingSpots > 0 && qualification.length >= config.qualifyingSpots
     ? qualification[config.qualifyingSpots - 1].pts
     : 0
-  const completed = games
+  const completed = mergedGames
     .filter((g) => g.played)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const allZeroPoints = qualification.every((r) => r.pts === 0)
   const anyZeroGamesPlayed = standings.some((r) => r.gp === 0)
-  const tiebreakers = anyZeroGamesPlayed ? [] : detectTiebreakerResolutions(standings, games)
+  const tiebreakers = anyZeroGamesPlayed ? [] : detectTiebreakerResolutions(standings, mergedGames)
 
   const today = new Date().toISOString().slice(0, 10)
-  const upcoming = games
+  const upcoming = mergedGames
     .filter((g) => !g.played && g.date >= today)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 

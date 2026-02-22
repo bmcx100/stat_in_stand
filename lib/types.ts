@@ -76,6 +76,7 @@ export type PlaydownConfig = {
   qualifyingSpots: number
   gamesPerMatchup: number
   teams: PlaydownTeam[]
+  teamNames?: string[]  // OWHA loop team names, populated by standings sync
 }
 
 export type PlaydownGame = {

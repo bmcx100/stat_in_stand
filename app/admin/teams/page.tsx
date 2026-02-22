@@ -67,6 +67,8 @@ export default function AdminTeamsPage() {
   const [configOpenId, setConfigOpenId] = useState<string | null>(null)
   const [configUrls, setConfigUrls] = useState<Record<string, string>>({})
   const [configPlaydownUrls, setConfigPlaydownUrls] = useState<Record<string, string>>({})
+  const [configOriginalUrls, setConfigOriginalUrls] = useState<Record<string, string>>({})
+  const [configOriginalPlaydownUrls, setConfigOriginalPlaydownUrls] = useState<Record<string, string>>({})
   const [configSaving, setConfigSaving] = useState<string | null>(null)
   const [configSaved, setConfigSaved] = useState<string | null>(null)
 
@@ -96,7 +98,9 @@ export default function AdminTeamsPage() {
       .eq("team_id", configOpenId)
       .maybeSingle()
       .then(({ data }) => {
-        setConfigPlaydownUrls((prev) => ({ ...prev, [configOpenId]: data?.owha_url ?? "" }))
+        const url = data?.owha_url ?? ""
+        setConfigPlaydownUrls((prev) => ({ ...prev, [configOpenId]: url }))
+        setConfigOriginalPlaydownUrls((prev) => ({ ...prev, [configOpenId]: url }))
       })
   }, [configOpenId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -216,6 +220,8 @@ export default function AdminTeamsPage() {
       }),
     ])
     setTeams((prev) => prev.map((t) => t.id === team.id ? { ...t, owha_url_regular: url } : t))
+    setConfigOriginalUrls((prev) => ({ ...prev, [team.id]: url }))
+    setConfigOriginalPlaydownUrls((prev) => ({ ...prev, [team.id]: playdownUrl }))
     setConfigSaving(null)
     setConfigSaved(team.id)
     setTimeout(() => setConfigSaved(null), 2000)
@@ -338,7 +344,9 @@ export default function AdminTeamsPage() {
                     onClick={() => {
                       setConfigOpenId(configOpenId === team.id ? null : team.id)
                       if (configOpenId !== team.id) {
-                        setConfigUrls((prev) => ({ ...prev, [team.id]: team.owha_url_regular ?? "" }))
+                        const url = team.owha_url_regular ?? ""
+                        setConfigUrls((prev) => ({ ...prev, [team.id]: url }))
+                        setConfigOriginalUrls((prev) => ({ ...prev, [team.id]: url }))
                       }
                     }}
                   >
@@ -387,15 +395,22 @@ export default function AdminTeamsPage() {
                     />
                   </div>
                   <div className="owha-sync-url-row">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSaveConfig(team)}
-                      disabled={configSaving === team.id}
-                      style={{ minWidth: "5rem", backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" }}
-                    >
-                      {configSaved === team.id ? "Saved" : configSaving === team.id ? "Saving…" : "Save"}
-                    </Button>
+                    {(() => {
+                      const isDirty =
+                        (configUrls[team.id] ?? "") !== (configOriginalUrls[team.id] ?? "") ||
+                        (configPlaydownUrls[team.id] ?? "") !== (configOriginalPlaydownUrls[team.id] ?? "")
+                      return (
+                        <Button
+                          variant={isDirty ? "outline" : "secondary"}
+                          size="sm"
+                          onClick={() => handleSaveConfig(team)}
+                          disabled={configSaving === team.id}
+                          style={isDirty ? { minWidth: "5rem", backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : { minWidth: "5rem" }}
+                        >
+                          {configSaved === team.id ? "Saved" : configSaving === team.id ? "Saving…" : "Save"}
+                        </Button>
+                      )
+                    })()}
                   </div>
                   <p className="owha-sync-tip">
                     <Info className="owha-sync-tip-icon" />

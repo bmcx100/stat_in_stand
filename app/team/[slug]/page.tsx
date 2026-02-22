@@ -17,7 +17,8 @@ export default function Dashboard() {
   const team = useTeamContext()
   const { games, loading: gamesLoading } = useSupabaseGames(team.id)
   const { getById } = useSupabaseOpponents(team.id)
-  const { standings } = useSupabaseStandings(team.id)
+  const { standingsMap } = useSupabaseStandings(team.id)
+  const standings = standingsMap["regular"]
   const { playdown } = useSupabasePlaydowns(team.id)
   const { tournaments } = useSupabaseTournaments(team.id)
   const [canScrollUp, setCanScrollUp] = useState(false)
@@ -93,11 +94,19 @@ export default function Dashboard() {
     .filter((g) => !g.played && g.date >= today)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-  const showPlaydownCard = playdown && playdown.config.teams.length > 0
+  const playdownGamesFromTable = games.filter((g) => g.gameType === "playdowns" && g.played)
+  const hasPlaydownGames = games.some((g) => g.gameType === "playdowns")
+  const showPlaydownCard = (playdown && playdown.config.teams.length > 0) || hasPlaydownGames
 
-  const playdownSelf = playdown
+  const playdownSelf = playdown && playdown.config.teams.length > 0
     ? computePlaydownStandings(playdown.config, playdown.games).find((r) => r.teamId === "self")
     : null
+
+  const playdownTableRecord = {
+    w: playdownGamesFromTable.filter((g) => g.result === "W").length,
+    l: playdownGamesFromTable.filter((g) => g.result === "L").length,
+    t: playdownGamesFromTable.filter((g) => g.result === "T").length,
+  }
 
   const hasExpiredTournaments = tournaments.some((t) => isTournamentExpired(t.config))
 
@@ -167,13 +176,15 @@ export default function Dashboard() {
           <div className="dashboard-event-info">
             <p className="dashboard-event-label">Playdowns</p>
             <p className="dashboard-event-meta">
-              {playdown.config.totalTeams} teams
-              {playdown.config.qualifyingSpots ? ` · Top ${playdown.config.qualifyingSpots} qualify` : ""}
-              {playdown.config.gamesPerMatchup > 1 ? ` · Best of ${playdown.config.gamesPerMatchup}` : ""}
+              {playdown?.config.totalTeams ? `${playdown.config.totalTeams} teams` : ""}
+              {playdown?.config.qualifyingSpots ? ` · Top ${playdown.config.qualifyingSpots} qualify` : ""}
+              {playdown?.config.gamesPerMatchup > 1 ? ` · Best of ${playdown.config.gamesPerMatchup}` : ""}
             </p>
           </div>
           <p className="dashboard-event-record">
-            {playdownSelf ? `${playdownSelf.w}-${playdownSelf.l}-${playdownSelf.t}` : "—"}
+            {playdownSelf
+            ? `${playdownSelf.w}-${playdownSelf.l}-${playdownSelf.t}`
+            : `${playdownTableRecord.w}-${playdownTableRecord.l}-${playdownTableRecord.t}`}
           </p>
         </Link>
       )}

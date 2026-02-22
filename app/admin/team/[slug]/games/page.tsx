@@ -36,6 +36,12 @@ export default function AdminGamesPage() {
   const [newLocation, setNewLocation] = useState("")
   const [newGameType, setNewGameType] = useState<GameType>("regular")
 
+  function gameTypeFromFilter(filter: string): GameType {
+    if (filter.startsWith("tournament:")) return "tournament"
+    if (filter === "all") return "regular"
+    return filter as GameType
+  }
+
   const addGameReady = Boolean(newOpponent)
 
   function opponentDisplay(game: Game): string {
@@ -69,7 +75,7 @@ export default function AdminGamesPage() {
       source: "manual",
       played: false,
     }])
-    setNewDate(""); setNewTime(""); setNewOpponent(""); setNewLocation(""); setNewGameType("regular")
+    setNewDate(""); setNewTime(""); setNewOpponent(""); setNewLocation(""); setNewGameType(gameTypeFromFilter(selectedType))
     setAddOpen(false)
   }
 
@@ -106,7 +112,7 @@ export default function AdminGamesPage() {
       <select
         className="games-table-select"
         value={selectedType}
-        onChange={(e) => setSelectedType(e.target.value)}
+        onChange={(e) => { setSelectedType(e.target.value); setNewGameType(gameTypeFromFilter(e.target.value)) }}
       >
         {filterOptions.map((opt) => (
           <option key={opt.value} value={opt.value}>{opt.label}</option>

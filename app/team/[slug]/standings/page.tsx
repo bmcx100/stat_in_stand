@@ -32,7 +32,8 @@ export default function StandingsPage() {
   const team = useTeamContext()
   const { games, loading: gamesLoading } = useSupabaseGames(team.id)
   const { getById } = useSupabaseOpponents(team.id)
-  const { standings } = useSupabaseStandings(team.id)
+  const { standingsMap } = useSupabaseStandings(team.id)
+  const standings = standingsMap["regular"]
   const { playdown } = useSupabasePlaydowns(team.id)
   const [mode, setMode] = useState<StandingsMode>("regular")
   const [search, setSearch] = useState("")

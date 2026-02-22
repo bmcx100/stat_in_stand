@@ -276,9 +276,14 @@ export async function POST(request: Request) {
       gf: Number(r.GF ?? 0),
       ga: Number(r.GA ?? 0),
     }))
-    // Playoff standings are not persisted — storing them would overwrite regular season
-    // standings (single row per team). Return the data for display only.
-    return NextResponse.json({ synced: rows.length, rows })
+    const { error: playoffsStandingsError } = await serviceSupabase
+      .from("standings")
+      .upsert(
+        { team_id: teamId, rows, source_url: owhaUrl, standings_type: "playoffs", updated_at: new Date().toISOString() },
+        { onConflict: "team_id,standings_type" }
+      )
+    if (playoffsStandingsError) return NextResponse.json({ error: playoffsStandingsError.message }, { status: 500 })
+    return NextResponse.json({ synced: rows.length })
   }
 
   // ── Standings sync ───────────────────────────────────────
@@ -300,13 +305,28 @@ export async function POST(request: Request) {
     // For playdowns (CATID=0), the standings API returns all loops province-wide.
     // Filter to only our team's loop using SDID, and exclude region-label rows (TID=0).
     let filtered = raw
+    let loopTeamNames: string[] = []
+    let subDivName = ""
+    let qualifyingSpotsFromDiv = 0
+    let totalTeamsFromDiv = 0
+
     const m = owhaUrl.match(/\/division\/(\d+)\//)
     if (m && m[1] === "0") {
       const ourEntry = raw.find((r) => teamMatches(String(r.TeamName ?? ""), team.organization, team.name))
       if (ourEntry) {
+        subDivName = String(ourEntry.SubDivName ?? "")
+        const subDivMatch = subDivName.match(/(\d+) of (\d+) teams advance/i)
+        if (subDivMatch) {
+          qualifyingSpotsFromDiv = Number(subDivMatch[1])
+          totalTeamsFromDiv = Number(subDivMatch[2])
+        }
         const ourSDID = String(ourEntry.SDID ?? "")
         if (ourSDID && ourSDID !== "0") {
-          filtered = raw.filter((r) => String(r.SDID ?? "") === ourSDID && Number(r.TID ?? 0) !== 0)
+          const loopEntries = raw.filter((r) => String(r.SDID ?? "") === ourSDID && Number(r.TID ?? 0) !== 0)
+          filtered = loopEntries
+          loopTeamNames = loopEntries.map((r) =>
+            String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").trim()
+          )
         }
       }
     }
@@ -328,11 +348,32 @@ export async function POST(request: Request) {
     const { error } = await serviceSupabase
       .from("standings")
       .upsert(
-        { team_id: teamId, rows, source_url: owhaUrl, updated_at: new Date().toISOString() },
-        { onConflict: "team_id" }
+        { team_id: teamId, rows, source_url: owhaUrl, standings_type: gameType, updated_at: new Date().toISOString() },
+        { onConflict: "team_id,standings_type" }
       )
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // For playdowns: persist loop metadata into playdowns.config so games sync can use it
+    if (loopTeamNames.length > 0) {
+      const { data: pd } = await serviceSupabase
+        .from("playdowns")
+        .select("config, games")
+        .eq("team_id", teamId)
+        .maybeSingle()
+      if (pd) {
+        const existing = (pd.config ?? {}) as Record<string, unknown>
+        const updatedConfig = {
+          ...existing,
+          totalTeams: totalTeamsFromDiv || loopTeamNames.length,
+          qualifyingSpots: qualifyingSpotsFromDiv || (existing.qualifyingSpots ?? 0),
+          gamesPerMatchup: existing.gamesPerMatchup || 1,
+          teamNames: loopTeamNames,
+        }
+        await serviceSupabase.from("playdowns").update({ config: updatedConfig }).eq("team_id", teamId)
+      }
+      return NextResponse.json({ synced: rows.length, teamNames: loopTeamNames, subDivName, totalTeams: totalTeamsFromDiv, qualifyingSpots: qualifyingSpotsFromDiv })
+    }
 
     return NextResponse.json({ synced: rows.length })
   }
@@ -363,58 +404,74 @@ export async function POST(request: Request) {
   }
 
   // For playdowns, the games API returns ALL games province-wide.
-  // Strategy: fetch standings → find our team's SDID (loop ID) → collect all TIDs in that
-  // loop → pre-filter allGames to only games where BOTH teams are in our loop.
-  // Falls back to name matching if standings fetch fails or SDID is unavailable.
+  // teamNames in playdowns.config (populated by standings sync) are used to filter to our loop.
+  // Standings must be synced first — if teamNames is missing, return an error.
   const debug: Record<string, unknown> = {}
 
   if (gameType === "playdowns") {
-    try {
-      const standingsUrl = toStandingsUrl(owhaUrl)
-      debug.standingsUrl = standingsUrl
-      const sRes = await fetch(standingsUrl, { headers: OWHA_FETCH_HEADERS, cache: "no-store" })
-      debug.standingsStatus = sRes.status
-      if (sRes.ok) {
-        const sData: Record<string, unknown>[] = await sRes.json()
-        debug.standingsCount = sData.length
-        const ourEntry = Array.isArray(sData)
-          ? sData.find((r) => teamMatches(String(r.TeamName ?? ""), team.organization, team.name))
-          : null
-        debug.ourEntry = ourEntry ? { TeamName: ourEntry.TeamName, TID: ourEntry.TID, SDID: ourEntry.SDID } : null
+    const { data: pd } = await serviceSupabase
+      .from("playdowns")
+      .select("config, games")
+      .eq("team_id", teamId)
+      .maybeSingle()
 
-        if (ourEntry) {
-          const ourSDID = String(ourEntry.SDID ?? "")
+    const pdConfig = (pd?.config ?? {}) as { teamNames?: string[] }
 
-          // Use team names (not TIDs) to filter games to our loop.
-          // The games API uses different TID values than the standings API,
-          // so TID-based filtering doesn't work cross-API.
-          if (ourSDID && ourSDID !== "0" && ourSDID !== "undefined") {
-            const loopEntries = sData.filter((r) => String(r.SDID ?? "") === ourSDID)
-            const loopNames = loopEntries.map((r) => normName(String(r.TeamName ?? "")))
-            debug.loopSDID = ourSDID
-            debug.loopTeamCount = loopEntries.length
-            debug.loopNames = loopNames
+    if (!pdConfig.teamNames || pdConfig.teamNames.length === 0) {
+      return NextResponse.json({
+        error: "Sync Standings first to establish the loop teams before syncing games.",
+      }, { status: 400 })
+    }
 
-            const nameInLoop = (raw: string) => {
-              const n = normName(raw)
-              return loopNames.some((ln) => n.includes(ln) || ln.includes(n))
-            }
+    const storedNames = pdConfig.teamNames.map((n) => normName(n))
+    const nameInLoop = (raw: string) => {
+      const n = normName(raw)
+      return storedNames.some((ln) => n.includes(ln) || ln.includes(n))
+    }
 
-            // Pre-filter allGames to only games where both teams are in our loop
-            const loopGames = allGames.filter(
-              (g) => nameInLoop(g.HomeTeamName) && nameInLoop(g.AwayTeamName)
-            )
-            debug.loopGamesFound = loopGames.length
-            if (loopGames.length > 0) {
-              allGames = loopGames
-            }
-          } else {
-            debug.sdidWarning = "SDID is 0 or missing — cannot isolate loop by SDID"
-          }
-        }
+    // Filter to only games where both teams are in our loop
+    const loopGames = allGames.filter((g) => nameInLoop(g.HomeTeamName) && nameInLoop(g.AwayTeamName))
+    debug.teamNamesUsed = pdConfig.teamNames
+    debug.loopGamesFound = loopGames.length
+    if (loopGames.length > 0) {
+      allGames = loopGames
+    }
+
+    // Save ALL loop games to playdown.games JSONB for the public playdowns page
+    const cleanName = (n: string) =>
+      n.replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").trim()
+    const jsonbGames = loopGames.map((g) => {
+      const { date, time } = parseSDate(g.sDate)
+      return {
+        id: String(g.GID),
+        teamId,
+        date,
+        time,
+        homeTeam: cleanName(g.HomeTeamName),
+        awayTeam: cleanName(g.AwayTeamName),
+        homeScore: g.homeScore ?? null,
+        awayScore: g.awayScore ?? null,
+        location: g.ArenaName || "",
+        played: g.completed === true,
       }
-    } catch (err) {
-      debug.standingsError = String(err)
+    })
+    await serviceSupabase.from("playdowns").update({ games: jsonbGames }).eq("team_id", teamId)
+    debug.jsonbGamesSaved = jsonbGames.length
+
+    // Compute gamesPerMatchup from the full schedule and persist it in config
+    const teamGameCounts = new Map<string, number>()
+    for (const g of jsonbGames) {
+      teamGameCounts.set(g.homeTeam, (teamGameCounts.get(g.homeTeam) ?? 0) + 1)
+      teamGameCounts.set(g.awayTeam, (teamGameCounts.get(g.awayTeam) ?? 0) + 1)
+    }
+    if (teamGameCounts.size > 0) {
+      const numTeams = pdConfig.teamNames?.length ?? 0
+      const maxGamesPerTeam = Math.max(...teamGameCounts.values())
+      const computedGamesPerMatchup = numTeams > 1 ? Math.max(1, Math.round(maxGamesPerTeam / (numTeams - 1))) : 1
+      await serviceSupabase.from("playdowns")
+        .update({ config: { ...pdConfig, gamesPerMatchup: computedGamesPerMatchup } })
+        .eq("team_id", teamId)
+      debug.gamesPerMatchup = computedGamesPerMatchup
     }
   }
 

@@ -12,7 +12,7 @@ const NUM_COLS: (keyof StandingsRow)[] = ["gp", "w", "l", "t", "otl", "sol", "pt
 
 export default function AdminStandingsPage() {
   const team = useTeamContext()
-  const { standings, setStandings, loading } = useSupabaseStandings(team.id)
+  const { standingsMap, setStandings, loading } = useSupabaseStandings(team.id)
   const { tournaments } = useSupabaseTournaments(team.id)
 
   const [selectedType, setSelectedType] = useState("regular")
@@ -21,14 +21,16 @@ export default function AdminStandingsPage() {
   const [saving, setSaving] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
 
+  const currentStandings = standingsMap[selectedType]
+
   function handleEdit() {
-    setRows(standings?.rows ? standings.rows.map((r) => ({ ...r })) : [])
+    setRows(currentStandings?.rows ? currentStandings.rows.map((r) => ({ ...r })) : [])
     setEditing(true)
   }
 
   async function handleSave() {
     setSaving(true)
-    await setStandings(standings?.sourceUrl ?? "", rows)
+    await setStandings(currentStandings?.sourceUrl ?? "", rows, selectedType)
     setSaving(false)
     setEditing(false)
   }
@@ -57,10 +59,8 @@ export default function AdminStandingsPage() {
     { value: "provincials", label: "Provincials" },
   ]
 
-  // Standings are only stored for regular season (one row per team in DB).
-  // For all other types, show empty — no fallback to regular season data.
-  const hasStandingsForType = selectedType === "regular"
-  const displayRows = hasStandingsForType ? (editing ? rows : (standings?.rows ?? [])) : []
+  const supportsStandings = ["regular", "playoffs", "playdowns"].includes(selectedType)
+  const displayRows = supportsStandings ? (editing ? rows : (currentStandings?.rows ?? [])) : []
 
   return (
     <div className="flex flex-col gap-6">
@@ -80,12 +80,12 @@ export default function AdminStandingsPage() {
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="owha-sync-heading">Current Standings</h2>
-          {hasStandingsForType && (
+          {supportsStandings && (
             <div className="flex items-center gap-2">
               {confirmClear ? (
                 <>
                   <span className="text-destructive text-sm">Clear all standings?</span>
-                  <Button variant="destructive" size="sm" onClick={async () => { await setStandings("", []); setConfirmClear(false) }}>
+                  <Button variant="destructive" size="sm" onClick={async () => { await setStandings("", [], selectedType); setConfirmClear(false) }}>
                     Confirm
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => setConfirmClear(false)}>
@@ -134,8 +134,13 @@ export default function AdminStandingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {displayRows.map((row, i) => (
-                  <tr key={i}>
+                {displayRows.map((row, i) => {
+                  const n = row.teamName.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+                  const full = `${team.organization} ${team.name}`.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+                  const isMyRow = n === full || n.includes(full) || full.includes(n) ||
+                    n.includes(team.name.toLowerCase()) || n.includes(team.organization.toLowerCase())
+                  return (
+                  <tr key={i} className={isMyRow ? "playdown-self-row" : ""}>
                     <td>{i + 1}</td>
                     <td>
                       {editing ? (
@@ -161,13 +166,14 @@ export default function AdminStandingsPage() {
                       </td>
                     ))}
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
         ) : (
           <p className="text-muted-foreground">
-            {hasStandingsForType
+            {supportsStandings
               ? "No standings data yet. Use Sync Standings on the Overview page."
               : "Standings are not available for this type."}
           </p>

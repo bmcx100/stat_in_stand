@@ -45,6 +45,7 @@ function SyncPanel({
   eventType,
   eventId,
   initialLastSynced,
+  onTeamNamesUpdate,
 }: {
   teamId: string
   url: string
@@ -52,6 +53,7 @@ function SyncPanel({
   eventType?: "playdown" | "tournament"
   eventId?: string
   initialLastSynced: string | null
+  onTeamNamesUpdate?: (info: { teamNames: string[]; totalTeams: number; qualifyingSpots: number }) => void
 }) {
   const [syncing, setSyncing] = useState(false)
   const [result, setResult] = useState<SyncResult | null>(null)
@@ -61,6 +63,7 @@ function SyncPanel({
   const [syncingStandings, setSyncingStandings] = useState(false)
   const [lastSyncedStandings, setLastSyncedStandings] = useState<string | null>(null)
   const [standingsError, setStandingsError] = useState<string | null>(null)
+  const [standingsTeamNames, setStandingsTeamNames] = useState<string[] | null>(null)
 
   async function handleSync() {
     setSyncing(true)
@@ -116,6 +119,14 @@ function SyncPanel({
         setStandingsError(data.error ?? "Sync failed")
       } else {
         setLastSyncedStandings(new Date().toISOString())
+        if (data.teamNames?.length) {
+          setStandingsTeamNames(data.teamNames)
+          onTeamNamesUpdate?.({
+            teamNames: data.teamNames,
+            totalTeams: data.totalTeams ?? data.teamNames.length,
+            qualifyingSpots: data.qualifyingSpots ?? 0,
+          })
+        }
       }
     } catch (err) {
       setStandingsError(String(err))
@@ -173,14 +184,16 @@ function MismatchStat({
   value,
   standingsValue,
   label,
+  showCheck,
 }: {
   value: string | number
   standingsValue?: string | number
   label: string
+  showCheck?: boolean
 }) {
   const hasComparison = standingsValue !== undefined
   const mismatch = hasComparison && String(value) !== String(standingsValue)
-  const match = hasComparison && !mismatch
+  const match = showCheck || (hasComparison && !mismatch)
   return (
     <div className="owha-sync-stat">
       {match && <Check className="stat-match-check" />}
@@ -203,11 +216,15 @@ function SeasonCard({
   games,
   syncProps,
   standingsCompare,
+  showCheck,
+  loopInfo,
 }: {
   title: string
   games: Game[]
   syncProps?: React.ComponentProps<typeof SyncPanel>
   standingsCompare?: StandingsCompare
+  showCheck?: boolean
+  loopInfo?: { teamNames: string[]; totalTeams: number; qualifyingSpots: number }
 }) {
   const { w, l, t, scored } = gameRecord(games)
   return (
@@ -224,14 +241,29 @@ function SeasonCard({
             value={`${w}-${l}-${t}`}
             standingsValue={standingsCompare ? `${standingsCompare.w}-${standingsCompare.l}-${standingsCompare.t}` : undefined}
             label="Record"
+            showCheck={showCheck}
           />
           <MismatchStat
             value={scored}
             standingsValue={standingsCompare?.gp}
             label="Played"
+            showCheck={showCheck}
           />
         </div>
       </div>
+      {loopInfo && (
+        <div className="playdown-loop-card">
+          <p className="playdown-loop-header">Loop: {loopInfo.qualifyingSpots} of {loopInfo.totalTeams} teams advance{loopInfo.gamesPerMatchup ? ` · ${loopInfo.gamesPerMatchup} games / matchup` : ""}</p>
+          <div className="playdown-loop-teams">
+            {loopInfo.teamNames.map((name, i) => (
+              <span key={name} className="playdown-loop-team">
+                {i > 0 && <span className="playdown-loop-sep"> | </span>}
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -240,12 +272,13 @@ export default function AdminTeamHub() {
   const team = useTeamContext()
   const { games, loading: gamesLoading } = useSupabaseGames(team.id)
   const { opponents } = useSupabaseOpponents(team.id)
-  const { standings } = useSupabaseStandings(team.id)
+  const { standingsMap } = useSupabaseStandings(team.id)
   const supabase = createClient()
 
   const [owhaUrlRegular, setOwhaUrlRegular] = useState<string>("")
   const [owhaLastSynced, setOwhaLastSynced] = useState<string | null>(null)
   const [owhaEvents, setOwhaEvents] = useState<OwhaEventSection[]>([])
+  const [playdownLoopInfo, setPlaydownLoopInfo] = useState<{ teamNames: string[]; totalTeams: number; qualifyingSpots: number; gamesPerMatchup?: number } | null>(null)
 
   useEffect(() => {
     supabase
@@ -263,7 +296,7 @@ export default function AdminTeamHub() {
     Promise.all([
       supabase
         .from("playdowns")
-        .select("owha_event, owha_url, owha_last_synced_at")
+        .select("owha_event, owha_url, owha_last_synced_at, config")
         .eq("team_id", team.id)
         .maybeSingle(),
       supabase
@@ -281,6 +314,15 @@ export default function AdminTeamHub() {
           eventType: "playdown",
           eventId: "playdown",
         })
+        const cfg = pdRes.data.config as { teamNames?: string[]; totalTeams?: number; qualifyingSpots?: number } | null
+        if (cfg?.teamNames?.length) {
+          setPlaydownLoopInfo({
+            teamNames: cfg.teamNames,
+            totalTeams: cfg.totalTeams ?? cfg.teamNames.length,
+            qualifyingSpots: cfg.qualifyingSpots ?? 0,
+            gamesPerMatchup: cfg.gamesPerMatchup || undefined,
+          })
+        }
       }
       for (const t of trnRes.data ?? []) {
         if (t.owha_event) {
@@ -306,7 +348,8 @@ export default function AdminTeamHub() {
   function normTeam(s: string) {
     return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
   }
-  const myStandingsRow = standings?.rows.find((r) => {
+  const regularStandings = standingsMap["regular"]
+  const myStandingsRow = regularStandings?.rows.find((r) => {
     const rowN = normTeam(r.teamName)
     const fullN = normTeam(`${team.organization} ${team.name}`)
     const nameN = normTeam(team.name)
@@ -360,6 +403,7 @@ export default function AdminTeamHub() {
       <SeasonCard
         title="Playoffs"
         games={games.filter((g) => g.gameType === "playoffs")}
+        showCheck
         syncProps={{
           teamId: team.id,
           url: owhaUrlRegular,
@@ -371,6 +415,8 @@ export default function AdminTeamHub() {
       <SeasonCard
         title="Playdowns"
         games={games.filter((g) => g.gameType === "playdowns")}
+        showCheck
+        loopInfo={playdownLoopInfo ?? undefined}
         syncProps={{
           teamId: team.id,
           url: playdownEvent?.url ?? "",
@@ -378,6 +424,7 @@ export default function AdminTeamHub() {
           eventType: "playdown",
           eventId: "playdown",
           initialLastSynced: playdownEvent?.lastSynced ?? null,
+          onTeamNamesUpdate: (info) => setPlaydownLoopInfo((prev) => ({ gamesPerMatchup: prev?.gamesPerMatchup, ...info })),
         }}
       />
     </div>

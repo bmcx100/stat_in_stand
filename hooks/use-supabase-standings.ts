@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { fetchStandings, upsertStandings } from "@/lib/supabase/queries"
+import { fetchAllStandings, upsertStandings } from "@/lib/supabase/queries"
 import type { StandingsData } from "@/lib/types"
 
 type DbStandings = {
   id: string
   team_id: string
   source_url: string
+  standings_type: string
   rows: StandingsData["rows"]
   updated_at: string
 }
@@ -22,25 +23,36 @@ function dbToStandings(row: DbStandings): StandingsData {
 }
 
 export function useSupabaseStandings(teamId: string | undefined) {
-  const [standings, setStandings] = useState<StandingsData | null>(null)
+  const [standingsMap, setStandingsMap] = useState<Record<string, StandingsData>>({})
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
     if (!teamId) return
-    fetchStandings(supabase, teamId).then((data) => {
-      setStandings(data ? dbToStandings(data as DbStandings) : null)
+    fetchAllStandings(supabase, teamId).then((rows) => {
+      const map: Record<string, StandingsData> = {}
+      for (const row of rows as DbStandings[]) {
+        map[row.standings_type] = dbToStandings(row)
+      }
+      setStandingsMap(map)
       setLoading(false)
     })
   }, [supabase, teamId])
 
-  const setStandingsData = useCallback(async (sourceUrl: string, rows: StandingsData["rows"]) => {
+  const setStandingsData = useCallback(async (
+    sourceUrl: string,
+    rows: StandingsData["rows"],
+    standingsType = "regular"
+  ) => {
     if (!teamId) return
-    const { error } = await upsertStandings(supabase, teamId, sourceUrl, rows)
+    const { error } = await upsertStandings(supabase, teamId, sourceUrl, rows, standingsType)
     if (!error) {
-      setStandings({ teamId, sourceUrl, rows })
+      setStandingsMap((prev) => ({
+        ...prev,
+        [standingsType]: { teamId, sourceUrl, rows },
+      }))
     }
   }, [supabase, teamId])
 
-  return { standings, setStandings: setStandingsData, loading }
+  return { standingsMap, setStandings: setStandingsData, loading }
 }

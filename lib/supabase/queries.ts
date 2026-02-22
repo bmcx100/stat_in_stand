@@ -52,20 +52,24 @@ export async function clearGamesByType(supabase: SupabaseClient, teamId: string,
 
 // === Standings ===
 
-export async function fetchStandings(supabase: SupabaseClient, teamId: string) {
-  const { data } = await supabase.from("standings").select("*").eq("team_id", teamId).single()
-  return data
+export async function fetchAllStandings(supabase: SupabaseClient, teamId: string) {
+  const { data } = await supabase.from("standings").select("*").eq("team_id", teamId)
+  return data ?? []
 }
 
 export async function upsertStandings(
   supabase: SupabaseClient,
   teamId: string,
   sourceUrl: string,
-  rows: unknown[]
+  rows: unknown[],
+  standingsType = "regular"
 ) {
   const { error } = await supabase
     .from("standings")
-    .upsert({ team_id: teamId, source_url: sourceUrl, rows, updated_at: new Date().toISOString() }, { onConflict: "team_id" })
+    .upsert(
+      { team_id: teamId, source_url: sourceUrl, rows, standings_type: standingsType, updated_at: new Date().toISOString() },
+      { onConflict: "team_id,standings_type" }
+    )
   return { error }
 }
 
