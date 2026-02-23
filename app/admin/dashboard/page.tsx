@@ -164,14 +164,15 @@ export default function AdminDashboardPage() {
               a.name.localeCompare(b.name) ||
               a.age_group.localeCompare(b.age_group, undefined, { sensitivity: "base" }) ||
               levelRank(a.level) - levelRank(b.level)
-            ).map((team, i, arr) => (
-              <>
-                {i > 0 && (
-                  arr[i - 1].organization.toLowerCase() !== team.organization.toLowerCase() ||
-                  arr[i - 1].age_group.toLowerCase() !== team.age_group.toLowerCase()
-                ) && (
-                  <hr key={`divider-${team.id}`} className="ob-sidebar-divider" />
-                )}
+            ).flatMap((team, i, arr) => {
+              const items: React.ReactNode[] = []
+              if (i > 0 && (
+                arr[i - 1].organization.toLowerCase() !== team.organization.toLowerCase() ||
+                arr[i - 1].age_group.toLowerCase() !== team.age_group.toLowerCase()
+              )) {
+                items.push(<hr key={`divider-${team.id}`} className="ob-sidebar-divider" />)
+              }
+              items.push(
                 <Link
                   key={team.id}
                   href={`/admin/team/${team.slug}`}
@@ -180,8 +181,9 @@ export default function AdminDashboardPage() {
                   <FileText className="ob-nav-icon" />
                   {team.organization} {team.name} {team.age_group.toUpperCase()} {team.level.toUpperCase()}
                 </Link>
-              </>
-            ))}
+              )
+              return items
+            })}
           </div>
         )}
 
@@ -224,50 +226,52 @@ export default function AdminDashboardPage() {
           ) : (
             <div>
 <div className="ob-file-list">
-                {teams.map((team, i, arr) => (
-                  <>
-                    {i > 0 && (
-                      arr[i - 1].organization.toLowerCase() !== team.organization.toLowerCase() ||
-                      arr[i - 1].age_group.toLowerCase() !== team.age_group.toLowerCase()
-                    ) && (
-                      <hr key={`file-divider-${team.id}`} className="ob-file-divider" />
-                    )}
-                  <Link
-                    key={team.id}
-                    href={`/admin/team/${team.slug}`}
-                    className="ob-file"
-                  >
-                    <FileText className="ob-file-icon" />
-                    <div className="ob-file-info">
-                      <p className="ob-file-name">
-                        {team.organization} - {team.name} - {team.age_group.toUpperCase()} - {team.level.toUpperCase()}
-                      </p>
-                      <p className="ob-file-slug">/{team.slug}</p>
-                      {team.lastUpdated && (
-                        <p className="ob-file-updated">Updated {formatUpdated(team.lastUpdated)}</p>
-                      )}
-                    </div>
-                    <button
-                      className={`ob-file-badge ob-file-badge-btn ${team.published ? "ob-file-badge-published" : ""}`}
-                      onClick={async (e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        const { error } = await supabase
-                          .from("teams")
-                          .update({ published: !team.published })
-                          .eq("id", team.id)
-                        if (!error) {
-                          setTeams((prev) => prev.map((t) =>
-                            t.id === team.id ? { ...t, published: !t.published } : t
-                          ))
-                        }
-                      }}
+                {teams.flatMap((team, i, arr) => {
+                  const items: React.ReactNode[] = []
+                  if (i > 0 && (
+                    arr[i - 1].organization.toLowerCase() !== team.organization.toLowerCase() ||
+                    arr[i - 1].age_group.toLowerCase() !== team.age_group.toLowerCase()
+                  )) {
+                    items.push(<hr key={`file-divider-${team.id}`} className="ob-file-divider" />)
+                  }
+                  items.push(
+                    <Link
+                      key={team.id}
+                      href={`/admin/team/${team.slug}`}
+                      className="ob-file"
                     >
-                      {team.published ? "published" : "draft"}
-                    </button>
-                  </Link>
-                  </>
-                ))}
+                      <FileText className="ob-file-icon" />
+                      <div className="ob-file-info">
+                        <p className="ob-file-name">
+                          {team.organization} - {team.name} - {team.age_group.toUpperCase()} - {team.level.toUpperCase()}
+                        </p>
+                        <p className="ob-file-slug">/{team.slug}</p>
+                        {team.lastUpdated && (
+                          <p className="ob-file-updated">Updated {formatUpdated(team.lastUpdated)}</p>
+                        )}
+                      </div>
+                      <button
+                        className={`ob-file-badge ob-file-badge-btn ${team.published ? "ob-file-badge-published" : ""}`}
+                        onClick={async (e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          const { error } = await supabase
+                            .from("teams")
+                            .update({ published: !team.published })
+                            .eq("id", team.id)
+                          if (!error) {
+                            setTeams((prev) => prev.map((t) =>
+                              t.id === team.id ? { ...t, published: !t.published } : t
+                            ))
+                          }
+                        }}
+                      >
+                        {team.published ? "published" : "draft"}
+                      </button>
+                    </Link>
+                  )
+                  return items
+                })}
               </div>
             </div>
           )}
