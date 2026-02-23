@@ -72,6 +72,13 @@ export default function TeamsPage() {
                   className="team-card-banner"
                   style={banner ? { backgroundImage: `url(${banner})` } : undefined}
                 >
+                  <Link href={`/team/${team.slug}`} className="team-card-link">
+                    <span className="team-card-name">
+                      {banner
+                        ? `${team.age_group.toUpperCase()}${team.level.toUpperCase()}`
+                        : `${team.organization} ${team.name} · ${team.age_group.toUpperCase()}${team.level.toUpperCase()}`}
+                    </span>
+                  </Link>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -81,13 +88,6 @@ export default function TeamsPage() {
                   >
                     <Heart fill={fav ? "#e3e3e3" : "none"} />
                   </Button>
-                  <Link href={`/team/${team.slug}`} className="team-card-link">
-                    <span className="team-card-name">
-                      {banner
-                        ? `${team.age_group.toUpperCase()} · ${team.level.toUpperCase()}`
-                        : `${team.organization} ${team.name} · ${team.age_group.toUpperCase()} · ${team.level.toUpperCase()}`}
-                    </span>
-                  </Link>
                 </div>
               </div>
             )

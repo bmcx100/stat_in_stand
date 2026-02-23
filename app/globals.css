@@ -165,11 +165,25 @@
 }
 
 .team-card-link {
-  @apply flex flex-1 cursor-pointer hover:opacity-80;
+  @apply flex flex-1 cursor-pointer;
 }
 
 .team-card-name {
-  @apply text-lg font-semibold text-white;
+  @apply text-lg font-semibold text-white relative;
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: white;
+    transition: width 0.25s ease;
+  }
+}
+
+.team-card-link:hover .team-card-name::after {
+  width: 100%;
 }
 
 /* Team list (add teams screen) */
@@ -179,7 +193,7 @@
 
 /* Heart toggle */
 .heart-button {
-  @apply mr-2 shrink-0 text-[#e3e3e3] transition-colors [&_svg]:size-6;
+  @apply ml-auto shrink-0 text-[#e3e3e3] transition-colors [&_svg]:size-6;
 }
 
 /* ── Ranking badge ── */

@@ -59,7 +59,7 @@ export default function TeamLayout({
           style={getBanner(slug) ? { backgroundImage: `url(${getBanner(slug)})` } : undefined}
         >
           <span className="team-card-name">
-            {`${team.age_group.toUpperCase()} - ${team.level.toUpperCase()}`}
+            {`${team.age_group.toUpperCase()}${team.level.toUpperCase()}`}
           </span>
         </div>
       </Link>
