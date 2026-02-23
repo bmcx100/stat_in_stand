@@ -1362,26 +1362,27 @@ details[open] > .qual-tiebreaker-summary::after {
   border-bottom: 1px solid #e0e0e0;
 }
 
-.ob-team-org {
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
-  color: oklch(0.45 0.14 285);
-  text-transform: uppercase;
+.ob-team-row {
+  display: flex;
+  gap: 0.3rem;
+  align-items: baseline;
+  flex-wrap: wrap;
 }
 
+.ob-team-org,
 .ob-team-name {
-  font-size: 0.95rem;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: #1a1a1a;
-  font-weight: 500;
-  margin-top: 0.15rem;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .ob-team-meta {
-  font-size: 0.95rem;
-  font-weight: 500;
+  font-size: 1.15rem;
+  font-weight: 600;
   color: #1a1a1a;
-  margin-top: 0.1rem;
+  line-height: 1.3;
+  margin-top: 0.2rem;
 }
 
 .ob-content {

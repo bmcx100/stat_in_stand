@@ -221,3 +221,22 @@ export type TournamentData = {
   config: TournamentConfig
   games: TournamentGame[]
 }
+
+// === MHR (MyHockeyRankings) ===
+
+export type MhrRankingEntry = {
+  team_nbr: number
+  name: string
+  ranking: number
+  week: number
+  difference: number
+  gp: number
+  wins: number
+  losses: number
+  ties: number
+  gf: number
+  ga: number
+  rating: number
+  sched: number
+  agd: number
+}

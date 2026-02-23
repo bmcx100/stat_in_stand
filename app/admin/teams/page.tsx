@@ -69,8 +69,13 @@ export default function AdminTeamsPage() {
   const [configPlaydownUrls, setConfigPlaydownUrls] = useState<Record<string, string>>({})
   const [configOriginalUrls, setConfigOriginalUrls] = useState<Record<string, string>>({})
   const [configOriginalPlaydownUrls, setConfigOriginalPlaydownUrls] = useState<Record<string, string>>({})
+  const [configMhrGamesUrls, setConfigMhrGamesUrls] = useState<Record<string, string>>({})
+  const [configMhrRankingsUrls, setConfigMhrRankingsUrls] = useState<Record<string, string>>({})
+  const [configOriginalMhrGamesUrls, setConfigOriginalMhrGamesUrls] = useState<Record<string, string>>({})
+  const [configOriginalMhrRankingsUrls, setConfigOriginalMhrRankingsUrls] = useState<Record<string, string>>({})
   const [configSaving, setConfigSaving] = useState<string | null>(null)
   const [configSaved, setConfigSaved] = useState<string | null>(null)
+  const [configError, setConfigError] = useState<string | null>(null)
 
   // Invite admin form
   const [inviteTeamId, setInviteTeamId] = useState<string | null>(null)
@@ -101,6 +106,28 @@ export default function AdminTeamsPage() {
         const url = data?.owha_url ?? ""
         setConfigPlaydownUrls((prev) => ({ ...prev, [configOpenId]: url }))
         setConfigOriginalPlaydownUrls((prev) => ({ ...prev, [configOpenId]: url }))
+      })
+  }, [configOpenId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!configOpenId) return
+    const yr = new Date().getMonth() >= 7 ? new Date().getFullYear() : new Date().getFullYear() - 1
+    supabase
+      .from("mhr_config")
+      .select("team_nbr, div_nbr, div_age")
+      .eq("team_id", configOpenId)
+      .maybeSingle()
+      .then(({ data }) => {
+        const gamesUrl = data?.team_nbr
+          ? `https://myhockeyrankings.com/team_info.php?y=${yr}&t=${data.team_nbr}`
+          : ""
+        const rankingsUrl = (data?.div_nbr && data?.div_age)
+          ? `https://myhockeyrankings.com/rank?y=${yr}&a=${data.div_age}&v=${data.div_nbr}`
+          : ""
+        setConfigMhrGamesUrls((prev) => ({ ...prev, [configOpenId]: gamesUrl }))
+        setConfigOriginalMhrGamesUrls((prev) => ({ ...prev, [configOpenId]: gamesUrl }))
+        setConfigMhrRankingsUrls((prev) => ({ ...prev, [configOpenId]: rankingsUrl }))
+        setConfigOriginalMhrRankingsUrls((prev) => ({ ...prev, [configOpenId]: rankingsUrl }))
       })
   }, [configOpenId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -205,9 +232,12 @@ export default function AdminTeamsPage() {
 
   async function handleSaveConfig(team: Team) {
     setConfigSaving(team.id)
+    setConfigError(null)
     const url = configUrls[team.id] ?? team.owha_url_regular ?? ""
     const playdownUrl = configPlaydownUrls[team.id] ?? ""
-    await Promise.all([
+    const mhrGamesUrl = configMhrGamesUrls[team.id] ?? ""
+    const mhrRankingsUrl = configMhrRankingsUrls[team.id] ?? ""
+    const [r1, r2, r3] = await Promise.all([
       fetch("/api/owha-config", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -218,11 +248,26 @@ export default function AdminTeamsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamId: team.id, type: "playdown", owha_event: !!playdownUrl, owha_url: playdownUrl }),
       }),
+      fetch("/api/mhr-config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId: team.id, mhr_games_url: mhrGamesUrl, mhr_rankings_url: mhrRankingsUrl }),
+      }),
     ])
+    const failed: string[] = []
+    if (!r1.ok) { const d = await r1.json(); failed.push(`OWHA: ${d.error ?? r1.status}`) }
+    if (!r2.ok) { const d = await r2.json(); failed.push(`Playdowns: ${d.error ?? r2.status}`) }
+    if (!r3.ok) { const d = await r3.json(); failed.push(`MHR: ${d.error ?? r3.status}`) }
+    setConfigSaving(null)
+    if (failed.length) {
+      setConfigError(failed.join(" · "))
+      return
+    }
     setTeams((prev) => prev.map((t) => t.id === team.id ? { ...t, owha_url_regular: url } : t))
     setConfigOriginalUrls((prev) => ({ ...prev, [team.id]: url }))
     setConfigOriginalPlaydownUrls((prev) => ({ ...prev, [team.id]: playdownUrl }))
-    setConfigSaving(null)
+    setConfigOriginalMhrGamesUrls((prev) => ({ ...prev, [team.id]: mhrGamesUrl }))
+    setConfigOriginalMhrRankingsUrls((prev) => ({ ...prev, [team.id]: mhrRankingsUrl }))
     setConfigSaved(team.id)
     setTimeout(() => setConfigSaved(null), 2000)
   }
@@ -278,8 +323,17 @@ export default function AdminTeamsPage() {
           <AdminHelp>
             <div className="help-section">
               <p>Use <strong>Create Team</strong> to add a new team. Fill in location, name, age group, and level.</p>
-              <p>Click <strong>Draft</strong> / <strong>Published</strong> to toggle a team's visibility on the public site.</p>
+              <p>Click <strong>Draft</strong> / <strong>Published</strong> to toggle a team&apos;s visibility on the public site.</p>
               <p>Use <strong>Add Admin</strong> on a team card to invite a coach or manager by email.</p>
+              <p className="help-section-label" style={{ marginTop: "0.6rem" }}>Configure — OWHA URLs</p>
+              <p>Paste the team&apos;s OWHA division page URL directly from your browser.</p>
+              <p><strong>Regular Season:</strong> the division page URL, e.g. <code>owha.on.ca/division/1590/14802/games</code></p>
+              <p><strong>Playdowns:</strong> the provincial playdowns URL — always has <code>/division/0/</code> in the path.</p>
+              <p className="help-section-label" style={{ marginTop: "0.6rem" }}>Configure — MHR URLs</p>
+              <p>MHR sync uses a two-step token system: this app fetches the MHR page HTML, extracts a short-lived token embedded in the page JavaScript, then calls the MHR data API with that token. Paste the plain browser URLs — no API keys needed.</p>
+              <p><strong>MHR Team Page:</strong> go to myhockeyrankings.com, find the team, copy the URL. It will contain <code>team_info.php?y=…&amp;t=…</code> — the <code>t</code> value is the team number stored internally.</p>
+              <p><strong>MHR Rankings URL:</strong> go to the division rankings page on myhockeyrankings.com and copy the URL. It will contain <code>rank?y=…&amp;a=…&amp;v=…</code> — the <code>v</code> value is the division number and <code>a</code> is the age bracket code.</p>
+              <p>If MHR sync stops working, open the team page in a browser, view Page Source, and search for <strong>&ldquo;token&rdquo;</strong> to find the embedded JS token. The sync route extracts it automatically — if MHR renames their JS function, the regex in <code>app/api/mhr-sync/route.ts</code> needs updating.</p>
             </div>
           </AdminHelp>
           <hr className="ob-sidebar-divider" />
@@ -347,6 +401,11 @@ export default function AdminTeamsPage() {
                         const url = team.owha_url_regular ?? ""
                         setConfigUrls((prev) => ({ ...prev, [team.id]: url }))
                         setConfigOriginalUrls((prev) => ({ ...prev, [team.id]: url }))
+                        // MHR URLs are populated from mhr_config table via useEffect below
+                        setConfigMhrGamesUrls((prev) => ({ ...prev, [team.id]: prev[team.id] ?? "" }))
+                        setConfigOriginalMhrGamesUrls((prev) => ({ ...prev, [team.id]: prev[team.id] ?? "" }))
+                        setConfigMhrRankingsUrls((prev) => ({ ...prev, [team.id]: prev[team.id] ?? "" }))
+                        setConfigOriginalMhrRankingsUrls((prev) => ({ ...prev, [team.id]: prev[team.id] ?? "" }))
                       }
                     }}
                   >
@@ -394,11 +453,31 @@ export default function AdminTeamsPage() {
                       onChange={(e) => setConfigPlaydownUrls((prev) => ({ ...prev, [team.id]: e.target.value }))}
                     />
                   </div>
+                  <p className="team-config-label">MHR Team Page URL</p>
+                  <div className="owha-sync-url-row">
+                    <input
+                      className="owha-sync-url-input"
+                      placeholder="https://myhockeyrankings.com/team_info.php?y=2025&t=9407"
+                      value={configMhrGamesUrls[team.id] ?? ""}
+                      onChange={(e) => setConfigMhrGamesUrls((prev) => ({ ...prev, [team.id]: e.target.value }))}
+                    />
+                  </div>
+                  <p className="team-config-label">MHR Rankings URL</p>
+                  <div className="owha-sync-url-row">
+                    <input
+                      className="owha-sync-url-input"
+                      placeholder="https://myhockeyrankings.com/rank?y=2025&a=c&v=2038"
+                      value={configMhrRankingsUrls[team.id] ?? ""}
+                      onChange={(e) => setConfigMhrRankingsUrls((prev) => ({ ...prev, [team.id]: e.target.value }))}
+                    />
+                  </div>
                   <div className="owha-sync-url-row">
                     {(() => {
                       const isDirty =
                         (configUrls[team.id] ?? "") !== (configOriginalUrls[team.id] ?? "") ||
-                        (configPlaydownUrls[team.id] ?? "") !== (configOriginalPlaydownUrls[team.id] ?? "")
+                        (configPlaydownUrls[team.id] ?? "") !== (configOriginalPlaydownUrls[team.id] ?? "") ||
+                        (configMhrGamesUrls[team.id] ?? "") !== (configOriginalMhrGamesUrls[team.id] ?? "") ||
+                        (configMhrRankingsUrls[team.id] ?? "") !== (configOriginalMhrRankingsUrls[team.id] ?? "")
                       return (
                         <Button
                           variant={isDirty ? "outline" : "secondary"}
@@ -412,9 +491,12 @@ export default function AdminTeamsPage() {
                       )
                     })()}
                   </div>
+                  {configError && configOpenId === team.id && (
+                    <p className="admin-error">{configError}</p>
+                  )}
                   <p className="owha-sync-tip">
                     <Info className="owha-sync-tip-icon" />
-                    Paste OWHA division page URLs from your browser. Playdowns use /division/0/… Regular season uses /division/1590/…
+                    Paste OWHA URLs from your browser (regular: /division/1590/…, playdowns: /division/0/…). For MHR, paste the team page URL and rankings URL from myhockeyrankings.com.
                   </p>
                 </div>
               )}

@@ -1,11 +1,11 @@
 "use client"
 
-import { use } from "react"
+import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Vault, ArrowLeft, LayoutDashboard, Gamepad2,
-  Trophy, Users, CalendarDays, Circle, LogOut,
+  Trophy, Users, BarChart3, CalendarDays, Circle, LogOut, Settings,
 } from "lucide-react"
 import { AdminHelp } from "@/components/admin-help"
 import { useTeam } from "@/hooks/use-supabase-teams"
@@ -26,6 +26,21 @@ export default function AdminTeamLayout({
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase
+        .from("team_admins")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "super_admin")
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => { if (data) setIsSuperAdmin(true) })
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch events data for sidebar sub-items (after team loads)
   const { playdown } = useSupabasePlaydowns(team?.id)
@@ -36,6 +51,7 @@ export default function AdminTeamLayout({
     { href: `/admin/team/${slug}/games`, label: "Games", icon: Gamepad2 },
     { href: `/admin/team/${slug}/standings`, label: "Standings", icon: Trophy },
     { href: `/admin/team/${slug}/opponents`, label: "Opponents", icon: Users },
+    { href: `/admin/team/${slug}/rankings`, label: "Rankings", icon: BarChart3 },
   ]
 
   const eventsBase = `/admin/team/${slug}/events`
@@ -114,8 +130,10 @@ export default function AdminTeamLayout({
           </div>
 
           <div className="ob-team-header">
-            <p className="ob-team-org">{team.organization}</p>
-            <p className="ob-team-name">{team.name}</p>
+            <div className="ob-team-row">
+              <span className="ob-team-org">{team.organization}</span>
+              <span className="ob-team-name">{team.name}</span>
+            </div>
             <p className="ob-team-meta">{team.age_group.toUpperCase()} · {team.level.toUpperCase()}</p>
           </div>
 
@@ -195,17 +213,34 @@ export default function AdminTeamLayout({
           </div>
 
           <div className="ob-sidebar-bottom">
+            {isSuperAdmin && (
+              <>
+                <Link href="/admin/teams" className="ob-nav-link">
+                  <Settings className="ob-nav-icon" />
+                  Manage Teams &amp; Admins
+                </Link>
+                <hr className="ob-sidebar-divider" />
+              </>
+            )}
             <AdminHelp>
               {pathname === `/admin/team/${slug}` && (
                 <div className="help-section">
-                  <p>This is your team overview. Use the sidebar to navigate to Games, Standings, Opponents, and Events.</p>
-                  <p>Record and counts update automatically as you add games and opponents.</p>
-                  <p className="help-section-label" style={{ marginTop: "0.6rem" }}>Setup</p>
+                  <p>This is your team overview. Each card shows sync controls and a live record for that season type.</p>
+                  <p className="help-section-label" style={{ marginTop: "0.6rem" }}>OWHA Cards (Regular Season, Playoffs, Playdowns)</p>
+                  <p><strong>Sync Standings</strong> fetches the standings table from OWHA and saves it to the database. For Playdowns it also establishes the loop team list used to filter games.</p>
+                  <p><strong>Sync Games</strong> fetches the schedule and results from OWHA. For Playdowns, sync standings first — games won&apos;t import until the loop is known.</p>
+                  <p>The mismatch indicator on the Regular Season card compares your game-derived record against the stored OWHA standings row. A green checkmark means they agree.</p>
+                  <p className="help-section-label" style={{ marginTop: "0.6rem" }}>MHR Cards (Games, Rankings)</p>
+                  <p><strong>MHR Games</strong> syncs exhibition and tournament games from MyHockeyRankings. Playoff and playdown games are skipped — OWHA is the source of truth for those.</p>
+                  <p><strong>MHR Rankings</strong> fetches the weekly division rankings snapshot and stores it. The ranking data powers any rankings display on the public team page.</p>
+                  <p>MHR sync requires the team&apos;s MHR URLs to be configured on the Super Admin page. The sync buttons are greyed out until a URL is saved. If sync fails, view Page Source on the MHR page and search for <strong>&ldquo;token&rdquo;</strong> — the route extracts it automatically from the page HTML, and if MHR has changed their JS function name the regex in <code>app/api/mhr-sync/route.ts</code> will need updating.</p>
+                  <p className="help-section-label" style={{ marginTop: "0.6rem" }}>Recommended setup order</p>
                   <ol className="help-steps">
-                    <li>Click on the sidebar to set up.</li>
-                    <li>First, do opponents using MHR.</li>
-                    <li>Second, input standings for regular season from OWHA.</li>
-                    <li>Third, import list of games from OWHA for regular season and then MHR for tournaments and others.</li>
+                    <li>Opponents — import from MHR opponent list.</li>
+                    <li>Regular Season standings — Sync Standings from OWHA.</li>
+                    <li>Regular Season games — Sync Games from OWHA.</li>
+                    <li>MHR games — Sync Games from MHR for exhibition and tournaments.</li>
+                    <li>Playdowns — Sync Standings first, then Sync Games.</li>
                   </ol>
                 </div>
               )}

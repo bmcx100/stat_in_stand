@@ -386,6 +386,74 @@ export function parseMhrGames(
   return games
 }
 
+export function parseMhrApiGames(
+  data: unknown[],
+  teamId: string,
+  mhrTeamNbr: number
+): Game[] {
+  interface MhrApiGame {
+    game_nbr: number
+    game_type: string
+    game_home_team: number
+    game_visitor_team: number
+    home_team_name: string
+    visitor_team_name: string
+    game_home_score: number
+    game_visitor_score: number
+    game_published: number
+    game_ot: number
+    game_so: number
+    game_date_format: string
+    game_time_format: string
+    rink_name: string
+  }
+
+  const games: Game[] = []
+  for (const raw of data) {
+    const game = raw as MhrApiGame
+    // Only import exhibition + tournament — OWHA owns regular + playoffs
+    if (game.game_type !== "e" && game.game_type !== "t") continue
+
+    const gameType: GameType = game.game_type === "e" ? "exhibition" : "tournament"
+    const isHome = game.game_home_team === mhrTeamNbr
+    const opponent = isHome ? game.visitor_team_name : game.home_team_name
+
+    const unplayed =
+      game.game_home_score === 999 || game.game_visitor_score === 999 || game.game_published === 0
+    const teamScore = unplayed ? null : (isHome ? game.game_home_score : game.game_visitor_score)
+    const opponentScore = unplayed ? null : (isHome ? game.game_visitor_score : game.game_home_score)
+    const played = !unplayed && teamScore !== null
+
+    let result: "W" | "L" | "T" | null = null
+    if (played && teamScore !== null && opponentScore !== null) {
+      if (teamScore > opponentScore) result = "W"
+      else if (teamScore < opponentScore) result = "L"
+      else result = "T"
+    }
+
+    const date = game.game_date_format ?? ""
+    const time = game.game_time_format ?? ""
+
+    games.push({
+      id: "",
+      teamId,
+      date,
+      time,
+      opponent,
+      location: game.rink_name ?? "",
+      teamScore,
+      opponentScore,
+      result,
+      gameType,
+      source: "mhr",
+      sourceGameId: String(game.game_nbr),
+      played,
+      home: isHome,
+    })
+  }
+  return games
+}
+
 export type DuplicateInfo = {
   index: number
   existingGame: Game

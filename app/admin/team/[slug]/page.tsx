@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { RefreshCw, Check } from "lucide-react"
 
 type SyncResult = { inserted: number; updated: number; skipped: number; errors: string[] }
+type MhrSyncResult = { inserted?: number; updated?: number; skipped?: number; errors?: string[]; week?: number; teamCount?: number; ourRanking?: number | null }
 
 type OwhaEventSection = {
   label: string
@@ -178,6 +179,79 @@ function SyncPanel({
   )
 }
 
+function MhrSyncPanel({
+  teamId,
+  syncType,
+  initialLastSynced,
+  hasConfig,
+}: {
+  teamId: string
+  syncType: "games" | "rankings"
+  initialLastSynced: string | null
+  hasConfig: boolean
+}) {
+  const [syncing, setSyncing] = useState(false)
+  const [result, setResult] = useState<MhrSyncResult | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [lastSynced, setLastSynced] = useState(initialLastSynced)
+
+  async function handleSync() {
+    setSyncing(true)
+    setResult(null)
+    setSyncError(null)
+    try {
+      const res = await fetch("/api/mhr-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId, type: syncType }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setSyncError(data.error ?? "Sync failed")
+      } else {
+        setResult(data)
+        setLastSynced(new Date().toISOString())
+      }
+    } catch (err) {
+      setSyncError(String(err))
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  return (
+    <div className="overview-sync-row">
+      <div className="sync-btn-group">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSync}
+          disabled={syncing || !hasConfig}
+          className="sync-btn-padded"
+          style={hasConfig && !syncing ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
+        >
+          <RefreshCw className={syncing ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+          {syncing ? "Syncing…" : syncType === "games" ? "Sync Games" : "Sync Rankings"}
+        </Button>
+        <span className="sync-last-date">{formatSynced(lastSynced)}</span>
+        {result && syncType === "games" && result.inserted !== undefined && (
+          <span className="owha-sync-result">
+            {result.inserted} added · {result.updated} updated · {result.skipped} unchanged
+            {result.errors?.length ? ` · ${result.errors.length} error(s)` : ""}
+          </span>
+        )}
+        {result && syncType === "rankings" && result.week !== undefined && (
+          <span className="owha-sync-result">
+            Week {String(result.week).slice(-2)} · {result.teamCount} teams
+            {result.ourRanking != null ? ` · Ranked #${result.ourRanking}` : ""}
+          </span>
+        )}
+        {syncError && <span className="owha-sync-result-error">{syncError}</span>}
+      </div>
+    </div>
+  )
+}
+
 type StandingsCompare = { w: number; l: number; t: number; gp: number }
 
 function MismatchStat({
@@ -279,6 +353,10 @@ export default function AdminTeamHub() {
   const [owhaLastSynced, setOwhaLastSynced] = useState<string | null>(null)
   const [owhaEvents, setOwhaEvents] = useState<OwhaEventSection[]>([])
   const [playdownLoopInfo, setPlaydownLoopInfo] = useState<{ teamNames: string[]; totalTeams: number; qualifyingSpots: number; gamesPerMatchup?: number } | null>(null)
+  const [mhrTeamNbr, setMhrTeamNbr] = useState<number | null>(null)
+  const [mhrDivNbr, setMhrDivNbr] = useState<number | null>(null)
+  const [mhrLastSynced, setMhrLastSynced] = useState<string | null>(null)
+  const [mhrRankingsLastSynced, setMhrRankingsLastSynced] = useState<string | null>(null)
 
   useEffect(() => {
     supabase
@@ -290,6 +368,20 @@ export default function AdminTeamHub() {
         if (data) {
           setOwhaUrlRegular(data.owha_url_regular ?? "")
           setOwhaLastSynced(data.owha_last_synced_at ?? null)
+        }
+      })
+
+    supabase
+      .from("mhr_config")
+      .select("team_nbr, div_nbr, last_synced_at, rankings_last_synced_at")
+      .eq("team_id", team.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setMhrTeamNbr(data.team_nbr ?? null)
+          setMhrDivNbr(data.div_nbr ?? null)
+          setMhrLastSynced(data.last_synced_at ?? null)
+          setMhrRankingsLastSynced(data.rankings_last_synced_at ?? null)
         }
       })
 
@@ -427,6 +519,53 @@ export default function AdminTeamHub() {
           onTeamNamesUpdate: (info) => setPlaydownLoopInfo((prev) => ({ gamesPerMatchup: prev?.gamesPerMatchup, ...info })),
         }}
       />
+
+      <div className="owha-sync-section">
+        <div className="owha-sync-header">
+          <p className="owha-sync-heading">MHR Games</p>
+        </div>
+        <div className="season-card-row">
+          <div className="season-half">
+            <MhrSyncPanel
+              teamId={team.id}
+              syncType="games"
+              initialLastSynced={mhrLastSynced}
+              hasConfig={!!mhrTeamNbr}
+            />
+          </div>
+          <div className="season-half">
+            {(() => {
+              const mhrGames = games.filter((g) => g.source === "mhr")
+              const { w, l, t, scored } = gameRecord(mhrGames)
+              return (
+                <>
+                  <MismatchStat value={`${w}-${l}-${t}`} label="Record" showCheck />
+                  <MismatchStat value={scored} label="Played" showCheck />
+                </>
+              )
+            })()}
+          </div>
+        </div>
+      </div>
+
+      <div className="owha-sync-section">
+        <div className="owha-sync-header">
+          <p className="owha-sync-heading">MHR Rankings</p>
+        </div>
+        <div className="season-card-row">
+          <div className="season-half">
+            <MhrSyncPanel
+              teamId={team.id}
+              syncType="rankings"
+              initialLastSynced={mhrRankingsLastSynced}
+              hasConfig={!!mhrDivNbr}
+            />
+          </div>
+          <div className="season-half">
+            <MismatchStat value={mhrDivNbr ? "Configured" : "Not set"} label="Division" showCheck={!!mhrDivNbr} />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
