@@ -442,9 +442,7 @@ export default function AdminTeamHub() {
   const myStandingsRow = regularStandings?.rows.find((r) => {
     const rowN = normTeam(r.teamName)
     const fullN = normTeam(`${team.organization} ${team.name}`)
-    const nameN = normTeam(team.name)
-    const orgN = normTeam(team.organization)
-    return rowN === fullN || rowN.includes(nameN) || rowN.includes(orgN) || fullN.includes(rowN)
+    return rowN === fullN || rowN.includes(fullN) || fullN.includes(rowN)
   })
   const standingsCompare: StandingsCompare | undefined = myStandingsRow
     ? { w: myStandingsRow.w, l: myStandingsRow.l, t: myStandingsRow.t, gp: myStandingsRow.gp }

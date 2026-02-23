@@ -96,9 +96,9 @@ export default function StandingsPage() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const teamRow = standings?.rows.find((r) => {
-    const needle = team.organization.toLowerCase().replace(/\s+/g, "")
-    const hay = r.teamName.toLowerCase().replace(/\s+/g, "")
-    return hay.includes(needle) || needle.includes(hay)
+    const needle = `${team.organization} ${team.name}`.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+    const hay = r.teamName.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+    return hay === needle || hay.includes(needle) || needle.includes(hay)
   })
   const standingsRecord = teamRow
     ? { w: teamRow.w, l: teamRow.l, t: teamRow.t, gp: teamRow.gp }
@@ -246,9 +246,9 @@ export default function StandingsPage() {
               </thead>
               <tbody>
                 {standings.rows.map((row, i) => {
-                  const needle = team.organization.toLowerCase().replace(/\s+/g, "")
-                  const hay = row.teamName.toLowerCase().replace(/\s+/g, "")
-                  const isMyTeam = hay.includes(needle) || needle.includes(hay)
+                  const needle = `${team.organization} ${team.name}`.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+                  const hay = row.teamName.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+                  const isMyTeam = hay === needle || hay.includes(needle) || needle.includes(hay)
                   return (
                   <tr
                     key={i}

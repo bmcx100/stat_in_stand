@@ -86,12 +86,8 @@ function normName(s: string): string {
 function teamMatches(owhaN: string, org: string, name: string): boolean {
   const needle = normName(owhaN)
   const hayFull = normName(`${org} ${name}`)
-  const hayName = normName(name)
   return (
     needle === hayFull ||
-    needle === hayName ||
-    needle.includes(hayName) ||
-    hayName.includes(needle) ||
     needle.includes(hayFull) ||
     hayFull.includes(needle)
   )
@@ -400,6 +396,9 @@ export async function POST(request: Request) {
   }
 
   if (allGames.length === 0) {
+    if (type === "playoffs") {
+      return NextResponse.json({ inserted: 0, updated: 0, skipped: 0, errors: [] })
+    }
     return NextResponse.json({ error: "No games returned from OWHA API — check the URL" }, { status: 422 })
   }
 
@@ -488,6 +487,9 @@ export async function POST(request: Request) {
   debug.teamGamesFound = teamGames.length
 
   if (teamGames.length === 0) {
+    if (type === "playoffs") {
+      return NextResponse.json({ inserted: 0, updated: 0, skipped: 0, errors: [] })
+    }
     const sampleNames = [...new Set(allGames.slice(0, 50).flatMap((g) => [g.HomeTeamName, g.AwayTeamName]))]
     return NextResponse.json({
       error: `Team "${team.organization} ${team.name}" was not found in the OWHA API response. Check the URL is correct for this team.`,

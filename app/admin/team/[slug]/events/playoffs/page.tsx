@@ -206,7 +206,11 @@ export default function PlayoffsManagementPage() {
       nameToId.set(name, existingMap.get(name.toLowerCase()) ?? generateId("pl-t"))
     }
 
-    const selfName = teamNames.find((n) => n.toLowerCase().includes(team.organization.toLowerCase()))
+    const selfFullName = `${team.organization} ${team.name}`.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+    const selfName = teamNames.find((n) => {
+      const hay = n.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+      return hay === selfFullName || hay.includes(selfFullName) || selfFullName.includes(hay)
+    })
     const adjacency = new Map<string, Set<string>>()
     for (const g of parsed) {
       if (!adjacency.has(g.homeTeam)) adjacency.set(g.homeTeam, new Set())

@@ -146,8 +146,7 @@ export default function AdminStandingsPage() {
                 {displayRows.map((row, i) => {
                   const n = row.teamName.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
                   const full = `${team.organization} ${team.name}`.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
-                  const isMyRow = n === full || n.includes(full) || full.includes(n) ||
-                    n.includes(team.name.toLowerCase()) || n.includes(team.organization.toLowerCase())
+                  const isMyRow = n === full || n.includes(full) || full.includes(n)
                   return (
                   <tr key={i} className={isMyRow ? "playdown-self-row" : ""}>
                     <td>{i + 1}</td>

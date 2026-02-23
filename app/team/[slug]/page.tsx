@@ -70,9 +70,9 @@ export default function Dashboard() {
   const ties = played.filter((g) => g.result === "T").length
 
   const teamRow = standings?.rows.find((r) => {
-    const needle = team.organization.toLowerCase().replace(/\s+/g, "")
-    const hay = r.teamName.toLowerCase().replace(/\s+/g, "")
-    return hay.includes(needle) || needle.includes(hay)
+    const needle = `${team.organization} ${team.name}`.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+    const hay = r.teamName.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+    return hay === needle || hay.includes(needle) || needle.includes(hay)
   })
 
   const today = new Date().toISOString().slice(0, 10)

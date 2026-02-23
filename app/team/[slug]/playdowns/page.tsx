@@ -50,7 +50,8 @@ function owhaStandingsToPlaydownRows(
 ): PlaydownStandingsRow[] {
   return rows.map((r, i) => {
     const n = normName(r.teamName)
-    const isSelf = n.includes(normName(orgName)) || n.includes(normName(teamName))
+    const fullName = normName(`${orgName} ${teamName}`)
+    const isSelf = n === fullName || n.includes(fullName) || fullName.includes(n)
     return {
       teamId: isSelf ? "self" : `owha-${i}`,
       teamName: r.teamName,
