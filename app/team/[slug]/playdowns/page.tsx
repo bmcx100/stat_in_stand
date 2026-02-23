@@ -102,7 +102,7 @@ export default function PlaydownsPage() {
 
   // ── OWHA mode: standings sync has populated teamNames in config ───────────
   // Use synced OWHA standings + playdown.games JSONB (all loop games) directly.
-  const isOwhaMode = (config.teamNames?.length ?? 0) > 0 && config.teams.length === 0
+  const isOwhaMode = (config.teamNames?.length ?? 0) > 0
   if (isOwhaMode) {
     const owhaRows = standingsMap["playdowns"]?.rows ?? []
     const playdownStandings = owhaStandingsToPlaydownRows(owhaRows, team.organization, team.name)

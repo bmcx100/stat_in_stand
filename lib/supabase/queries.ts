@@ -73,6 +73,11 @@ export async function upsertStandings(
   return { error }
 }
 
+export async function deleteAllStandings(supabase: SupabaseClient, teamId: string) {
+  const { error } = await supabase.from("standings").delete().eq("team_id", teamId)
+  return { error }
+}
+
 // === Playdowns ===
 
 export async function fetchPlaydown(supabase: SupabaseClient, teamId: string) {

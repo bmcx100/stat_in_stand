@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { fetchAllStandings, upsertStandings } from "@/lib/supabase/queries"
+import { fetchAllStandings, upsertStandings, deleteAllStandings } from "@/lib/supabase/queries"
 import type { StandingsData } from "@/lib/types"
 
 type DbStandings = {
@@ -54,5 +54,11 @@ export function useSupabaseStandings(teamId: string | undefined) {
     }
   }, [supabase, teamId])
 
-  return { standingsMap, setStandings: setStandingsData, loading }
+  const clearAll = useCallback(async () => {
+    if (!teamId) return
+    const { error } = await deleteAllStandings(supabase, teamId)
+    if (!error) setStandingsMap({})
+  }, [supabase, teamId])
+
+  return { standingsMap, setStandings: setStandingsData, clearAll, loading }
 }

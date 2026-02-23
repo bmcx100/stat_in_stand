@@ -488,9 +488,10 @@ export async function POST(request: Request) {
   debug.teamGamesFound = teamGames.length
 
   if (teamGames.length === 0) {
+    const sampleNames = [...new Set(allGames.slice(0, 50).flatMap((g) => [g.HomeTeamName, g.AwayTeamName]))]
     return NextResponse.json({
       error: `Team "${team.organization} ${team.name}" was not found in the OWHA API response. Check the URL is correct for this team.`,
-      debug,
+      debug: { ...debug, totalGamesReturned: allGames.length, sampleTeamNames: sampleNames.slice(0, 20) },
     }, { status: 422 })
   }
 

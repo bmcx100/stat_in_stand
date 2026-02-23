@@ -12,14 +12,14 @@ const NUM_COLS: (keyof StandingsRow)[] = ["gp", "w", "l", "t", "otl", "sol", "pt
 
 export default function AdminStandingsPage() {
   const team = useTeamContext()
-  const { standingsMap, setStandings, loading } = useSupabaseStandings(team.id)
+  const { standingsMap, setStandings, clearAll, loading } = useSupabaseStandings(team.id)
   const { tournaments } = useSupabaseTournaments(team.id)
 
   const [selectedType, setSelectedType] = useState("regular")
   const [editing, setEditing] = useState(false)
   const [rows, setRows] = useState<StandingsRow[]>([])
   const [saving, setSaving] = useState(false)
-  const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmClear, setConfirmClear] = useState<"current" | "all" | false>(false)
 
   const currentStandings = standingsMap[selectedType]
 
@@ -84,8 +84,14 @@ export default function AdminStandingsPage() {
             <div className="flex items-center gap-2">
               {confirmClear ? (
                 <>
-                  <span className="text-destructive text-sm">Clear all standings?</span>
-                  <Button variant="destructive" size="sm" onClick={async () => { await setStandings("", [], selectedType); setConfirmClear(false) }}>
+                  <span className="text-destructive text-sm">
+                    {confirmClear === "all" ? "Clear ALL standings?" : `Clear ${filterOptions.find((o) => o.value === selectedType)?.label ?? selectedType} standings?`}
+                  </span>
+                  <Button variant="destructive" size="sm" onClick={async () => {
+                    if (confirmClear === "all") await clearAll()
+                    else await setStandings("", [], selectedType)
+                    setConfirmClear(false)
+                  }}>
                     Confirm
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => setConfirmClear(false)}>
@@ -104,7 +110,10 @@ export default function AdminStandingsPage() {
                       <Button variant="outline" size="sm" onClick={handleEdit}>
                         <Pencil className="h-4 w-4" /> Edit
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => setConfirmClear(true)}>
+                      <Button variant="outline" size="sm" onClick={() => setConfirmClear("current")}>
+                        <Trash2 className="h-4 w-4" /> Clear Current
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setConfirmClear("all")}>
                         <Trash2 className="h-4 w-4" /> Clear All
                       </Button>
                     </>
