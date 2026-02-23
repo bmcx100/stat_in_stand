@@ -1255,6 +1255,29 @@ details[open] > .qual-tiebreaker-summary::after {
   @apply text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors;
 }
 
+.event-card-expandable {
+  border: 1px solid #e0e0e0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.event-card-expandable > .event-card {
+  border: none;
+  border-radius: 0;
+}
+
+.event-card-expandable > .collapsible-body {
+  border-top: 1px solid #e0e0e0;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.event-card-expandable > .collapsible-body > .event-card {
+  border: 1px solid #e0e0e0;
+}
+
 .event-card {
   display: flex;
   align-items: center;
@@ -1987,8 +2010,10 @@ details[open] > .qual-tiebreaker-summary::after {
 
 .owha-sync-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
+  width: 100%;
+  flex: 1;
 }
 
 .season-card-row {

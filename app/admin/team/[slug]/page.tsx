@@ -462,14 +462,19 @@ export default function AdminTeamHub() {
         <div className="owha-sync-header">
           <p className="owha-sync-heading">Overall</p>
         </div>
-        <div className="owha-sync-stats">
-          <div className="owha-sync-stat">
-            <span className="owha-sync-stat-value">{gameRecord(games).w}-{gameRecord(games).l}-{gameRecord(games).t}</span>
-            <span className="owha-sync-stat-label">Overall Record</span>
-          </div>
-          <div className="owha-sync-stat">
-            <span className="owha-sync-stat-value">{games.length}</span>
-            <span className="owha-sync-stat-label">Total Games</span>
+        <div className="season-card-row">
+          <div className="season-half" />
+          <div className="season-half">
+            <div className="owha-sync-stats">
+              <div className="owha-sync-stat">
+                <span className="owha-sync-stat-value">{gameRecord(games).w}-{gameRecord(games).l}-{gameRecord(games).t}</span>
+                <span className="owha-sync-stat-label">Overall Record</span>
+              </div>
+              <div className="owha-sync-stat">
+                <span className="owha-sync-stat-value">{games.length}</span>
+                <span className="owha-sync-stat-label">Total Games</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
