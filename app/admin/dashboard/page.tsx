@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
-import { FileText, Settings, LogOut, Vault } from "lucide-react"
+import { FileText, Settings, LogOut, Vault, RefreshCw } from "lucide-react"
 import { AdminHelp } from "@/components/admin-help"
 import { createClient } from "@/lib/supabase/client"
 
@@ -188,6 +188,16 @@ export default function AdminDashboardPage() {
         )}
 
         <div className="ob-sidebar-bottom">
+          {role === "super_admin" && (
+            <Link
+              href="/admin/sync"
+              className="ob-nav-link"
+              data-active={pathname === "/admin/sync"}
+            >
+              <RefreshCw className="ob-nav-icon" />
+              Bulk Sync
+            </Link>
+          )}
           {role === "super_admin" && (
             <Link
               href="/admin/teams"

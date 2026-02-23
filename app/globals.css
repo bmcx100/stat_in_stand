@@ -2260,6 +2260,112 @@ details[open] > .qual-tiebreaker-summary::after {
   @apply text-foreground;
 }
 
+/* ── Super Admin Status Strip ─────────────────────────────── */
+
+.team-status-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0 0.25rem;
+  flex-wrap: wrap;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot-green  { background: #16a34a; }
+.status-dot-yellow { background: #ca8a04; }
+.status-dot-red    { background: #dc2626; }
+.status-dot-grey   { background: var(--muted-foreground); opacity: 0.4; }
+
+.status-dot-label {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+/* ── Bulk Sync Page ───────────────────────────────────────── */
+
+.bulk-sync-type-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0 0 1rem;
+}
+
+.bulk-sync-progress {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  padding: 0.25rem 0 0.75rem;
+  min-height: 1.5rem;
+}
+
+.bulk-sync-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.bulk-sync-team-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.bulk-sync-team-row:last-child {
+  border-bottom: none;
+}
+
+.bulk-sync-team-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bulk-sync-config-badge {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.bulk-sync-result {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.bulk-sync-result-error {
+  font-size: 0.75rem;
+  color: var(--destructive);
+  white-space: nowrap;
+}
+
+.bulk-sync-result-skip {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
 .owha-score-pending {
   @apply text-muted-foreground;
 }

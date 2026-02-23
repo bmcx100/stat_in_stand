@@ -3,11 +3,34 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, Trash2, UserPlus, X, Vault, Settings, LayoutDashboard, LogOut, FileText, Info } from "lucide-react"
+import { Plus, Trash2, UserPlus, X, Vault, Settings, LayoutDashboard, LogOut, FileText, Info, RefreshCw } from "lucide-react"
+import type { TeamStatus, StatusColor } from "@/app/api/team-status/route"
 import { AdminHelp } from "@/components/admin-help"
 import { Button } from "@/components/ui/button"
 
 const LEVEL_RANK: Record<string, number> = { AAA: 0, AA: 1, A: 2, BB: 3, B: 4, C: 5 }
+
+function StatusDot({ color, label }: { color: StatusColor; label: string }) {
+  return (
+    <div className="status-indicator">
+      <div className={`status-dot status-dot-${color}`} />
+      <span className="status-dot-label">{label}</span>
+    </div>
+  )
+}
+
+function TeamStatusStrip({ status }: { status: TeamStatus | undefined }) {
+  if (!status) return <div className="team-status-strip"><span className="status-dot-label">Loading…</span></div>
+  return (
+    <div className="team-status-strip">
+      <StatusDot color={status.regular} label="Regular" />
+      <StatusDot color={status.playoffs} label="Playoffs" />
+      <StatusDot color={status.playdowns} label="Playdowns" />
+      <StatusDot color={status.mhrGames} label="MHR" />
+      <StatusDot color={status.mhrRankings} label="Rankings" />
+    </div>
+  )
+}
 const levelRank = (l: string) => LEVEL_RANK[l.toUpperCase()] ?? 99
 
 function sortTeams<T extends { age_group: string; level: string; organization: string; name: string }>(teams: T[]): T[] {
@@ -62,6 +85,9 @@ export default function AdminTeamsPage() {
   const [ageGroup, setAgeGroup] = useState("")
   const [level, setLevel] = useState("")
   const [creating, setCreating] = useState(false)
+
+  // Status map
+  const [statusMap, setStatusMap] = useState<Record<string, TeamStatus>>({})
 
   // Configure section
   const [configOpenId, setConfigOpenId] = useState<string | null>(null)
@@ -148,7 +174,8 @@ export default function AdminTeamsPage() {
       const { data: allTeams } = await supabase
         .from("teams")
         .select("*")
-      setTeams(sortTeams(allTeams ?? []))
+      const sorted = sortTeams(allTeams ?? [])
+      setTeams(sorted)
 
       const { data: allAdmins } = await supabase
         .from("team_admins")
@@ -156,6 +183,20 @@ export default function AdminTeamsPage() {
       setAdmins(allAdmins ?? [])
 
       setLoading(false)
+
+      // Fetch status for all teams after load
+      if (sorted.length > 0) {
+        const ids = sorted.map((t) => t.id)
+        const res = await fetch("/api/team-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamIds: ids }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setStatusMap(data)
+        }
+      }
     }
     load()
   }, [router, supabase])
@@ -315,6 +356,10 @@ export default function AdminTeamsPage() {
           </Link>
         </div>
         <div className="ob-sidebar-bottom">
+          <Link href="/admin/sync" className="ob-nav-link">
+            <RefreshCw className="ob-nav-icon" />
+            Bulk Sync
+          </Link>
           <Link href="/admin/teams" className="ob-nav-link" data-active={true}>
             <Settings className="ob-nav-icon" />
             Manage Teams &amp; Admins
@@ -431,6 +476,8 @@ export default function AdminTeamsPage() {
                   </button>
                 </div>
               </div>
+
+              <TeamStatusStrip status={statusMap[team.id]} />
 
               {/* Configure section */}
               {configOpenId === team.id && (
