@@ -2,8 +2,7 @@
 
 import { useSyncExternalStore, useState } from "react"
 import Link from "next/link"
-import { Heart, Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
 import { RankingBadge } from "@/components/ranking-badge"
 import { TeamEventRow } from "@/components/team-event-row"
 import { useTeams } from "@/hooks/use-supabase-teams"
@@ -87,20 +86,11 @@ export default function Home() {
                   className="team-card-banner"
                   style={banner ? { backgroundImage: `url(${banner})` } : undefined}
                 >
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="heart-button"
-                    data-active={true}
-                    onClick={() => toggleFavorite(team.slug)}
-                  >
-                    <Heart fill="#e3e3e3" />
-                  </Button>
                   <Link href={`/team/${team.slug}`} className="team-card-link">
                     <span className="team-card-name">
                       {banner
-                        ? `${team.age_group.toUpperCase()} · ${team.level.toUpperCase()}`
-                        : `${team.organization} ${team.name} · ${team.age_group.toUpperCase()} · ${team.level.toUpperCase()}`}
+                        ? `${team.age_group.toUpperCase()}·${team.level.toUpperCase()}`
+                        : `${team.organization} ${team.name} · ${team.age_group.toUpperCase()}·${team.level.toUpperCase()}`}
                     </span>
                   </Link>
                   {teamCard?.ranking != null && (

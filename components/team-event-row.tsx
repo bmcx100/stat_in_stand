@@ -63,8 +63,24 @@ export function TeamEventRow({ event, expanded, onToggle }: Props) {
               <span className="team-event-detail-val">{h2hStr}</span>
             </p>
           )}
+          {event.statusCounts && (
+            <div className="qual-status-strip team-event-status-strip">
+              <div className="qual-status-segment" data-status="out">
+                <span className="qual-status-count">{event.statusCounts.out}</span>
+                <span className="qual-status-label">OUT</span>
+              </div>
+              <div className="qual-status-segment" data-status="alive">
+                <span className="qual-status-count">{event.statusCounts.alive}</span>
+                <span className="qual-status-label">ALIVE</span>
+              </div>
+              <div className="qual-status-segment" data-status="locked">
+                <span className="qual-status-count">{event.statusCounts.locked}</span>
+                <span className="qual-status-label">LOCKED</span>
+              </div>
+            </div>
+          )}
           <Link href={detailPath} className="team-event-link">
-            Full view ↗
+            Details ↗
           </Link>
         </div>
       </div>

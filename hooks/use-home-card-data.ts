@@ -30,6 +30,7 @@ export type ActiveEvent = {
   opponentStanding: { position: number; total: number; record: string } | null
   h2h: { w: number; l: number; t: number }
   detailPath: string
+  statusCounts?: { out: number; alive: number; locked: number }
 }
 
 export type HomeCardData = {
@@ -74,6 +75,7 @@ export function useHomeCardData(teams: DbTeam[]): Map<string, HomeCardData> {
         { data: mhrRankings },
         { data: tournamentsRows },
         { data: playdownsRows },
+        { data: playedPlayoffTeams },
         appSettingsRes,
       ] = await Promise.all([
         supabase
@@ -104,6 +106,13 @@ export function useHomeCardData(teams: DbTeam[]): Map<string, HomeCardData> {
           .from("playdowns")
           .select("team_id, config, games")
           .in("team_id", teamIds),
+        supabase
+          .from("games")
+          .select("team_id")
+          .in("team_id", teamIds)
+          .eq("game_type", "playoffs")
+          .eq("played", true)
+          .limit(teamIds.length),
         fetch("/api/app-settings").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ])
 
@@ -235,7 +244,8 @@ export function useHomeCardData(teams: DbTeam[]): Map<string, HomeCardData> {
         }
 
         // ── Playoffs ──────────────────────────────────────────────────────────
-        if (activeTypes.has("playoffs")) {
+        const hasPlayedPlayoffs = (playedPlayoffTeams ?? []).some((g) => g.team_id === team.id)
+        if (activeTypes.has("playoffs") && hasPlayedPlayoffs) {
           const record = buildRecordFromGames(games, team.id, "playoffs")
           const standingRows = standingsByType.get("playoffs") ?? []
           const pos = getStandingsPosition(team.organization, team.name, standingRows)
@@ -269,12 +279,23 @@ export function useHomeCardData(teams: DbTeam[]): Map<string, HomeCardData> {
           if (playdownRow) {
             const cfg = playdownRow.config as PlaydownConfig
             const pgames = playdownRow.games as PlaydownGame[]
-            playdownContext = getPlaydownContext(team.organization, team.name, cfg, pgames)
+            const owhaStandingsRows = (standingsByType.get("playdowns") ?? []) as StandingsJsonRow[]
+            playdownContext = getPlaydownContext(team.organization, team.name, cfg, pgames, owhaStandingsRows as never)
             if (playdownContext) {
               const statusLabel =
                 playdownContext.status === "locked" ? "Locked" :
-                playdownContext.status === "out" ? "Out" : "Alive"
-              collapsedSummary = `${statusLabel} · ${record.w}-${record.l} · ${playdownContext.position}${ordinal(playdownContext.position)} of ${playdownContext.total}`
+                playdownContext.status === "out" ? "Out" :
+                playdownContext.status === "alive" ? "Alive" : null
+              const qualSpots = (playdownRow.config as PlaydownConfig).qualifyingSpots || 0
+              const posPart = qualSpots > 0
+                ? `${qualSpots} of ${playdownContext.total} Teams`
+                : `${playdownContext.total} Teams`
+              const gamesPart = playdownContext.totalGamesPerTeam > 0
+                ? `${playdownContext.totalGamesPerTeam} Games`
+                : null
+              const recordPart = `${record.w}-${record.l}-${record.t}`
+              const parts = [posPart, gamesPart, recordPart, statusLabel].filter(Boolean)
+              collapsedSummary = parts.join(" · ")
             }
           }
 
@@ -292,6 +313,7 @@ export function useHomeCardData(teams: DbTeam[]): Map<string, HomeCardData> {
             opponentStanding: null,
             h2h,
             detailPath: `/team/${team.slug}/playdowns`,
+            statusCounts: playdownContext?.statusCounts,
           })
         }
 

@@ -1,4 +1,4 @@
-import type { PlaydownConfig, PlaydownGame, QualificationStatus } from "./types"
+import type { PlaydownConfig, PlaydownGame, PlaydownStandingsRow, QualificationStatus, StandingsRow } from "./types"
 import { computePlaydownStandings, computeQualificationStatus } from "./playdowns"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -208,36 +208,93 @@ export function getOpponentStanding(
 // ── Playdowns ─────────────────────────────────────────────────────────────────
 
 export type PlaydownContext = {
-  position: number
+  position: number | null
   total: number
+  totalGamesPerTeam: number
   record: Record3
-  status: QualificationStatus
+  status: QualificationStatus | null
+  statusCounts: { out: number; alive: number; locked: number }
+}
+
+function owhaStandingsToPlaydownRows(
+  rows: StandingsRow[],
+  teamOrg: string,
+  teamName: string
+): PlaydownStandingsRow[] {
+  return rows.map((r, i) => {
+    const n = norm(r.teamName)
+    const fullName = norm(`${teamOrg} ${teamName}`)
+    const isSelf = nameMatches(n, fullName)
+    return {
+      teamId: isSelf ? "self" : `owha-${i}`,
+      teamName: r.teamName,
+      gp: r.gp, w: r.w, l: r.l, t: r.t,
+      otl: r.otl ?? 0, sol: r.sol ?? 0,
+      pts: r.pts,
+      gf: r.gf ?? 0, ga: r.ga ?? 0,
+      diff: (r.gf ?? 0) - (r.ga ?? 0),
+      pim: 0,
+      winPct: r.gp > 0 ? r.w / r.gp : 0,
+      qualifies: false,
+      tiedUnresolved: false,
+    }
+  })
 }
 
 /**
- * Derives a team's playdown context (position, record, qualification status)
- * from the stored playdown config and games.
+ * Derives a team's playdown context (position, record, qualification status).
+ * Handles both OWHA-synced mode (config.teamNames populated, standings from DB)
+ * and manually-configured mode (config.teams populated).
  */
 export function getPlaydownContext(
   teamOrg: string,
   teamName: string,
   config: PlaydownConfig,
-  games: PlaydownGame[]
+  games: PlaydownGame[],
+  owhaStandingsRows?: StandingsRow[]
 ): PlaydownContext | null {
-  if (!config.teams || config.teams.length === 0) return null
+  const isOwhaMode = (config.teamNames?.length ?? 0) > 0
+  const total = config.teamNames?.length || config.teams?.length || config.totalTeams || 0
+  if (total === 0) return null
 
-  const standings = computePlaydownStandings(config, games)
-  const qualification = computeQualificationStatus(standings, config)
+  const totalGamesPerTeam = total > 1 ? (total - 1) * Math.max(1, config.gamesPerMatchup || 1) : 0
+
+  let qualification: ReturnType<typeof computeQualificationStatus>
+
+  if (isOwhaMode && owhaStandingsRows && owhaStandingsRows.length > 0) {
+    const playdownStandings = owhaStandingsToPlaydownRows(owhaStandingsRows, teamOrg, teamName)
+    const syntheticConfig: PlaydownConfig = {
+      teamId: "", totalTeams: total, qualifyingSpots: config.qualifyingSpots || 0,
+      gamesPerMatchup: config.gamesPerMatchup || 1, teams: [],
+    }
+    qualification = computeQualificationStatus(playdownStandings, syntheticConfig)
+  } else if (!isOwhaMode && config.teams?.length > 0) {
+    const standings = computePlaydownStandings(config, games)
+    qualification = computeQualificationStatus(standings, config)
+  } else {
+    return { position: null, total, totalGamesPerTeam, record: { w: 0, l: 0, t: 0 }, status: null, statusCounts: { out: 0, alive: 0, locked: 0 } }
+  }
+
+  const statusCounts = {
+    out: qualification.filter((r) => r.status === "out").length,
+    alive: qualification.filter((r) => r.status === "alive").length,
+    locked: qualification.filter((r) => r.status === "locked").length,
+  }
 
   const needle = norm(`${teamOrg} ${teamName}`)
-  const idx = qualification.findIndex((r) => nameMatches(r.teamName, needle))
-  if (idx === -1) return null
+  const idx = qualification.findIndex((r) => nameMatches(r.teamName, needle) || r.teamId === "self")
+
+  if (idx === -1) {
+    return { position: null, total, totalGamesPerTeam, record: { w: 0, l: 0, t: 0 }, status: null, statusCounts }
+  }
 
   const row = qualification[idx]
   return {
     position: idx + 1,
     total: qualification.length,
+    totalGamesPerTeam,
     record: { w: row.w, l: row.l, t: row.t },
     status: row.status,
+    statusCounts,
   }
 }
