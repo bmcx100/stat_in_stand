@@ -2413,3 +2413,67 @@ details[open] > .qual-tiebreaker-summary::after {
 .owha-score-pending {
   @apply text-muted-foreground;
 }
+
+/* ── Set Mode page ── */
+.mode-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mode-option {
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  padding: 1rem 1.125rem;
+  background: var(--card);
+  box-shadow: 0 1px 3px color-mix(in oklch, black 8%, transparent);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+
+.mode-option:hover {
+  border-color: var(--ring);
+  box-shadow: 0 2px 6px color-mix(in oklch, black 12%, transparent);
+}
+
+.mode-option-active {
+  border-color: #16a34a;
+  border-width: 2px;
+  background: color-mix(in oklch, #16a34a 6%, var(--card));
+  box-shadow: 0 2px 8px color-mix(in oklch, #16a34a 20%, transparent);
+}
+
+.mode-option-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.mode-option-label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.mode-option-check {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: #16a34a;
+  flex-shrink: 0;
+}
+
+.mode-option-desc {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.mode-saved {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #16a34a;
+}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Vault, LayoutDashboard, Settings, LogOut, RefreshCw } from "lucide-react"
+import { Vault, LayoutDashboard, Settings, LogOut, RefreshCw, Sliders } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { TeamStatus, StatusColor } from "@/app/api/team-status/route"
@@ -337,6 +337,11 @@ export default function BulkSyncPage() {
           </Link>
         </div>
         <div className="ob-sidebar-bottom">
+          <Link href="/admin/mode" className="ob-nav-link">
+            <Sliders className="ob-nav-icon" />
+            Set Mode
+          </Link>
+          <hr className="ob-sidebar-divider" />
           <Link href="/admin/sync" className="ob-nav-link" data-active={true}>
             <RefreshCw className="ob-nav-icon" />
             Bulk Sync

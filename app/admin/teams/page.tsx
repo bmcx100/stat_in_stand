@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, Trash2, UserPlus, X, Vault, Settings, LayoutDashboard, LogOut, FileText, Info, RefreshCw } from "lucide-react"
+import { Plus, Trash2, UserPlus, X, Vault, Settings, LayoutDashboard, LogOut, FileText, Info, RefreshCw, Sliders } from "lucide-react"
 import type { TeamStatus, StatusColor } from "@/app/api/team-status/route"
 import { AdminHelp } from "@/components/admin-help"
 import { Button } from "@/components/ui/button"
@@ -356,6 +356,11 @@ export default function AdminTeamsPage() {
           </Link>
         </div>
         <div className="ob-sidebar-bottom">
+          <Link href="/admin/mode" className="ob-nav-link">
+            <Sliders className="ob-nav-icon" />
+            Set Mode
+          </Link>
+          <hr className="ob-sidebar-divider" />
           <Link href="/admin/sync" className="ob-nav-link">
             <RefreshCw className="ob-nav-icon" />
             Bulk Sync
