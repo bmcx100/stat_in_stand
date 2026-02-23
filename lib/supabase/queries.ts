@@ -73,32 +73,6 @@ export async function upsertStandings(
   return { error }
 }
 
-// === Opponents ===
-
-export async function fetchOpponents(supabase: SupabaseClient, teamId: string) {
-  const { data } = await supabase
-    .from("opponents")
-    .select("*")
-    .eq("team_id", teamId)
-    .order("full_name")
-  return data ?? []
-}
-
-export async function insertOpponents(supabase: SupabaseClient, opponents: Record<string, unknown>[]) {
-  const { data, error } = await supabase.from("opponents").insert(opponents).select()
-  return { data: data ?? [], error }
-}
-
-export async function updateOpponent(supabase: SupabaseClient, opponentId: string, updates: Record<string, unknown>) {
-  const { error } = await supabase.from("opponents").update(updates).eq("id", opponentId)
-  return { error }
-}
-
-export async function deleteOpponent(supabase: SupabaseClient, opponentId: string) {
-  const { error } = await supabase.from("opponents").delete().eq("id", opponentId)
-  return { error }
-}
-
 // === Playdowns ===
 
 export async function fetchPlaydown(supabase: SupabaseClient, teamId: string) {

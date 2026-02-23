@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Vault, ArrowLeft, LayoutDashboard, Gamepad2,
-  Trophy, Users, BarChart3, CalendarDays, Circle, LogOut, Settings,
+  Trophy, BarChart3, CalendarDays, Circle, LogOut, Settings,
 } from "lucide-react"
 import { AdminHelp } from "@/components/admin-help"
 import { useTeam } from "@/hooks/use-supabase-teams"
@@ -50,7 +50,6 @@ export default function AdminTeamLayout({
     { href: `/admin/team/${slug}`, label: "Overview", icon: LayoutDashboard },
     { href: `/admin/team/${slug}/games`, label: "Games", icon: Gamepad2 },
     { href: `/admin/team/${slug}/standings`, label: "Standings", icon: Trophy },
-    { href: `/admin/team/${slug}/opponents`, label: "Opponents", icon: Users },
     { href: `/admin/team/${slug}/rankings`, label: "Rankings", icon: BarChart3 },
   ]
 
@@ -236,7 +235,6 @@ export default function AdminTeamLayout({
                   <p>MHR sync requires the team&apos;s MHR URLs to be configured on the Super Admin page. The sync buttons are greyed out until a URL is saved. If sync fails, view Page Source on the MHR page and search for <strong>&ldquo;token&rdquo;</strong> — the route extracts it automatically from the page HTML, and if MHR has changed their JS function name the regex in <code>app/api/mhr-sync/route.ts</code> will need updating.</p>
                   <p className="help-section-label" style={{ marginTop: "0.6rem" }}>Recommended setup order</p>
                   <ol className="help-steps">
-                    <li>Opponents — import from MHR opponent list.</li>
                     <li>Regular Season standings — Sync Standings from OWHA.</li>
                     <li>Regular Season games — Sync Games from OWHA.</li>
                     <li>MHR games — Sync Games from MHR for exhibition and tournaments.</li>
@@ -256,13 +254,6 @@ export default function AdminTeamLayout({
                   <p>Paste standings data from the <strong>OWHA website</strong> into the text area and click <strong>Parse</strong>.</p>
                   <p>Review the preview, then click <strong>Confirm Import</strong> to save.</p>
                   <p>Re-importing will replace the existing standings table.</p>
-                </div>
-              )}
-              {pathname === `/admin/team/${slug}/opponents` && (
-                <div className="help-section">
-                  <p>Import opponents from <strong>My Hockey Rankings</strong> or <strong>OWHA</strong> by pasting the team list and clicking <strong>Parse</strong>.</p>
-                  <p>Review and adjust the location / name split before clicking <strong>Confirm Import</strong>.</p>
-                  <p>Opponents are used to link games to a registry entry for consistent naming across the schedule.</p>
                 </div>
               )}
               {pathname === eventsBase && (

@@ -6,7 +6,6 @@ import Link from "next/link"
 import { ArrowLeft, X } from "lucide-react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
-import { useSupabaseOpponents } from "@/hooks/use-supabase-opponents"
 import type { Game, GameType } from "@/lib/types"
 
 const GAME_TYPES: Array<{ value: GameType | "all"; label: string }> = [
@@ -102,7 +101,6 @@ export default function ResultsPage() {
   const team = useTeamContext()
   const searchParams = useSearchParams()
   const { games, loading } = useSupabaseGames(team.id)
-  const { getById } = useSupabaseOpponents(team.id)
   const [filter, setFilter] = useState<GameType | "all">("all")
   const [search, setSearch] = useState(searchParams.get("search") ?? "")
   const [lastN, setLastN] = useState(10)
@@ -112,19 +110,8 @@ export default function ResultsPage() {
   const listRef = useRef<HTMLDivElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
 
-  function opponentDisplay(game: Game): string {
-    if (game.opponentId) {
-      const opp = getById(game.opponentId)
-      if (opp) {
-        if (opp.location && opp.name) return `${opp.location} ${opp.name}`
-        return opp.fullName
-      }
-    }
-    return game.opponent
-  }
-
   function opponentKey(game: Game): string {
-    return game.opponentId || game.opponent
+    return game.opponent
   }
 
   useEffect(() => {
@@ -132,7 +119,7 @@ export default function ResultsPage() {
     if (!initialSearch) return
     const allGames = games.filter((g) => g.played)
     const match = allGames.find((g) => {
-      const name = opponentDisplay(g).toLowerCase()
+      const name = g.opponent.toLowerCase()
       return name.includes(initialSearch.toLowerCase())
     })
     if (match) {
@@ -193,7 +180,7 @@ export default function ResultsPage() {
     .filter((g) => filter === "all" || g.gameType === filter)
     .filter((g) => {
       if (!search) return true
-      const name = opponentDisplay(g).toLowerCase()
+      const name = g.opponent.toLowerCase()
       return name.includes(search.toLowerCase())
     })
     .filter((g) => {
@@ -202,7 +189,7 @@ export default function ResultsPage() {
     })
 
   const selectedOpponentName = selectedOpponent
-    ? opponentDisplay(filtered[0] ?? allPlayed.find((g) => opponentKey(g) === selectedOpponent)!)
+    ? (filtered[0] ?? allPlayed.find((g) => opponentKey(g) === selectedOpponent))?.opponent ?? null
     : null
 
   const opponentGames = selectedOpponent
@@ -283,7 +270,7 @@ export default function ResultsPage() {
                   onClick={() => handleGameClick(game)}
                 >
                   <div className="text-left">
-                    <p className="text-sm font-medium">{opponentDisplay(game)}</p>
+                    <p className="text-sm font-medium">{game.opponent}</p>
                     <p className="text-xs text-muted-foreground">{game.date}</p>
                     {game.location && (
                       <p className="text-xs text-muted-foreground">{game.location}</p>

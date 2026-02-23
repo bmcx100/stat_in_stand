@@ -5,7 +5,6 @@ import Link from "next/link"
 import { ArrowLeft, X } from "lucide-react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
-import { useSupabaseOpponents } from "@/hooks/use-supabase-opponents"
 import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
 import { computePlaydownStandings } from "@/lib/playdowns"
@@ -31,7 +30,6 @@ function computeRecord(games: Game[]) {
 export default function StandingsPage() {
   const team = useTeamContext()
   const { games, loading: gamesLoading } = useSupabaseGames(team.id)
-  const { getById } = useSupabaseOpponents(team.id)
   const { standingsMap } = useSupabaseStandings(team.id)
   const standings = standingsMap["regular"]
   const { playdown } = useSupabasePlaydowns(team.id)
@@ -78,19 +76,8 @@ export default function StandingsPage() {
     }
   }, [search, selectedOpponent])
 
-  function opponentDisplay(game: Game): string {
-    if (game.opponentId) {
-      const opp = getById(game.opponentId)
-      if (opp) {
-        if (opp.location && opp.name) return `${opp.location} ${opp.name}`
-        return opp.fullName
-      }
-    }
-    return game.opponent
-  }
-
   function opponentKey(game: Game): string {
-    return game.opponentId || game.opponent
+    return game.opponent
   }
 
   if (gamesLoading) {
@@ -141,7 +128,6 @@ export default function StandingsPage() {
             date: g.date,
             time: g.time,
             opponent: oppTeam?.name ?? opponentTeamId,
-            opponentId: oppTeam?.opponentId,
             location: g.location,
             gameType: "playdowns" as Game["gameType"],
             played: true,
@@ -161,7 +147,7 @@ export default function StandingsPage() {
   const filtered = activeGames
     .filter((g) => {
       if (!search) return true
-      const name = opponentDisplay(g).toLowerCase()
+      const name = g.opponent.toLowerCase()
       return name.includes(search.toLowerCase())
     })
     .filter((g) => {
@@ -171,7 +157,7 @@ export default function StandingsPage() {
 
   const filteredOpponentKeys = new Set(filtered.map((g) => opponentKey(g)))
   const singleOpponent = filteredOpponentKeys.size === 1 && filtered.length > 0
-    ? { name: opponentDisplay(filtered[0]), ...computeRecord(filtered), gp: filtered.length }
+    ? { name: filtered[0].opponent, ...computeRecord(filtered), gp: filtered.length }
     : null
 
   function handleModeChange(newMode: StandingsMode) {
@@ -360,7 +346,7 @@ export default function StandingsPage() {
                   onClick={() => handleGameClick(game)}
                 >
                   <div className="text-left">
-                    <p className="text-sm font-medium">{opponentDisplay(game)}</p>
+                    <p className="text-sm font-medium">{game.opponent}</p>
                     <p className="text-xs text-muted-foreground">{game.date}</p>
                     {game.location && (
                       <p className="text-xs text-muted-foreground">{game.location}</p>

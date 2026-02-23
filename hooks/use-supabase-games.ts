@@ -10,7 +10,6 @@ type DbGame = {
   team_id: string
   date: string
   time: string
-  opponent_id: string | null
   opponent_name: string
   location: string
   team_score: number | null
@@ -31,7 +30,6 @@ function dbToGame(row: DbGame): Game {
     date: row.date,
     time: row.time || "",
     opponent: row.opponent_name,
-    opponentId: row.opponent_id ?? undefined,
     location: row.location || "",
     teamScore: row.team_score,
     opponentScore: row.opponent_score,
@@ -49,7 +47,6 @@ function gameToDb(game: Partial<Game> & { teamId: string }) {
     team_id: game.teamId,
     date: game.date,
     time: game.time || "",
-    opponent_id: game.opponentId || null,
     opponent_name: game.opponent || "",
     location: game.location || "",
     team_score: game.teamScore ?? null,
@@ -93,7 +90,6 @@ export function useSupabaseGames(teamId: string | undefined) {
     if (updates.played !== undefined) dbUpdates.played = updates.played
     if (updates.gameType !== undefined) dbUpdates.game_type = updates.gameType
     if (updates.opponent !== undefined) dbUpdates.opponent_name = updates.opponent
-    if (updates.opponentId !== undefined) dbUpdates.opponent_id = updates.opponentId || null
     if (updates.location !== undefined) dbUpdates.location = updates.location
     if (updates.time !== undefined) dbUpdates.time = updates.time
     if (updates.date !== undefined) dbUpdates.date = updates.date

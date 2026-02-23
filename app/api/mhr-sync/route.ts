@@ -73,10 +73,6 @@ async function fetchMhrPage(pageUrl: string, pattern: RegExp): Promise<{ token: 
   return { token: match[1], cookies }
 }
 
-function normName(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
-}
-
 export async function POST(request: Request) {
   const body = await request.json()
   const { teamId, type } = body
@@ -128,7 +124,7 @@ export async function POST(request: Request) {
     let rawGames: unknown[]
     try {
       const pageUrl = `https://myhockeyrankings.com/team_info.php?y=${year}&t=${mhrConfig.team_nbr}`
-      const { token, cookies } = await fetchMhrPage(pageUrl, /MHRv5\.scoresBody\(.*?"token"\s*:\s*"([^"]+)"/s)
+      const { token, cookies } = await fetchMhrPage(pageUrl, new RegExp('MHRv5\\.scoresBody\\(.*?"token"\\s*:\\s*"([^"]+)"', "s"))
       const dataRes = await fetch(
         `https://myhockeyrankings.com/team-info/service/${year}/${mhrConfig.team_nbr}`,
         { headers: { "X-Mhr-Token": token, "User-Agent": MHR_UA, "Referer": pageUrl, "Cookie": cookies } }
@@ -147,23 +143,6 @@ export async function POST(request: Request) {
     }
 
     const parsedGames = parseMhrApiGames(rawGames, teamId, mhrConfig.team_nbr)
-
-    const { data: opponents } = await serviceSupabase
-      .from("opponents")
-      .select("id, full_name")
-      .eq("team_id", teamId)
-
-    const opponentRegistry = opponents ?? []
-
-    function findOpponent(rawName: string): { id: string | null; name: string } {
-      const needle = normName(rawName)
-      const match = opponentRegistry.find((o) => {
-        const hay = normName(o.full_name)
-        return hay === needle || hay.includes(needle) || needle.includes(hay)
-      })
-      if (match) return { id: match.id, name: match.full_name }
-      return { id: null, name: rawName.trim() }
-    }
 
     let inserted = 0
     let updated = 0
@@ -197,13 +176,11 @@ export async function POST(request: Request) {
           skipped++
         }
       } else {
-        const { id: opponentId, name: opponentName } = findOpponent(game.opponent)
         const { error } = await serviceSupabase.from("games").insert({
           team_id: teamId,
           date: game.date,
           time: game.time,
-          opponent_id: opponentId,
-          opponent_name: opponentName,
+          opponent_name: game.opponent,
           location: game.location,
           team_score: game.teamScore,
           opponent_score: game.opponentScore,
@@ -236,7 +213,7 @@ export async function POST(request: Request) {
     let rawRankings: Array<{ week: number; team_nbr: number; ranking: number }>
     try {
       const pageUrl = `https://myhockeyrankings.com/rank?y=${year}&a=${mhrConfig.div_age}&v=${mhrConfig.div_nbr}`
-      const { token, cookies } = await fetchMhrPage(pageUrl, /MHRv5\.rankings\(.*?"token"\s*:\s*"([^"]+)"/s)
+      const { token, cookies } = await fetchMhrPage(pageUrl, new RegExp('MHRv5\\.rankings\\(.*?"token"\\s*:\\s*"([^"]+)"', "s"))
       const dataRes = await fetch(
         `https://myhockeyrankings.com/rank/service?y=${year}&a=${mhrConfig.div_age}&v=${mhrConfig.div_nbr}`,
         { headers: { "X-Mhr-Token": token, "User-Agent": MHR_UA, "Referer": pageUrl, "Cookie": cookies } }

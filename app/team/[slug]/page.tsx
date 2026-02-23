@@ -5,18 +5,15 @@ import Link from "next/link"
 import { Archive } from "lucide-react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
-import { useSupabaseOpponents } from "@/hooks/use-supabase-opponents"
 import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
 import { useSupabaseTournaments } from "@/hooks/use-supabase-tournaments"
 import { isPlaydownExpired, computePlaydownStandings } from "@/lib/playdowns"
 import { isTournamentExpired } from "@/lib/tournaments"
-import type { Game } from "@/lib/types"
 
 export default function Dashboard() {
   const team = useTeamContext()
   const { games, loading: gamesLoading } = useSupabaseGames(team.id)
-  const { getById } = useSupabaseOpponents(team.id)
   const { standingsMap } = useSupabaseStandings(team.id)
   const standings = standingsMap["regular"]
   const { playdown } = useSupabasePlaydowns(team.id)
@@ -58,17 +55,6 @@ export default function Dashboard() {
       ro.disconnect()
     }
   }, [gamesLoading])
-
-  function opponentDisplay(game: Game): string {
-    if (game.opponentId) {
-      const opp = getById(game.opponentId)
-      if (opp) {
-        if (opp.location && opp.name) return `${opp.location} ${opp.name}`
-        return opp.fullName
-      }
-    }
-    return game.opponent
-  }
 
   if (gamesLoading) {
     return (
@@ -149,11 +135,11 @@ export default function Dashboard() {
               {upcoming.map((game) => (
                 <Link
                   key={game.id}
-                  href={`/team/${team.slug}/results?search=${encodeURIComponent(opponentDisplay(game))}`}
+                  href={`/team/${team.slug}/results?search=${encodeURIComponent(game.opponent)}`}
                   className="game-list-item game-list-clickable"
                 >
                   <div>
-                    <p className="text-sm font-medium">{opponentDisplay(game)}</p>
+                    <p className="text-sm font-medium">{game.opponent}</p>
                     <p className="text-xs text-muted-foreground">
                       {game.date}{game.time ? ` at ${game.time}` : ""}
                     </p>
@@ -178,7 +164,7 @@ export default function Dashboard() {
             <p className="dashboard-event-meta">
               {playdown?.config.totalTeams ? `${playdown.config.totalTeams} teams` : ""}
               {playdown?.config.qualifyingSpots ? ` · Top ${playdown.config.qualifyingSpots} qualify` : ""}
-              {playdown?.config.gamesPerMatchup > 1 ? ` · Best of ${playdown.config.gamesPerMatchup}` : ""}
+              {(playdown?.config.gamesPerMatchup ?? 0) > 1 ? ` · Best of ${playdown!.config.gamesPerMatchup}` : ""}
             </p>
           </div>
           <p className="dashboard-event-record">

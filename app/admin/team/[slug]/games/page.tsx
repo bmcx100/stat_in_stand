@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
-import { useSupabaseOpponents } from "@/hooks/use-supabase-opponents"
 import { useSupabaseTournaments } from "@/hooks/use-supabase-tournaments"
 import type { Game, GameType } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -22,7 +21,6 @@ const GAME_TYPE_OPTIONS = [
 export default function AdminGamesPage() {
   const team = useTeamContext()
   const { games, addGames, updateGame, removeGame, clearGames, clearByType, loading: gamesLoading } = useSupabaseGames(team.id)
-  const { getById } = useSupabaseOpponents(team.id)
   const { tournaments } = useSupabaseTournaments(team.id)
 
   const [selectedType, setSelectedType] = useState("all")
@@ -43,17 +41,6 @@ export default function AdminGamesPage() {
   }
 
   const addGameReady = Boolean(newOpponent)
-
-  function opponentDisplay(game: Game): string {
-    if (game.opponentId) {
-      const opp = getById(game.opponentId)
-      if (opp) {
-        if (opp.location && opp.name) return `${opp.location} ${opp.name}`
-        return opp.fullName
-      }
-    }
-    return game.opponent
-  }
 
   const handleGameUpdate = useCallback(async (gameId: string, updates: Partial<Game>) => {
     await updateGame(gameId, updates)
@@ -229,7 +216,7 @@ export default function AdminGamesPage() {
                     }}
                   />
                 </td>
-                <td>{opponentDisplay(game)}</td>
+                <td>{game.opponent}</td>
                 <td>
                   <input
                     className="games-table-input"

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
-import { useSupabaseOpponents } from "@/hooks/use-supabase-opponents"
 import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { createClient } from "@/lib/supabase/client"
 import type { Game } from "@/lib/types"
@@ -327,7 +326,7 @@ function SeasonCard({
       </div>
       {loopInfo && (
         <div className="playdown-loop-card">
-          <p className="playdown-loop-header">Loop: {loopInfo.qualifyingSpots} of {loopInfo.totalTeams} teams advance{loopInfo.gamesPerMatchup ? ` · ${loopInfo.gamesPerMatchup} games / matchup` : ""}</p>
+          <p className="playdown-loop-header">Loop: {loopInfo.qualifyingSpots} of {loopInfo.totalTeams} teams advance{"gamesPerMatchup" in loopInfo && loopInfo.gamesPerMatchup ? ` · ${loopInfo.gamesPerMatchup} games / matchup` : ""}</p>
           <div className="playdown-loop-teams">
             {loopInfo.teamNames.map((name, i) => (
               <span key={name} className="playdown-loop-team">
@@ -345,7 +344,6 @@ function SeasonCard({
 export default function AdminTeamHub() {
   const team = useTeamContext()
   const { games, loading: gamesLoading } = useSupabaseGames(team.id)
-  const { opponents } = useSupabaseOpponents(team.id)
   const { standingsMap } = useSupabaseStandings(team.id)
   const supabase = createClient()
 
@@ -406,7 +404,7 @@ export default function AdminTeamHub() {
           eventType: "playdown",
           eventId: "playdown",
         })
-        const cfg = pdRes.data.config as { teamNames?: string[]; totalTeams?: number; qualifyingSpots?: number } | null
+        const cfg = pdRes.data.config as { teamNames?: string[]; totalTeams?: number; qualifyingSpots?: number; gamesPerMatchup?: number } | null
         if (cfg?.teamNames?.length) {
           setPlaydownLoopInfo({
             teamNames: cfg.teamNames,
@@ -472,10 +470,6 @@ export default function AdminTeamHub() {
           <div className="owha-sync-stat">
             <span className="owha-sync-stat-value">{games.length}</span>
             <span className="owha-sync-stat-label">Total Games</span>
-          </div>
-          <div className="owha-sync-stat">
-            <span className="owha-sync-stat-value">{opponents.length}</span>
-            <span className="owha-sync-stat-label">Opponents</span>
           </div>
         </div>
       </div>

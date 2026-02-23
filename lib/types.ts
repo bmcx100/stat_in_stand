@@ -9,24 +9,12 @@ export type GameType =
 
 export type ImportSource = "owha" | "mhr" | "teamsnap" | "manual"
 
-export type Opponent = {
-  id: string
-  fullName: string
-  location: string
-  name: string
-  ageGroup: string
-  level: string
-  owhaId?: string
-  notes?: string
-}
-
 export type Game = {
   id: string
   teamId: string
   date: string
   time: string
   opponent: string
-  opponentId?: string
   location: string
   teamScore: number | null
   opponentScore: number | null
@@ -67,7 +55,6 @@ export type StandingsData = {
 export type PlaydownTeam = {
   id: string
   name: string
-  opponentId?: string
 }
 
 export type PlaydownConfig = {
@@ -140,7 +127,6 @@ export type QualificationRow = PlaydownStandingsRow & {
 export type TournamentTeam = {
   id: string
   name: string
-  opponentId?: string
   poolId: string
 }
 

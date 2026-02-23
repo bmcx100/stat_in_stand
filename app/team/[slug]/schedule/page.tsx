@@ -4,24 +4,10 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
-import { useSupabaseOpponents } from "@/hooks/use-supabase-opponents"
-import type { Game } from "@/lib/types"
 
 export default function SchedulePage() {
   const team = useTeamContext()
   const { games, loading } = useSupabaseGames(team.id)
-  const { getById } = useSupabaseOpponents(team.id)
-
-  function opponentDisplay(game: Game): string {
-    if (game.opponentId) {
-      const opp = getById(game.opponentId)
-      if (opp) {
-        if (opp.location && opp.name) return `${opp.location} ${opp.name}`
-        return opp.fullName
-      }
-    }
-    return game.opponent
-  }
 
   if (loading) {
     return (
@@ -53,7 +39,7 @@ export default function SchedulePage() {
           {upcoming.map((game) => (
             <div key={game.id} className="game-list-item">
               <div>
-                <p className="text-sm font-medium">{opponentDisplay(game)}</p>
+                <p className="text-sm font-medium">{game.opponent}</p>
                 <p className="text-xs text-muted-foreground">
                   {game.date}{game.time ? ` at ${game.time}` : ""}
                 </p>
