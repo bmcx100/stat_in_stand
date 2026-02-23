@@ -7,6 +7,7 @@ Integrate My Hockey Rankings (MHR) as a sync source for exhibition games, tourna
 ## Background & API Discovery
 
 MHR's API requires a per-session token embedded in the page HTML. There is no static token — each page load generates a fresh one for anonymous sessions. The sync flow must:
+
 1. Fetch the MHR HTML page server-side
 2. Extract the token via regex from the `MHRv5.*token:"..."` script block
 3. Use that token in the `X-Mhr-Token` request header when calling the service endpoint
@@ -27,6 +28,7 @@ MHR's API requires a per-session token embedded in the page HTML. There is no st
 | anything else | **skip** |
 
 **Key game fields:**
+
 - `game_nbr` — unique game ID (use as `sourceGameId`)
 - `game_date_format` — ISO date string (`2025-09-11`)
 - `game_time_format` — 24h time string (`19:15`)
@@ -49,6 +51,7 @@ All MHR games go into the main `games` table with `source: "mhr"`.
 - **Response:** flat JSON array of ranked team objects
 
 **Key ranking fields:**
+
 - `ranking` — provincial rank position
 - `name` — team name
 - `team_nbr` — MHR team ID
@@ -62,6 +65,7 @@ Rankings history is built by storing one row per `(team_id, week)` — re-syncin
 ## Database Changes
 
 ### New columns on `teams` table
+
 - `mhr_team_nbr` INTEGER — MHR team number (e.g. `9407`)
 - `mhr_div_nbr` INTEGER — MHR division/rankings number (e.g. `2038`)
 - `mhr_div_age` VARCHAR — MHR age code for rankings URL (e.g. `"c"`)
@@ -69,6 +73,7 @@ Rankings history is built by storing one row per `(team_id, week)` — re-syncin
 - `mhr_rankings_last_synced_at` TIMESTAMPTZ — last rankings sync timestamp
 
 ### New table: `mhr_rankings`
+
 ```sql
 CREATE TABLE mhr_rankings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -84,6 +89,7 @@ CREATE TABLE mhr_rankings (
 RLS: public read, authenticated write scoped to team_admins (same pattern as other tables).
 
 ### Migration file
+
 `supabase/migrations/004_mhr_sync.sql`
 
 ## Configure Card (Manage Teams & Admins)
@@ -91,11 +97,13 @@ RLS: public read, authenticated write scoped to team_admins (same pattern as oth
 In `app/admin/teams/page.tsx`, the Configure expand panel currently has two inputs (OWHA Regular Season URL, OWHA Playdowns URL). Add a third section:
 
 **MHR Games URL**
+
 - Input: full MHR team page URL (e.g. `https://myhockeyrankings.com/team_info.php?y=2025&t=9407`)
 - Extract `t` param → save as `mhr_team_nbr`
 - Placeholder: `https://myhockeyrankings.com/team_info.php?y=2025&t=9407`
 
 **MHR Rankings URL**
+
 - Input: full MHR rankings page URL (e.g. `https://myhockeyrankings.com/rank?y=2025&a=c&v=2038`)
 - Extract `v` param → save as `mhr_div_nbr`, `a` param → save as `mhr_div_age`
 - Placeholder: `https://myhockeyrankings.com/rank?y=2025&a=c&v=2038`
@@ -105,6 +113,7 @@ Both saved via a new `/api/mhr-config` PATCH endpoint alongside the existing OWH
 ## New API Route: `/api/mhr-config`
 
 PATCH endpoint to save MHR identifiers extracted from the provided URLs:
+
 - Parse `mhr_team_nbr` from games URL `t` param
 - Parse `mhr_div_nbr` and `mhr_div_age` from rankings URL `v` and `a` params
 - Update `teams` table via service role client
@@ -118,6 +127,7 @@ POST endpoint, analogous to `/api/owha-sync`. Request body:
 ```
 
 ### `type: "games"`
+
 1. Fetch team row to get `mhr_team_nbr`
 2. Fetch `https://myhockeyrankings.com/team_info.php?y={year}&t={mhr_team_nbr}`
 3. Extract token via regex: `/MHRv5\.scoresBody\(.*?"token"\s*:\s*"([^"]+)"/s`
@@ -129,6 +139,7 @@ POST endpoint, analogous to `/api/owha-sync`. Request body:
 9. Return `{ inserted, updated, skipped }` summary
 
 ### `type: "rankings"`
+
 1. Fetch team row to get `mhr_div_nbr` and `mhr_div_age`
 2. Fetch `https://myhockeyrankings.com/rank?y={year}&a={mhr_div_age}&v={mhr_div_nbr}`
 3. Extract token via regex: `/MHRv5\.rankings\(.*?"token"\s*:\s*"([^"]+)"/s`
@@ -144,13 +155,16 @@ Year is inferred from current date using season logic (Aug–Jul span, same as `
 In `app/admin/team/[slug]/page.tsx`, add a new section below the existing three OWHA season cards. Load `mhr_team_nbr`, `mhr_div_nbr`, `mhr_last_synced_at`, `mhr_rankings_last_synced_at` from the `teams` row, and the latest rankings snapshot from `mhr_rankings`.
 
 ### MHR Games Card
+
 Mirrors the `SeasonCard` pattern:
+
 - **Left half:** `MhrSyncPanel` — "Sync Games" button + last synced timestamp + result summary
 - **Right half:** stats — exhibition game count, tournament game count
 
 No mismatch detection (no standings to compare against).
 
 ### MHR Rankings Card
+
 - **Left half:** "Sync Rankings" button + last synced timestamp
 - **Right half:** displays our team's current rank (from latest `mhr_rankings` snapshot) — e.g. `#7` with the week label (e.g. "Week 22")
 
@@ -161,6 +175,7 @@ Both cards are disabled (greyed out sync button) if `mhr_team_nbr` / `mhr_div_nb
 ## Hook: `useSupabaseMhrRankings(teamId)`
 
 New hook in `hooks/use-supabase-mhr-rankings.ts`:
+
 - Fetches latest row from `mhr_rankings` for this `team_id` ordered by `week DESC`
 - Exposes `rankings: MhrRankingRow[] | null` and `latestWeek: number | null`
 
@@ -168,21 +183,21 @@ New hook in `hooks/use-supabase-mhr-rankings.ts`:
 
 ```ts
 export type MhrRankingEntry = {
-  team_nbr: number
-  name: string
-  ranking: number
-  week: number
-  difference: number
-  gp: number
-  wins: number
-  losses: number
-  ties: number
-  gf: number
-  ga: number
-  rating: number
-  sched: number
-  agd: number
-}
+  team_nbr: number;
+  name: string;
+  ranking: number;
+  week: number;
+  difference: number;
+  gp: number;
+  wins: number;
+  losses: number;
+  ties: number;
+  gf: number;
+  ga: number;
+  rating: number;
+  sched: number;
+  agd: number;
+};
 ```
 
 ## Parser additions (`lib/parsers.ts`)
