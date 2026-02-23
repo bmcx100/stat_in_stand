@@ -151,11 +151,17 @@
 
 /* Team cards (home screen) */
 .team-card {
-  @apply flex w-full items-center rounded-xl border py-4 pr-4 transition-colors;
+  @apply flex w-full flex-col rounded-xl border overflow-hidden transition-colors;
+}
+
+/* Banner row: background image, heart, name, ranking badge */
+.team-card-banner {
+  @apply flex w-full items-center py-4 pr-4;
   padding-left: 10px;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  min-height: 4rem;
 }
 
 .team-card-link {
@@ -174,6 +180,205 @@
 /* Heart toggle */
 .heart-button {
   @apply mr-2 shrink-0 text-[#e3e3e3] transition-colors [&_svg]:size-6;
+}
+
+/* ── Ranking badge ── */
+.ranking-badge-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+.ranking-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+  transition: background 0.12s;
+}
+
+.ranking-badge:hover {
+  background: rgba(0,0,0,0.6);
+}
+
+.ranking-badge-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  min-width: 10rem;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ranking-badge-tooltip-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+.ranking-badge-tooltip-link {
+  font-size: 0.7rem;
+  color: var(--primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ranking-badge-tooltip-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Team card events section ── */
+.team-card-events {
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.team-card-fallback {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+}
+
+/* ── Event rows ── */
+.team-event-row {
+  border-bottom: 1px solid var(--border);
+}
+
+.team-event-row:last-child {
+  border-bottom: none;
+}
+
+.team-event-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.team-event-row-header:hover {
+  background: var(--muted);
+}
+
+.team-event-row-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.team-event-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--foreground);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.team-event-summary {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-event-chevron {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.team-event-chevron-open {
+  transform: rotate(180deg);
+}
+
+/* Expanded detail area */
+.team-event-detail {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s ease;
+  overflow: hidden;
+}
+
+.team-event-row-open .team-event-detail {
+  grid-template-rows: 1fr;
+}
+
+.team-event-detail > * {
+  overflow: hidden;
+}
+
+.team-event-detail-inner {
+  padding: 0 0.875rem 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.team-event-detail-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.team-event-detail-key {
+  font-weight: 600;
+  color: var(--foreground);
+  flex-shrink: 0;
+  min-width: 3.5rem;
+}
+
+.team-event-detail-val {
+  color: var(--muted-foreground);
+}
+
+.team-event-detail-sub {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  padding-left: 3.9rem;
+  margin: 0;
+  margin-top: -0.1rem;
+}
+
+.team-event-link {
+  display: inline-block;
+  font-size: 0.7rem;
+  color: var(--primary);
+  text-decoration: none;
+  margin-top: 0.25rem;
+  padding-left: 3.9rem;
+}
+
+.team-event-link:hover {
+  text-decoration: underline;
 }
 
 /* Add Teams button (home header — icon only) */

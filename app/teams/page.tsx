@@ -1,12 +1,15 @@
 "use client"
 
-import { useSyncExternalStore } from "react"
+import { useSyncExternalStore, useEffect, useState } from "react"
 import Link from "next/link"
 import { Heart, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { RankingBadge } from "@/components/ranking-badge"
 import { useTeams } from "@/hooks/use-supabase-teams"
 import { useFavorites } from "@/hooks/use-favorites"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { lookupRanking } from "@/lib/home-cards"
 
 const LEVEL_RANK: Record<string, number> = { AAA: 0, AA: 1, A: 2, BB: 3, B: 4, C: 5 }
 const levelRank = (l: string) => LEVEL_RANK[l.toUpperCase()] ?? 99
@@ -30,15 +33,61 @@ function getBanner(slug: string): string | undefined {
   return key ? BANNER_MAP[key] : undefined
 }
 
+type RankingInfo = {
+  ranking: number | null
+  rankingUrl: string | null
+  rankingLabel: string | null
+}
+
 export default function TeamsPage() {
   const { teams, loading } = useTeams()
   const { toggleFavorite, isFavorite } = useFavorites()
   const router = useRouter()
+  const supabase = createClient()
+  const [rankings, setRankings] = useState<Map<string, RankingInfo>>(new Map())
   const hydrated = useSyncExternalStore(
     () => () => {},
     () => true,
     () => false
   )
+
+  useEffect(() => {
+    if (teams.length === 0) return
+    const teamIds = teams.map((t) => t.id)
+
+    async function loadRankings() {
+      const [{ data: mhrConfigs }, { data: mhrRankings }] = await Promise.all([
+        supabase.from("mhr_config").select("team_id, team_nbr, div_nbr, div_age").in("team_id", teamIds),
+        supabase.from("mhr_rankings").select("team_id, rows, synced_at").in("team_id", teamIds).order("synced_at", { ascending: false }),
+      ])
+
+      // Latest ranking row per team
+      const latestByTeam = new Map<string, Array<{ team_nbr: number; ranking: number }>>()
+      for (const row of mhrRankings ?? []) {
+        if (!latestByTeam.has(row.team_id)) {
+          latestByTeam.set(row.team_id, row.rows as Array<{ team_nbr: number; ranking: number }>)
+        }
+      }
+
+      const map = new Map<string, RankingInfo>()
+      const year = new Date().getFullYear()
+      for (const team of teams) {
+        const mhr = mhrConfigs?.find((m) => m.team_id === team.id)
+        const rows = latestByTeam.get(team.id) ?? []
+        const ranking = lookupRanking(mhr?.team_nbr ?? null, rows)
+        const rankingUrl = mhr?.div_nbr && mhr?.div_age
+          ? `https://myhockeyrankings.com/rank?y=${year}&a=${mhr.div_age}&v=${mhr.div_nbr}`
+          : null
+        const rankingLabel = ranking && mhr?.div_age
+          ? `#${ranking} in Ontario — ${team.age_group.toUpperCase()} ${team.level.toUpperCase()}`
+          : null
+        map.set(team.id, { ranking, rankingUrl, rankingLabel })
+      }
+      setRankings(map)
+    }
+
+    loadRankings()
+  }, [teams.map((t) => t.id).join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading || !hydrated) {
     return (
@@ -66,6 +115,7 @@ export default function TeamsPage() {
           {sorted.map((team) => {
             const banner = getBanner(team.slug)
             const fav = isFavorite(team.slug)
+            const rankInfo = rankings.get(team.id)
             return (
               <div
                 key={team.id}
@@ -88,6 +138,13 @@ export default function TeamsPage() {
                       : `${team.organization} ${team.name} · ${team.age_group.toUpperCase()} · ${team.level.toUpperCase()}`}
                   </span>
                 </Link>
+                {rankInfo?.ranking != null && (
+                  <RankingBadge
+                    ranking={rankInfo.ranking}
+                    rankingLabel={rankInfo.rankingLabel}
+                    rankingUrl={rankInfo.rankingUrl}
+                  />
+                )}
               </div>
             )
           })}
