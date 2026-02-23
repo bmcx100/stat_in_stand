@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Vault, ArrowLeft, LayoutDashboard, Gamepad2,
-  Trophy, BarChart3, CalendarDays, LogOut, Settings,
+  Trophy, BarChart3, CalendarDays, LogOut, Settings, RefreshCw,
 } from "lucide-react"
 import { AdminHelp } from "@/components/admin-help"
 import { useTeam } from "@/hooks/use-supabase-teams"
@@ -162,6 +162,11 @@ export default function AdminTeamLayout({
           <div className="ob-sidebar-bottom">
             {isSuperAdmin && (
               <>
+                <Link href="/admin/sync" className="ob-nav-link">
+                  <RefreshCw className="ob-nav-icon" />
+                  Bulk Sync
+                </Link>
+                <hr className="ob-sidebar-divider" />
                 <Link href="/admin/teams" className="ob-nav-link">
                   <Settings className="ob-nav-icon" />
                   Manage Teams &amp; Admins

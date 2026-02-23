@@ -102,19 +102,32 @@ function formatResult(data: Record<string, unknown>): string {
   return "Done"
 }
 
-function StatusDot({ color }: { color: StatusColor }) {
-  return <div className={`status-dot status-dot-${color}`} />
+const STATUS_LABELS: Record<StatusColor, string> = {
+  green: "OK",
+  yellow: "Mismatch",
+  red: "Never synced",
+  grey: "Not configured",
+}
+
+function StatusDot({ color, label }: { color: StatusColor; label: string }) {
+  return (
+    <div
+      className={`status-dot status-dot-${color}`}
+      title={`${label}: ${STATUS_LABELS[color]}`}
+      style={{ cursor: "default" }}
+    />
+  )
 }
 
 function InlineStatus({ status }: { status: TeamStatus | undefined }) {
   if (!status) return null
   return (
     <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
-      <StatusDot color={status.regular} />
-      <StatusDot color={status.playoffs} />
-      <StatusDot color={status.playdowns} />
-      <StatusDot color={status.mhrGames} />
-      <StatusDot color={status.mhrRankings} />
+      <StatusDot color={status.regular}      label="Regular" />
+      <StatusDot color={status.playoffs}     label="Playoffs" />
+      <StatusDot color={status.playdowns}    label="Playdowns" />
+      <StatusDot color={status.mhrGames}     label="MHR Games" />
+      <StatusDot color={status.mhrRankings}  label="MHR Rankings" />
     </div>
   )
 }
@@ -328,6 +341,7 @@ export default function BulkSyncPage() {
             <RefreshCw className="ob-nav-icon" />
             Bulk Sync
           </Link>
+          <hr className="ob-sidebar-divider" />
           <Link href="/admin/teams" className="ob-nav-link">
             <Settings className="ob-nav-icon" />
             Manage Teams &amp; Admins
@@ -349,19 +363,34 @@ export default function BulkSyncPage() {
             <h1 className="ob-page-title">Bulk Sync</h1>
           </div>
 
-          <div className="bulk-sync-type-bar">
-            {SYNC_TYPES.map(({ key, label }) => (
-              <Button
-                key={key}
-                variant="outline"
-                size="sm"
-                disabled={running}
-                onClick={() => runBulkSync(key)}
-                style={activeType === key && !running ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
-              >
-                <RefreshCw className={running && activeType === key ? "h-3 w-3 animate-spin" : "h-3 w-3"} />
-                {label}
-              </Button>
+          <div className="bulk-sync-groups">
+            {[
+              { label: "Regular",   keys: ["regular-standings", "regular-games"] as SyncType[] },
+              { label: "Playoffs",  keys: ["playoffs-standings", "playoffs-games"] as SyncType[] },
+              { label: "Playdowns", keys: ["playdowns-standings", "playdowns-games"] as SyncType[] },
+              { label: "MHR",       keys: ["mhr-rankings", "mhr-games"] as SyncType[] },
+            ].map((group) => (
+              <div key={group.label} className="bulk-sync-group">
+                <span className="bulk-sync-group-label">{group.label}</span>
+                <div className="bulk-sync-group-buttons">
+                  {group.keys.map((key) => {
+                    const item = SYNC_TYPES.find((s) => s.key === key)!
+                    return (
+                      <Button
+                        key={key}
+                        variant="outline"
+                        size="sm"
+                        disabled={running}
+                        onClick={() => runBulkSync(key)}
+                        style={activeType === key && !running ? { backgroundColor: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}
+                      >
+                        <RefreshCw className={running && activeType === key ? "h-3 w-3 animate-spin" : "h-3 w-3"} />
+                        {item.label.replace(/^(Regular|Playoffs|Playdowns|MHR)\s*/i, "")}
+                      </Button>
+                    )
+                  })}
+                </div>
+              </div>
             ))}
           </div>
 
@@ -392,6 +421,16 @@ export default function BulkSyncPage() {
                 </div>
               )
             })}
+          </div>
+
+          <div className="bulk-sync-legend">
+            <span className="bulk-sync-legend-title">Status dots (left to right):</span>
+            <span>Regular · Playoffs · Playdowns · MHR Games · MHR Rankings</span>
+            <span className="bulk-sync-legend-sep">·</span>
+            <span><span className="status-dot status-dot-green" style={{ display: "inline-block", verticalAlign: "middle", marginRight: "0.25rem" }} />OK</span>
+            <span><span className="status-dot status-dot-yellow" style={{ display: "inline-block", verticalAlign: "middle", marginRight: "0.25rem" }} />Mismatch</span>
+            <span><span className="status-dot status-dot-red" style={{ display: "inline-block", verticalAlign: "middle", marginRight: "0.25rem" }} />Never synced</span>
+            <span><span className="status-dot status-dot-grey" style={{ display: "inline-block", verticalAlign: "middle", marginRight: "0.25rem" }} />Not configured</span>
           </div>
         </div>
       </main>

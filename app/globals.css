@@ -2303,6 +2303,32 @@ details[open] > .qual-tiebreaker-summary::after {
   padding: 0 0 1rem;
 }
 
+.bulk-sync-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 0 1rem;
+}
+
+.bulk-sync-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bulk-sync-group-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  width: 5rem;
+  flex-shrink: 0;
+}
+
+.bulk-sync-group-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .bulk-sync-progress {
   font-size: 0.8rem;
   color: var(--muted-foreground);
@@ -2364,6 +2390,24 @@ details[open] > .qual-tiebreaker-summary::after {
   color: var(--muted-foreground);
   opacity: 0.5;
   white-space: nowrap;
+}
+
+.bulk-sync-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0 0;
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+}
+
+.bulk-sync-legend-title {
+  font-weight: 600;
+}
+
+.bulk-sync-legend-sep {
+  opacity: 0.3;
 }
 
 .owha-score-pending {

@@ -360,6 +360,7 @@ export default function AdminTeamsPage() {
             <RefreshCw className="ob-nav-icon" />
             Bulk Sync
           </Link>
+          <hr className="ob-sidebar-divider" />
           <Link href="/admin/teams" className="ob-nav-link" data-active={true}>
             <Settings className="ob-nav-icon" />
             Manage Teams &amp; Admins
