@@ -134,6 +134,9 @@ export default function PlaydownsPage() {
     const maxScale = Math.max(totalMaxPts, 1)
     const cutoffPts = qualifyingSpots > 0 && qualification.length >= qualifyingSpots
       ? qualification[qualifyingSpots - 1].pts : 0
+    const totalGroupPts = totalTeams * (totalTeams - 1) * gamesPerMatchup
+    const clinchPts = qualifyingSpots > 0 && totalTeams > qualifyingSpots
+      ? Math.floor(totalGroupPts / (totalTeams - qualifyingSpots + 1)) + 1 : totalMaxPts
     const allZeroPoints = qualification.every((r) => r.pts === 0)
     const today = new Date().toISOString().slice(0, 10)
     const completed = games.filter((g) => g.played).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -269,9 +272,10 @@ export default function PlaydownsPage() {
             </div>
             <div className="qual-number-line-wrap">
               <div className="qual-number-line">
+                <div className="qual-clinch-zone" style={{ left: `${(clinchPts / maxScale) * 100}%`, width: `${((maxScale - clinchPts) / maxScale) * 100}%` }} />
                 <div className="qual-cutoff-line" style={{ left: `${(cutoffPts / maxScale) * 100}%` }} />
-                <span className="qual-zone-label" data-zone="outside">Outside</span>
-                <span className="qual-zone-label" data-zone="qualifying">Qualifying Zone</span>
+                <span className="qual-zone-label" data-zone="outside">Out</span>
+                <span className="qual-zone-label" data-zone="qualifying">Locked Zone</span>
                 {qualification.map((row, i) => {
                   const sameGroup = qualification.filter((r) => r.pts === row.pts)
                   const groupIdx = sameGroup.findIndex((r) => r.teamId === row.teamId)
@@ -326,6 +330,9 @@ export default function PlaydownsPage() {
   const cutoffPts = config.qualifyingSpots > 0 && qualification.length >= config.qualifyingSpots
     ? qualification[config.qualifyingSpots - 1].pts
     : 0
+  const totalGroupPts = teamCount * (teamCount - 1) * config.gamesPerMatchup
+  const clinchPts = config.qualifyingSpots > 0 && teamCount > config.qualifyingSpots
+    ? Math.floor(totalGroupPts / (teamCount - config.qualifyingSpots + 1)) + 1 : totalMaxPts
   const completed = mergedGames
     .filter((g) => g.played)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -607,12 +614,13 @@ export default function PlaydownsPage() {
           {/* Qualification Number Line */}
           <div className="qual-number-line-wrap">
             <div className="qual-number-line">
+              <div className="qual-clinch-zone" style={{ left: `${maxScale > 0 ? (clinchPts / maxScale) * 100 : 0}%`, width: `${maxScale > 0 ? ((maxScale - clinchPts) / maxScale) * 100 : 0}%` }} />
               <div
                 className="qual-cutoff-line"
                 style={{ left: `${(cutoffPts / maxScale) * 100}%` }}
               />
-              <span className="qual-zone-label" data-zone="outside">Outside</span>
-              <span className="qual-zone-label" data-zone="qualifying">Qualifying Zone</span>
+              <span className="qual-zone-label" data-zone="outside">Out</span>
+              <span className="qual-zone-label" data-zone="qualifying">Locked Zone</span>
               {qualification.map((row, i) => {
                 const sameGroup = qualification.filter((r) => r.pts === row.pts)
                 const groupIdx = sameGroup.findIndex((r) => r.teamId === row.teamId)

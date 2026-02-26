@@ -202,15 +202,9 @@ export default function IvesPage() {
   function fillChaos() {
     if (!grid || !locked || !teamNames) return
     const N = teamNames.length
+    const TOTAL_PTS = N * (N - 1)
+    const CLINCH = Q > 0 ? Math.floor(TOTAL_PTS / (N - Q + 1)) + 1 : TOTAL_PTS
     const next = grid.map((row) => [...row])
-
-    // Collect remaining unlocked game pairs
-    const pairs: [number, number][] = []
-    for (let i = 0; i < N; i++) {
-      for (let j = i + 1; j < N; j++) {
-        if (next[i][j] === null && !locked[i][j]) pairs.push([i, j])
-      }
-    }
 
     // Helper: compute point totals from a grid
     function getPoints(g: GridVal[][]): number[] {
@@ -225,8 +219,41 @@ export default function IvesPage() {
       })
     }
 
-    // Greedy: for each pair, pick the result that minimizes spread
-    for (const [i, j] of pairs) {
+    // Identify contenders: teams that can still mathematically clinch
+    const currentPts = getPoints(next)
+    const contenders = new Set<number>()
+    for (let i = 0; i < N; i++) {
+      let gl = 0
+      for (let j = 0; j < N; j++) {
+        if (i !== j && next[i][j] === null) gl++
+      }
+      if (currentPts[i] + gl * 2 >= CLINCH) contenders.add(i)
+    }
+
+    // Collect remaining unlocked game pairs, split by type
+    const contenderPairs: [number, number][] = []
+    const writeOffPairs: [number, number][] = []
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        if (next[i][j] === null && !locked[i][j]) {
+          const iC = contenders.has(i), jC = contenders.has(j)
+          if (iC && jC) contenderPairs.push([i, j])
+          else writeOffPairs.push([i, j])
+        }
+      }
+    }
+
+    // Write-off pairs: contender beats non-contender
+    for (const [i, j] of writeOffPairs) {
+      const iC = contenders.has(i)
+      const jC = contenders.has(j)
+      if (iC && !jC) { next[i][j] = "W"; next[j][i] = "L" }
+      else if (jC && !iC) { next[i][j] = "L"; next[j][i] = "W" }
+      else { next[i][j] = "T"; next[j][i] = "T" } // both non-contenders: tie
+    }
+
+    // Contender pairs: greedy minimize spread among contenders only
+    for (const [i, j] of contenderPairs) {
       const options: { val: GridVal, mirror: GridVal }[] = [
         { val: "W", mirror: "L" },
         { val: "L", mirror: "W" },
@@ -234,13 +261,14 @@ export default function IvesPage() {
       ]
 
       let bestSpread = Infinity
-      let bestChoice = options[2] // default to tie
+      let bestChoice = options[2]
 
       for (const opt of options) {
         next[i][j] = opt.val
         next[j][i] = opt.mirror
         const pts = getPoints(next)
-        const spread = Math.max(...pts) - Math.min(...pts)
+        const contenderPts = [...contenders].map((idx) => pts[idx])
+        const spread = Math.max(...contenderPts) - Math.min(...contenderPts)
         if (spread < bestSpread) {
           bestSpread = spread
           bestChoice = opt

@@ -1291,6 +1291,16 @@ details[open] > .qual-tiebreaker-summary::after {
   @apply relative h-5 bg-foreground/20 rounded-full my-4;
 }
 
+.qual-clinch-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 0 9999px 9999px 0;
+  background: rgba(22, 163, 74, 0.35);
+  z-index: 2;
+  pointer-events: none;
+}
+
 .qual-cutoff-line {
   @apply absolute w-0.5 border-l-2 border-dashed border-green-600 z-10;
   top: -100%;
@@ -1312,6 +1322,7 @@ details[open] > .qual-tiebreaker-summary::after {
 
 .qual-team-dot-wrap {
   @apply absolute top-1/2 -translate-x-1/2 -translate-y-1/2;
+  z-index: 15;
 }
 
 .qual-team-dot {
@@ -1341,6 +1352,7 @@ details[open] > .qual-tiebreaker-summary::after {
 .qual-axis-tick {
   @apply absolute text-xs text-muted-foreground -translate-x-1/2;
   top: calc(100% + 0.25rem);
+  z-index: 5;
 }
 
 /* Admin layout */
