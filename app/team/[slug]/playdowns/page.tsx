@@ -295,6 +295,7 @@ export default function PlaydownsPage() {
               <div className="qual-status-segment" data-status="alive"><span className="qual-status-count">{statusCounts.alive}</span><span className="qual-status-label">ALIVE</span></div>
               <div className="qual-status-segment" data-status="locked"><span className="qual-status-count">{statusCounts.locked}</span><span className="qual-status-label">LOCKED</span></div>
             </div>
+            <Link href={`/team/${team.slug}/playdowns/ives-matrix`} className="ives-matrix-link">Ives Matrix →</Link>
           </>
         )}
         {tab === "graphs" && allZeroPoints && (
@@ -660,6 +661,7 @@ export default function PlaydownsPage() {
               <span className="qual-status-label">LOCKED</span>
             </div>
           </div>
+          <Link href={`/team/${team.slug}/playdowns/ives-matrix`} className="ives-matrix-link">Ives Matrix →</Link>
 
         </>
       )}

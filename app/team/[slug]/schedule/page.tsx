@@ -32,8 +32,13 @@ function findOpponentPlaydownStanding(opponent: string, rows: PlaydownStandingsR
   }) ?? null
 }
 
-function getH2H(games: Game[], opponent: string, gameType: string) {
-  const matchups = games.filter((g) => g.played && g.opponent === opponent && g.gameType === gameType)
+function getH2H(games: Game[], opponent: string) {
+  const needle = normName(opponent)
+  const matchups = games.filter((g) => {
+    if (!g.played) return false
+    const hay = normName(g.opponent)
+    return hay === needle || hay.includes(needle) || needle.includes(hay)
+  })
   return {
     w: matchups.filter((g) => g.result === "W").length,
     l: matchups.filter((g) => g.result === "L").length,
@@ -96,7 +101,7 @@ export default function SchedulePage() {
       }
     }
 
-    const h2h = getH2H(games, game.opponent, type)
+    const h2h = getH2H(games, game.opponent)
     const h2hTotal = h2h.w + h2h.l + h2h.t
 
     return { standingLine, h2h, h2hTotal }
@@ -121,11 +126,12 @@ export default function SchedulePage() {
             const info = expanded ? getOpponentInfo(game) : null
 
             return (
-              <div key={game.id}>
-                <button
-                  className="game-list-item game-list-clickable"
-                  onClick={() => setExpandedGameId(expanded ? null : game.id)}
-                >
+              <button
+                key={game.id}
+                className={`schedule-card ${expanded ? "schedule-card-expanded" : ""}`}
+                onClick={() => setExpandedGameId(expanded ? null : game.id)}
+              >
+                <div className="schedule-card-top">
                   <div>
                     <p className="text-sm font-medium">{game.opponent}</p>
                     {!expanded && (
@@ -140,22 +146,19 @@ export default function SchedulePage() {
                     )}
                   </div>
                   <span className="game-type-badge">{game.gameType}</span>
-                </button>
+                </div>
                 {expanded && (
-                  <div className="schedule-expanded">
+                  <div className="schedule-card-details">
                     <p className="schedule-expanded-line">{formatEventDate(game.date, game.time)}</p>
                     {game.location && (
                       <p className="schedule-expanded-line">{game.location}</p>
                     )}
-                    {info?.standingLine && (
-                      <p className="schedule-expanded-line">Their record: {info.standingLine}</p>
-                    )}
                     {info && info.h2hTotal > 0 && (
-                      <p className="schedule-expanded-line">vs Us: {info.h2h.w}-{info.h2h.l}-{info.h2h.t}</p>
+                      <p className="schedule-expanded-line">Us vs Them: {info.h2h.w}-{info.h2h.l}-{info.h2h.t}</p>
                     )}
                   </div>
                 )}
-              </div>
+              </button>
             )
           })}
         </div>

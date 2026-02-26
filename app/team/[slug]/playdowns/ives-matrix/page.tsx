@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ArrowLeft, ChevronUp, ChevronDown, Shuffle } from "lucide-react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
+import { useSupabaseGames } from "@/hooks/use-supabase-games"
 import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 
 function normName(s: string) {
@@ -50,12 +51,13 @@ const STATUS_COLORS: Record<string, string> = {
 export default function IvesPage() {
   const team = useTeamContext()
   const { playdown, loading } = useSupabasePlaydowns(team.id)
+  const { games: allGames, loading: gamesLoading } = useSupabaseGames(team.id)
   const { standingsMap, loading: standingsLoading } = useSupabaseStandings(team.id)
 
   const [grid, setGrid] = useState<GridVal[][] | null>(null)
   const [locked, setLocked] = useState<boolean[][] | null>(null)
 
-  const dataLoading = loading || standingsLoading
+  const dataLoading = loading || gamesLoading || standingsLoading
 
   const teamNames = useMemo(() => {
     if (!playdown) return null
@@ -132,6 +134,28 @@ export default function IvesPage() {
 
     return sorted
   }, [grid, teamNames, Q])
+
+  // Compute total h2h record from ALL games (not just playdowns)
+  const h2hRecord = useMemo(() => {
+    if (!teamNames) return new Map<number, { w: number, l: number, t: number }>()
+    const played = allGames.filter((g) => g.played && g.teamScore !== null && g.opponentScore !== null)
+    const records = new Map<number, { w: number, l: number, t: number }>()
+    for (const g of played) {
+      const oppIdx = teamNames.findIndex((n) => {
+        const tn = normName(n)
+        const on = normName(g.opponent)
+        return tn === on || tn.includes(on) || on.includes(tn)
+      })
+      if (oppIdx === -1) continue
+      if (!records.has(oppIdx)) records.set(oppIdx, { w: 0, l: 0, t: 0 })
+      const rec = records.get(oppIdx)!
+      const ts = g.teamScore!, os = g.opponentScore!
+      if (ts > os) rec.w++
+      else if (ts < os) rec.l++
+      else rec.t++
+    }
+    return records
+  }, [allGames, teamNames])
 
   // Grid interaction
   function cycleResult(r: number, c: number) {
@@ -273,6 +297,8 @@ export default function IvesPage() {
   const totalGames = N * (N - 1) / 2
   const remaining = totalGames - totalGamesPlayed
 
+  const ourIdx = teamNames ? findTeamIndex(team.name, teamNames) : -1
+
   return (
     <div className="dashboard-page">
       <div className="sub-page-header">
@@ -342,6 +368,7 @@ export default function IvesPage() {
             <span className="ives-st-num">GP</span>
             <span className="ives-st-pts">PTS</span>
             <span className="ives-st-actions">SIM</span>
+            <span className="ives-st-h2h">US v THEM</span>
           </div>
           {standings.map((t, i) => {
             const sc = STATUS_COLORS[t.status] || "#888"
@@ -359,6 +386,13 @@ export default function IvesPage() {
                   <span className="ives-st-actions">
                     <button className="ives-scenario-btn ives-scenario-best" onClick={() => fillBest(t.idx)} title="Best case"><ChevronUp className="size-3.5" /></button>
                     <button className="ives-scenario-btn ives-scenario-worst" onClick={() => fillWorst(t.idx)} title="Worst case"><ChevronDown className="size-3.5" /></button>
+                  </span>
+                  <span className="ives-st-h2h">
+                    {t.idx === ourIdx || ourIdx === -1 ? "—" : (() => {
+                      const rec = h2hRecord.get(t.idx)
+                      if (!rec) return "–"
+                      return `${rec.w}-${rec.l}-${rec.t}`
+                    })()}
                   </span>
                 </div>
               </div>

@@ -261,7 +261,7 @@ export async function POST(request: Request) {
     }
     const rows = raw.map((r, i) => ({
       rank: i + 1,
-      teamName: String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").trim(),
+      teamName: String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").replace(/\bU\d{2,3}[A-Z]{0,2}\b/g, "").replace(/\s+\b(A{1,2}|B{1,2}|C|AE|MD)\b$/i, "").trim(),
       gp: Number(r.GamesPlayed ?? 0),
       w: Number(r.Wins ?? 0),
       l: Number(r.Losses ?? 0),
@@ -321,7 +321,7 @@ export async function POST(request: Request) {
           const loopEntries = raw.filter((r) => String(r.SDID ?? "") === ourSDID && Number(r.TID ?? 0) !== 0)
           filtered = loopEntries
           loopTeamNames = loopEntries.map((r) =>
-            String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").trim()
+            String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").replace(/\bU\d{2,3}[A-Z]{0,2}\b/g, "").replace(/\s+\b(A{1,2}|B{1,2}|C|AE|MD)\b$/i, "").trim()
           )
         }
       }
@@ -329,7 +329,7 @@ export async function POST(request: Request) {
 
     const rows = filtered.map((r, i) => ({
       rank: i + 1,
-      teamName: String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").trim(),
+      teamName: String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").replace(/\bU\d{2,3}[A-Z]{0,2}\b/g, "").replace(/\s+\b(A{1,2}|B{1,2}|C|AE|MD)\b$/i, "").trim(),
       gp: Number(r.GamesPlayed ?? 0),
       w: Number(r.Wins ?? 0),
       l: Number(r.Losses ?? 0),
@@ -438,7 +438,7 @@ export async function POST(request: Request) {
 
     // Save ALL loop games to playdown.games JSONB for the public playdowns page
     const cleanName = (n: string) =>
-      n.replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").trim()
+      n.replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").replace(/\bU\d{2,3}[A-Z]{0,2}\b/g, "").replace(/\s+\b(A{1,2}|B{1,2}|C|AE|MD)\b$/i, "").trim()
     const jsonbGames = loopGames.map((g) => {
       const { date, time } = parseSDate(g.sDate)
       return {
@@ -506,7 +506,7 @@ export async function POST(request: Request) {
   const opponentRegistry = opponents ?? []
 
   function findOrBuildOpponent(rawName: string): { id: string | null; name: string } {
-    const cleanName = rawName.replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").trim()
+    const cleanName = rawName.replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/\bU\d{2,3}[A-Z]{0,2}\b/g, "").replace(/\s+\b(A{1,2}|B{1,2}|C|AE|MD)\b$/i, "").trim()
     const needle = normName(rawName)
     // Match by #ID if present
     const owhaIdMatch = rawName.match(/#(\d+)/)

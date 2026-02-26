@@ -1,6 +1,13 @@
 import type { Game, StandingsRow, GameType, PlaydownGame } from "./types"
 import { parseMonth, inferYear } from "./season"
 
+function stripAgeCode(name: string): string {
+  return name
+    .replace(/\bU\d{2,3}[A-Z]{0,2}\b/g, "")
+    .replace(/\s+\b(A{1,2}|B{1,2}|C|AE|MD)\b$/i, "")
+    .trim()
+}
+
 /**
  * Normalize any date string to ISO format (YYYY-MM-DD).
  * Handles formats like "Sun, Feb. 08, 2026", "Feb 8 2026", "2026-02-08", etc.
@@ -240,7 +247,7 @@ export function parseMhrGames(
       } else if (line === "Add Rink") {
         // No location — skip
       } else if (!opponent && line.length > 2) {
-        opponent = line.replace(/\*+$/, "").trim()
+        opponent = stripAgeCode(line.replace(/\*+$/, "").trim())
       }
     }
 
@@ -306,7 +313,7 @@ export function parseMhrApiGames(
 
     const gameType: GameType = game.game_type === "e" ? "exhibition" : "tournament"
     const isHome = game.game_home_team === mhrTeamNbr
-    const opponent = isHome ? game.visitor_team_name : game.home_team_name
+    const opponent = stripAgeCode(isHome ? game.visitor_team_name : game.home_team_name)
 
     const unplayed =
       game.game_home_score === 999 || game.game_visitor_score === 999 || game.game_published === 0

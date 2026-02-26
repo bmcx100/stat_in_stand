@@ -729,17 +729,26 @@
   @apply w-full cursor-pointer transition-colors hover:bg-accent/50;
 }
 
-.schedule-expanded {
-  padding: 0.5rem 0.875rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+.schedule-card {
+  @apply w-full rounded-lg border px-4 py-3 text-left cursor-pointer transition-colors hover:bg-accent/50;
+}
+
+.schedule-card-expanded {
+  @apply bg-accent/30;
+}
+
+.schedule-card-top {
+  @apply flex items-center justify-between;
+}
+
+.schedule-card-details {
+  @apply mt-2 pt-2 border-t flex flex-col gap-1;
 }
 
 .schedule-expanded-line {
-  font-size: 0.9375rem;
+  font-size: 0.75rem;
   font-weight: 400;
-  color: var(--foreground);
+  color: var(--muted-foreground);
   margin: 0;
 }
 
@@ -2747,6 +2756,17 @@ details[open] > .qual-tiebreaker-summary::after {
   color: #16a34a;
 }
 
+.ives-matrix-link {
+  @apply text-sm font-semibold text-center py-2 px-4 rounded-lg border transition-colors mx-auto;
+  display: block;
+  width: fit-content;
+  color: var(--muted-foreground);
+}
+
+.ives-matrix-link:hover {
+  @apply text-foreground border-foreground/30;
+}
+
 /* ── Ives Round-Robin Grid ────────────────────────────────── */
 
 .ives-info {
@@ -2969,6 +2989,15 @@ details[open] > .qual-tiebreaker-summary::after {
 .ives-st-pts-main {
   font-weight: 800;
   font-size: 0.85rem;
+}
+
+.ives-st-h2h {
+  width: 52px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.65rem;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .ives-st-status {
