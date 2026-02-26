@@ -132,7 +132,7 @@
 
 /* Page layout */
 .page-container {
-  @apply flex flex-1 flex-col gap-4 px-4 py-6 mx-auto w-full max-w-[430px];
+  @apply flex flex-1 flex-col gap-4 px-2 py-6 mx-auto w-full max-w-[480px];
 }
 
 .page-header {
@@ -141,6 +141,10 @@
 
 .page-title {
   @apply text-2xl font-bold tracking-tight;
+}
+
+.home-subtitle {
+  @apply text-sm text-muted-foreground -mt-2 mb-1;
 }
 
 .standings-mode-select {
@@ -169,7 +173,7 @@
 }
 
 .team-card-name {
-  @apply text-lg font-semibold text-white relative;
+  @apply text-xl font-semibold text-white relative;
   &::after {
     content: '';
     position: absolute;
@@ -209,13 +213,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: #fff;
   background: rgba(0,0,0,0.45);
   border: 1px solid rgba(255,255,255,0.35);
   border-radius: 999px;
-  padding: 0.2rem 0.6rem;
+  padding: 0.3rem 0.75rem;
   cursor: pointer;
   white-space: nowrap;
   backdrop-filter: blur(4px);
@@ -307,7 +311,7 @@
 }
 
 .team-event-label {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: var(--foreground);
   white-space: nowrap;
@@ -315,7 +319,7 @@
 }
 
 .team-event-summary {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--muted-foreground);
   white-space: nowrap;
   overflow: hidden;
@@ -323,8 +327,8 @@
 }
 
 .team-event-chevron {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: 1rem;
+  height: 1rem;
   color: var(--muted-foreground);
   flex-shrink: 0;
   transition: transform 0.2s;
@@ -356,7 +360,7 @@
   display: flex;
   align-items: baseline;
   gap: 0.4rem;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   margin: 0;
 }
 
@@ -372,7 +376,7 @@
 }
 
 .team-event-detail-sub {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: var(--muted-foreground);
   padding-left: 3.9rem;
   margin: 0;
@@ -381,7 +385,7 @@
 
 .team-event-link {
   display: block;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: var(--primary);
   text-align: right;
   text-decoration: none;
@@ -486,7 +490,7 @@
 }
 
 .team-layout-banner-link {
-  @apply sticky top-0 z-20 block px-4 pt-2 mx-auto w-full max-w-[430px];
+  @apply sticky top-0 z-20 block px-2 pt-2 mx-auto w-full max-w-[480px];
 }
 
 .team-layout-banner {
@@ -495,6 +499,14 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+}
+
+.team-layout-banner-hint {
+  @apply text-xs text-muted-foreground text-center mt-1 mb-0;
+}
+
+.team-layout-banner-hint-link {
+  @apply underline underline-offset-2 text-foreground font-medium;
 }
 
 .team-layout-content {
@@ -524,9 +536,17 @@
   @apply text-foreground;
 }
 
+.team-layout-nav-active .size-5 {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: 9999px;
+  padding: 5px;
+  box-sizing: content-box;
+}
+
 /* Dashboard */
 .dashboard-page {
-  @apply flex flex-1 flex-col gap-4 px-4 py-4;
+  @apply flex flex-1 flex-col gap-4 px-4 pt-4 pb-0;
 }
 
 .dashboard-page-full {
@@ -545,7 +565,7 @@
 }
 
 .dashboard-section-heading {
-  @apply text-sm font-semibold text-muted-foreground;
+  @apply text-base font-bold text-foreground;
 }
 
 .dashboard-section-link {
@@ -589,6 +609,19 @@
   gap: 1rem;
 }
 
+.dashboard-event-card-detail {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.35rem;
+}
+
+.dashboard-event-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .dashboard-event-info {
   display: flex;
   flex-direction: column;
@@ -596,13 +629,13 @@
 }
 
 .dashboard-event-label {
-  font-size: 0.8rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--foreground);
 }
 
 .dashboard-event-meta {
-  font-size: 0.7rem;
+  font-size: 1rem;
   color: var(--muted-foreground);
 }
 
@@ -694,6 +727,20 @@
 
 .game-list-clickable {
   @apply w-full cursor-pointer transition-colors hover:bg-accent/50;
+}
+
+.schedule-expanded {
+  padding: 0.5rem 0.875rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.schedule-expanded-line {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: var(--foreground);
+  margin: 0;
 }
 
 .game-list-selected {
@@ -2698,4 +2745,305 @@ details[open] > .qual-tiebreaker-summary::after {
   margin-top: 0.75rem;
   font-size: 0.8rem;
   color: #16a34a;
+}
+
+/* ── Ives Round-Robin Grid ────────────────────────────────── */
+
+.ives-info {
+  @apply text-xs text-muted-foreground text-center;
+}
+
+.ives-instructions {
+  @apply rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground leading-relaxed;
+}
+
+.ives-color-w { color: #4ADE80; }
+.ives-color-l { color: #F87171; }
+.ives-color-t { color: #FBBF24; }
+
+.ives-lock-indicator {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #F59E0B;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.ives-grid-scroll {
+  @apply overflow-x-auto;
+}
+
+.ives-grid-inline {
+  display: inline-block;
+}
+
+.ives-grid-row {
+  display: flex;
+}
+
+.ives-grid-corner {
+  width: 40px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.ives-col-header {
+  width: 48px;
+  height: 32px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--muted-foreground);
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.ives-row-header {
+  width: 40px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--muted-foreground);
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.ives-cell {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s, opacity 0.1s;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.ives-cell-diag {
+  background: var(--foreground);
+  opacity: 0.12;
+  cursor: default;
+}
+
+.ives-cell-win {
+  background: color-mix(in oklch, #16A34A 15%, var(--background));
+  color: #4ADE80;
+}
+
+.ives-cell-loss {
+  background: color-mix(in oklch, #DC2626 12%, var(--background));
+  color: #F87171;
+}
+
+.ives-cell-tie {
+  background: color-mix(in oklch, #D97706 12%, var(--background));
+  color: #FBBF24;
+}
+
+.ives-cell-empty {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  opacity: 0.5;
+}
+
+.ives-cell:not(.ives-cell-diag):not(.ives-cell-locked):hover {
+  filter: brightness(1.15);
+}
+
+.ives-cell-locked {
+  cursor: default;
+}
+
+.ives-cell-locked::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  background: #F59E0B;
+  border-radius: 50%;
+}
+
+/* ── Ives Standings ──────────────────────────────────────── */
+
+.ives-standings-card {
+  @apply rounded-lg border overflow-hidden;
+}
+
+.ives-standings-top {
+  @apply flex items-center justify-between px-3 py-2 border-b;
+}
+
+.ives-standings-title {
+  @apply text-xs font-bold uppercase tracking-wider;
+}
+
+.ives-standings-meta {
+  @apply text-xs text-muted-foreground;
+}
+
+.ives-standings-scroll {
+  @apply overflow-x-auto;
+}
+
+.ives-standings-head {
+  display: flex;
+  align-items: center;
+  padding: 4px 4px;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  font-size: 0.6rem;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ives-standings-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  font-size: 0.75rem;
+  transition: background 0.15s;
+}
+
+.ives-standings-row:last-child {
+  border-bottom: none;
+}
+
+.ives-standings-row:hover {
+  background: var(--muted);
+}
+
+.ives-st-rank {
+  width: 18px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.ives-qualifying {
+  color: var(--foreground);
+  font-weight: 800;
+}
+
+.ives-st-team {
+  width: 60px;
+  flex-shrink: 0;
+  font-weight: 600;
+  padding-left: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ives-st-num {
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ives-st-pts {
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ives-st-pts-main {
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.ives-st-status {
+  width: 72px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ives-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ives-qual-line {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #EF4444, transparent);
+}
+
+/* ── Ives Actions ────────────────────────────────────────── */
+
+.ives-actions {
+  @apply flex gap-2 justify-center;
+}
+
+.ives-action-btn {
+  @apply text-xs text-muted-foreground border rounded-md px-3 py-1.5 transition-colors;
+}
+
+.ives-action-btn:hover {
+  @apply text-foreground border-foreground/30;
+}
+
+.ives-action-chaos {
+  @apply flex items-center gap-1;
+}
+
+/* ── Ives Scenario Buttons ─────────────────────────────── */
+
+.ives-st-actions {
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ives-scenario-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ives-scenario-best:hover {
+  background: color-mix(in oklch, #16A34A 15%, var(--background));
+  color: #4ADE80;
+  border-color: #4ADE80;
+}
+
+.ives-scenario-worst:hover {
+  background: color-mix(in oklch, #DC2626 12%, var(--background));
+  color: #F87171;
+  border-color: #F87171;
 }

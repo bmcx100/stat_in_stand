@@ -8,8 +8,39 @@ import { useSupabaseGames } from "@/hooks/use-supabase-games"
 import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
 import { useSupabaseTournaments } from "@/hooks/use-supabase-tournaments"
-import { isPlaydownExpired, computePlaydownStandings } from "@/lib/playdowns"
+import { isPlaydownExpired, computePlaydownStandings, computeQualificationStatus } from "@/lib/playdowns"
 import { isTournamentExpired } from "@/lib/tournaments"
+import { formatEventDate } from "@/lib/home-cards"
+import type { PlaydownConfig, PlaydownStandingsRow, StandingsRow } from "@/lib/types"
+
+function normName(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+}
+
+function owhaStandingsToPlaydownRows(
+  rows: StandingsRow[],
+  orgName: string,
+  teamName: string
+): PlaydownStandingsRow[] {
+  return rows.map((r, i) => {
+    const n = normName(r.teamName)
+    const fullName = normName(`${orgName} ${teamName}`)
+    const isSelf = n === fullName || n.includes(fullName) || fullName.includes(n)
+    return {
+      teamId: isSelf ? "self" : `owha-${i}`,
+      teamName: r.teamName,
+      gp: r.gp, w: r.w, l: r.l, t: r.t,
+      otl: r.otl ?? 0, sol: r.sol ?? 0,
+      pts: r.pts,
+      gf: r.gf ?? 0, ga: r.ga ?? 0,
+      diff: (r.gf ?? 0) - (r.ga ?? 0),
+      pim: 0,
+      winPct: r.gp > 0 ? r.w / r.gp : 0,
+      qualifies: false,
+      tiedUnresolved: false,
+    }
+  })
+}
 
 export default function Dashboard() {
   const team = useTeamContext()
@@ -84,8 +115,55 @@ export default function Dashboard() {
   const hasPlaydownGames = games.some((g) => g.gameType === "playdowns")
   const showPlaydownCard = (playdown && playdown.config.teams.length > 0) || hasPlaydownGames
 
-  const playdownSelf = playdown && playdown.config.teams.length > 0
-    ? computePlaydownStandings(playdown.config, playdown.games).find((r) => r.teamId === "self")
+  const isOwhaMode = playdown && (playdown.config.teamNames?.length ?? 0) > 0
+  const playdownHasTeams = playdown && playdown.config.teams.length > 0
+
+  let playdownStandings: PlaydownStandingsRow[] | null = null
+  let playdownSyntheticConfig: PlaydownConfig | null = null
+
+  if (isOwhaMode && playdown) {
+    const owhaRows = standingsMap["playdowns"]?.rows ?? []
+    playdownStandings = owhaStandingsToPlaydownRows(owhaRows, team.organization, team.name)
+    const totalTeams = playdown.config.teamNames?.length || playdown.config.totalTeams || owhaRows.length
+    const qualifyingSpots = playdown.config.qualifyingSpots || 0
+    const gameCountByTeam = new Map<string, number>()
+    for (const g of playdown.games) {
+      gameCountByTeam.set(g.homeTeam, (gameCountByTeam.get(g.homeTeam) ?? 0) + 1)
+      gameCountByTeam.set(g.awayTeam, (gameCountByTeam.get(g.awayTeam) ?? 0) + 1)
+    }
+    const maxScheduledGames = gameCountByTeam.size > 0 ? Math.max(...gameCountByTeam.values()) : 0
+    const gamesPerMatchup = maxScheduledGames > 0 && totalTeams > 1
+      ? Math.max(1, Math.round(maxScheduledGames / (totalTeams - 1)))
+      : Math.max(1, playdown.config.gamesPerMatchup || 1)
+    playdownSyntheticConfig = {
+      teamId: team.id, totalTeams, qualifyingSpots, gamesPerMatchup, teams: [],
+    }
+  } else if (playdownHasTeams && playdown) {
+    playdownStandings = computePlaydownStandings(playdown.config, playdown.games)
+    playdownSyntheticConfig = playdown.config
+  }
+
+  const playdownSelf = playdownStandings?.find((r) => r.teamId === "self") ?? null
+  const playdownQualRows = playdownStandings && playdownSyntheticConfig
+    ? computeQualificationStatus(playdownStandings, playdownSyntheticConfig)
+    : null
+  const playdownSelfQual = playdownQualRows?.find((r) => r.teamId === "self") ?? null
+  const playdownStatus = playdownSelfQual?.status
+    ?? (playdownSelf?.qualifies ? "locked" : null)
+
+  const playdownAllGames = games.filter((g) => g.gameType === "playdowns")
+  const playdownLastGame = [...playdownAllGames]
+    .filter((g) => g.played)
+    .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
+  const playdownNextGame = [...playdownAllGames]
+    .filter((g) => !g.played && g.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date))[0] ?? null
+  const playdownStatusCounts = playdownQualRows
+    ? {
+        out: playdownQualRows.filter((r) => r.status === "out").length,
+        alive: playdownQualRows.filter((r) => r.status === "alive").length,
+        locked: playdownQualRows.filter((r) => r.status === "locked").length,
+      }
     : null
 
   const playdownTableRecord = {
@@ -100,20 +178,74 @@ export default function Dashboard() {
 
   return (
     <div ref={pageRef} className="dashboard-page dashboard-page-full">
-      <Link href={`/team/${team.slug}/results`} className="dashboard-section-heading dashboard-section-link">History</Link>
-      <div className="dashboard-records">
-        <Link href={`/team/${team.slug}/results`} className="dashboard-record-card">
-          <p className="dashboard-record">{wins}-{losses}-{ties}</p>
-          <p className="dashboard-record-label">All Games</p>
-        </Link>
+      <Link href={`/team/${team.slug}/events`} className="dashboard-section-heading dashboard-section-link">Events</Link>
 
-        {teamRow && (
-          <Link href={`/team/${team.slug}/standings`} className="dashboard-record-card">
-            <p className="dashboard-record">{teamRow.w}-{teamRow.l}-{teamRow.t}</p>
-            <p className="dashboard-record-label">Regular Season</p>
+      {showPlaydownCard && (
+        <Link href={`/team/${team.slug}/playdowns`} className="dashboard-event-card dashboard-event-card-detail">
+          <div className="dashboard-event-card-row">
+            <div className="dashboard-event-info">
+              <p className="dashboard-event-label">Playdowns</p>
+              <p className="dashboard-event-meta">
+                {playdown?.config.qualifyingSpots && playdown?.config.totalTeams
+                  ? `${playdown.config.qualifyingSpots} of ${playdown.config.totalTeams} Teams`
+                  : playdown?.config.totalTeams ? `${playdown.config.totalTeams} Teams` : ""}
+                {playdown?.config.totalTeams && playdown?.config.gamesPerMatchup
+                  ? ` · ${(playdown.config.totalTeams - 1) * playdown.config.gamesPerMatchup} Games`
+                  : ""}
+                {playdownStatus
+                  ? ` · ${playdownStatus === "locked" ? "Locked" : playdownStatus === "out" ? "Out" : "Alive"}`
+                  : ""}
+              </p>
+            </div>
+            <p className="dashboard-event-record">
+              {playdownSelf
+              ? `${playdownSelf.w}-${playdownSelf.l}-${playdownSelf.t}`
+              : `${playdownTableRecord.w}-${playdownTableRecord.l}-${playdownTableRecord.t}`}
+            </p>
+          </div>
+          {playdownLastGame && (
+            <p className="team-event-detail-line">
+              <span className="team-event-detail-key">Last</span>
+              <span className="team-event-detail-val">
+                {playdownLastGame.result} {playdownLastGame.teamScore ?? "–"}–{playdownLastGame.opponentScore ?? "–"} vs {playdownLastGame.opponent}
+              </span>
+            </p>
+          )}
+          {playdownNextGame && (
+            <p className="team-event-detail-line">
+              <span className="team-event-detail-key">Next</span>
+              <span className="team-event-detail-val">
+                {playdownNextGame.opponent} · {formatEventDate(playdownNextGame.date, playdownNextGame.time ?? "")}
+              </span>
+            </p>
+          )}
+          {playdownStatusCounts && (
+            <div className="qual-status-strip team-event-status-strip">
+              <div className="qual-status-segment" data-status="out">
+                <span className="qual-status-count">{playdownStatusCounts.out}</span>
+                <span className="qual-status-label">OUT</span>
+              </div>
+              <div className="qual-status-segment" data-status="alive">
+                <span className="qual-status-count">{playdownStatusCounts.alive}</span>
+                <span className="qual-status-label">ALIVE</span>
+              </div>
+              <div className="qual-status-segment" data-status="locked">
+                <span className="qual-status-count">{playdownStatusCounts.locked}</span>
+                <span className="qual-status-label">LOCKED</span>
+              </div>
+            </div>
+          )}
+        </Link>
+      )}
+
+      {showPastEvents && (
+        <div className="dashboard-nav">
+          <Link href={`/team/${team.slug}/events`} className="dashboard-nav-link">
+            <Archive className="size-4" />
+            Past Events
           </Link>
-        )}
-      </div>
+        </div>
+      )}
 
       <Link href={`/team/${team.slug}/schedule`} className="dashboard-section-heading dashboard-section-link">Schedule</Link>
       <div className="dashboard-schedule-wrap">
@@ -135,7 +267,7 @@ export default function Dashboard() {
               {upcoming.map((game) => (
                 <Link
                   key={game.id}
-                  href={`/team/${team.slug}/results?search=${encodeURIComponent(game.opponent)}`}
+                  href={`/team/${team.slug}/schedule?game=${game.id}`}
                   className="game-list-item game-list-clickable"
                 >
                   <div>
@@ -155,34 +287,20 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <Link href={`/team/${team.slug}/events`} className="dashboard-section-heading dashboard-section-link">Events</Link>
-
-      {showPlaydownCard && (
-        <Link href={`/team/${team.slug}/playdowns`} className="dashboard-event-card">
-          <div className="dashboard-event-info">
-            <p className="dashboard-event-label">Playdowns</p>
-            <p className="dashboard-event-meta">
-              {playdown?.config.totalTeams ? `${playdown.config.totalTeams} teams` : ""}
-              {playdown?.config.qualifyingSpots ? ` · Top ${playdown.config.qualifyingSpots} qualify` : ""}
-              {(playdown?.config.gamesPerMatchup ?? 0) > 1 ? ` · Best of ${playdown!.config.gamesPerMatchup}` : ""}
-            </p>
-          </div>
-          <p className="dashboard-event-record">
-            {playdownSelf
-            ? `${playdownSelf.w}-${playdownSelf.l}-${playdownSelf.t}`
-            : `${playdownTableRecord.w}-${playdownTableRecord.l}-${playdownTableRecord.t}`}
-          </p>
+      <Link href={`/team/${team.slug}/results`} className="dashboard-section-heading dashboard-section-link">Results</Link>
+      <div className="dashboard-records">
+        <Link href={`/team/${team.slug}/results`} className="dashboard-record-card">
+          <p className="dashboard-record">{wins}-{losses}-{ties}</p>
+          <p className="dashboard-record-label">All Games</p>
         </Link>
-      )}
 
-      {showPastEvents && (
-        <div className="dashboard-nav">
-          <Link href={`/team/${team.slug}/events`} className="dashboard-nav-link">
-            <Archive className="size-4" />
-            Past Events
+        {teamRow && (
+          <Link href={`/team/${team.slug}/standings`} className="dashboard-record-card">
+            <p className="dashboard-record">{teamRow.w}-{teamRow.l}-{teamRow.t}</p>
+            <p className="dashboard-record-label">Regular Season</p>
           </Link>
-        </div>
-      )}
+        )}
+      </div>
 
     </div>
   )

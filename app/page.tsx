@@ -68,6 +68,7 @@ export default function Home() {
           <Plus className="size-4" />
         </Link>
       </div>
+      <p className="home-subtitle">Click a Banner for Team's Details</p>
 
       {favoriteTeams.length === 0 ? (
         <Link href="/teams" className="home-empty">

@@ -157,8 +157,8 @@ export default function PlaydownsPage() {
           </p>
         )}
         <div className="import-tabs">
-          <button className="import-tab" data-active={tab === "standings"} onClick={() => setTab("standings")}>Standings / Schedule</button>
           <button className="import-tab" data-active={tab === "graphs"} onClick={() => setTab("graphs")}>Graphs</button>
+          <button className="import-tab" data-active={tab === "standings"} onClick={() => setTab("standings")}>Standings / Schedule</button>
         </div>
 
         {tab === "standings" && (
@@ -366,11 +366,11 @@ export default function PlaydownsPage() {
       </p>
 
       <div className="import-tabs">
-        <button className="import-tab" data-active={tab === "standings"} onClick={() => setTab("standings")}>
-          Standings / Schedule
-        </button>
         <button className="import-tab" data-active={tab === "graphs"} onClick={() => setTab("graphs")}>
           Graphs
+        </button>
+        <button className="import-tab" data-active={tab === "standings"} onClick={() => setTab("standings")}>
+          Standings / Schedule
         </button>
       </div>
 

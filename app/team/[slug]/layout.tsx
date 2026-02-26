@@ -63,6 +63,12 @@ export default function TeamLayout({
           </span>
         </div>
       </Link>
+      <p className="team-layout-banner-hint">
+        Click the banner to return to all teams
+        {pathname.includes("/playdowns") && (
+          <> ... <Link href={`/team/${slug}/playdowns/ives-matrix`} className="team-layout-banner-hint-link">Ives Matrix</Link></>
+        )}
+      </p>
 
       <div className="team-layout-content">
         <TeamProvider team={team}>
