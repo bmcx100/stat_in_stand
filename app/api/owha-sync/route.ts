@@ -323,7 +323,7 @@ export async function POST(request: Request) {
           const loopEntries = raw.filter((r) => String(r.SDID ?? "") === ourSDID && Number(r.TID ?? 0) !== 0)
           filtered = loopEntries
           loopTeamNames = loopEntries.map((r) =>
-            String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").replace(/\bU\d{2,3}[A-Z]{0,2}\b/g, "").replace(/\s+\b(A{1,2}|B{1,2}|C|AE|MD)\b$/i, "").trim()
+            String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").trim()
           )
           if (allAdvanceMatch && loopEntries.length > 0) {
             totalTeamsFromDiv = loopEntries.length

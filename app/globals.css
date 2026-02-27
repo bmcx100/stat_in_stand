@@ -1388,6 +1388,12 @@ details[open] > .qual-tiebreaker-summary::after {
   font-family: var(--font-mono), ui-monospace, monospace;
 }
 
+@media (max-width: 640px) {
+  .ob-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .ob-sidebar {
   background: #f0f0f0;
   border-right: 1px solid #e0e0e0;
@@ -1398,6 +1404,15 @@ details[open] > .qual-tiebreaker-summary::after {
   height: 100dvh;
   overflow-y: auto;
   scrollbar-width: none;
+}
+
+@media (max-width: 640px) {
+  .ob-sidebar {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+  }
 }
 
 .ob-sidebar::-webkit-scrollbar {
@@ -1716,6 +1731,12 @@ details[open] > .qual-tiebreaker-summary::after {
   overflow-y: auto;
   padding: 2rem 2.5rem;
   min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .ob-content {
+    padding: 1rem;
+  }
 }
 
 .ob-content-inner {
@@ -2645,6 +2666,12 @@ details[open] > .qual-tiebreaker-summary::after {
   gap: 0.75rem;
 }
 
+@media (max-width: 640px) {
+  .bulk-sync-group {
+    flex-wrap: wrap;
+  }
+}
+
 .bulk-sync-group-label {
   font-size: 0.75rem;
   font-weight: 600;
@@ -2682,6 +2709,29 @@ details[open] > .qual-tiebreaker-summary::after {
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--border);
   font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .bulk-sync-team-row {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 0.15rem 0.5rem;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .bulk-sync-team-name {
+    grid-column: 1;
+  }
+  .bulk-sync-config-badge {
+    display: none;
+  }
+  .bulk-sync-result,
+  .bulk-sync-result-error,
+  .bulk-sync-result-skip {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 0.65rem;
+  }
 }
 
 .bulk-sync-team-row:last-child {

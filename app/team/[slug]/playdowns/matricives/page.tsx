@@ -83,7 +83,24 @@ export default function MatricivesPage() {
   }, [playdown, standingsMap])
 
   const Q = playdown?.config.qualifyingSpots || 0
-  const M = playdown?.config.gamesPerMatchup || 1
+  const M = useMemo(() => {
+    if (!playdown) return 1
+    const { config, games } = playdown
+    const isOwhaMode = (config.teamNames?.length ?? 0) > 0
+    if (isOwhaMode) {
+      const totalTeams = config.teamNames?.length || config.totalTeams || 0
+      const gameCountByTeam = new Map<string, number>()
+      for (const g of games) {
+        gameCountByTeam.set(g.homeTeam, (gameCountByTeam.get(g.homeTeam) ?? 0) + 1)
+        gameCountByTeam.set(g.awayTeam, (gameCountByTeam.get(g.awayTeam) ?? 0) + 1)
+      }
+      const maxScheduledGames = gameCountByTeam.size > 0 ? Math.max(...gameCountByTeam.values()) : 0
+      if (maxScheduledGames > 0 && totalTeams > 1) {
+        return Math.max(1, Math.round(maxScheduledGames / (totalTeams - 1)))
+      }
+    }
+    return Math.max(1, config.gamesPerMatchup || 1)
+  }, [playdown])
   const totalCols = (teamNames?.length ?? 0) * M
 
   // Measure container and compute cell size to fit without scrolling
