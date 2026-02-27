@@ -299,34 +299,17 @@ function SeasonCard({
   showCheck?: boolean
   loopInfo?: { teamNames: string[]; totalTeams: number; qualifyingSpots: number }
 }) {
+  const allAdvance = loopInfo && loopInfo.totalTeams > 0 && loopInfo.qualifyingSpots >= loopInfo.totalTeams
   const { w, l, t, scored } = gameRecord(games)
   return (
     <div className="owha-sync-section">
       <div className="owha-sync-header">
         <p className="owha-sync-heading">{title}</p>
       </div>
-      <div className="season-card-row">
-        <div className="season-half">
-          {syncProps && <SyncPanel {...syncProps} />}
-        </div>
-        <div className="season-half">
-          <MismatchStat
-            value={`${w}-${l}-${t}`}
-            standingsValue={standingsCompare ? `${standingsCompare.w}-${standingsCompare.l}-${standingsCompare.t}` : undefined}
-            label="Record"
-            showCheck={showCheck}
-          />
-          <MismatchStat
-            value={scored}
-            standingsValue={standingsCompare?.gp}
-            label="Played"
-            showCheck={showCheck}
-          />
-        </div>
-      </div>
-      {loopInfo && (
+      {allAdvance ? (
         <div className="playdown-loop-card">
-          <p className="playdown-loop-header">Loop: {loopInfo.qualifyingSpots} of {loopInfo.totalTeams} teams advance{"gamesPerMatchup" in loopInfo && loopInfo.gamesPerMatchup ? ` · ${loopInfo.gamesPerMatchup} games / matchup` : ""}</p>
+          <p className="playdown-auto-advance-msg">All Teams Advance</p>
+          <p className="playdown-auto-advance-detail">{loopInfo.totalTeams} teams in loop — no games required</p>
           <div className="playdown-loop-teams">
             {loopInfo.teamNames.map((name, i) => (
               <span key={name} className="playdown-loop-team">
@@ -336,6 +319,41 @@ function SeasonCard({
             ))}
           </div>
         </div>
+      ) : (
+        <>
+          <div className="season-card-row">
+            <div className="season-half">
+              {syncProps && <SyncPanel {...syncProps} />}
+            </div>
+            <div className="season-half">
+              <MismatchStat
+                value={`${w}-${l}-${t}`}
+                standingsValue={standingsCompare ? `${standingsCompare.w}-${standingsCompare.l}-${standingsCompare.t}` : undefined}
+                label="Record"
+                showCheck={showCheck}
+              />
+              <MismatchStat
+                value={scored}
+                standingsValue={standingsCompare?.gp}
+                label="Played"
+                showCheck={showCheck}
+              />
+            </div>
+          </div>
+          {loopInfo && (
+            <div className="playdown-loop-card">
+              <p className="playdown-loop-header">Loop: {loopInfo.qualifyingSpots} of {loopInfo.totalTeams} teams advance{"gamesPerMatchup" in loopInfo && loopInfo.gamesPerMatchup ? ` · ${loopInfo.gamesPerMatchup} games / matchup` : ""}</p>
+              <div className="playdown-loop-teams">
+                {loopInfo.teamNames.map((name, i) => (
+                  <span key={name} className="playdown-loop-team">
+                    {i > 0 && <span className="playdown-loop-sep"> | </span>}
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

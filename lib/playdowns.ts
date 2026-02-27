@@ -310,6 +310,14 @@ export function isPlaydownExpired(config: PlaydownConfig, games: PlaydownGame[] 
 }
 
 /**
+ * Check if all teams in this playdown automatically advance (bye round).
+ */
+export function isAllTeamsAdvance(config: PlaydownConfig): boolean {
+  if (config.allTeamsAdvance) return true
+  return config.totalTeams > 0 && config.qualifyingSpots >= config.totalTeams
+}
+
+/**
  * Compute qualification status for each team.
  * LOCKED = mathematically guaranteed to qualify
  * OUT = mathematically eliminated

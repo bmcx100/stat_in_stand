@@ -7,8 +7,13 @@ import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
 import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
+import { useSupabaseMhrRankings } from "@/hooks/use-supabase-mhr-rankings"
 import { computePlaydownStandings } from "@/lib/playdowns"
 import type { Game } from "@/lib/types"
+
+function normName(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+}
 
 type StandingsMode = "regular" | "playdowns"
 
@@ -33,6 +38,7 @@ export default function StandingsPage() {
   const { standingsMap } = useSupabaseStandings(team.id)
   const standings = standingsMap["regular"]
   const { playdown } = useSupabasePlaydowns(team.id)
+  const { rankings: mhrRankings } = useSupabaseMhrRankings(team.id)
   const [mode, setMode] = useState<StandingsMode>("regular")
   const [search, setSearch] = useState("")
   const [selectedOpponent, setSelectedOpponent] = useState<string | null>(null)
@@ -160,6 +166,16 @@ export default function StandingsPage() {
     ? { name: filtered[0].opponent, ...computeRecord(filtered), gp: filtered.length }
     : null
 
+  function getProvincialRank(name: string): number | null {
+    if (!mhrRankings) return null
+    const needle = normName(name)
+    const entry = mhrRankings.find((r) => {
+      const hay = normName(r.name)
+      return hay === needle || hay.includes(needle) || needle.includes(hay)
+    })
+    return entry?.ranking ?? null
+  }
+
   function handleModeChange(newMode: StandingsMode) {
     setMode(newMode)
     setSearch("")
@@ -260,7 +276,7 @@ export default function StandingsPage() {
                       }
                     }}
                   >
-                    <td className="font-medium">{row.teamName}</td>
+                    <td className="font-medium">{row.teamName}{(() => { const r = getProvincialRank(row.teamName); return r ? <span className="opponent-rank"> #{r}</span> : null })()}</td>
                     <td>{row.gp}</td>
                     <td>{row.w}</td>
                     <td>{row.l}</td>
@@ -301,7 +317,7 @@ export default function StandingsPage() {
                       }
                     }}
                   >
-                    <td className="font-medium">{row.teamName}</td>
+                    <td className="font-medium">{row.teamName}{(() => { const r = getProvincialRank(row.teamName); return r ? <span className="opponent-rank"> #{r}</span> : null })()}</td>
                     <td>{row.gp}</td>
                     <td>{row.w}</td>
                     <td>{row.l}</td>
@@ -339,14 +355,16 @@ export default function StandingsPage() {
             <p className="dashboard-record-label">No results yet</p>
           ) : (
             <div className="dashboard-nav">
-              {filtered.map((game) => (
+              {filtered.map((game) => {
+                const pRank = getProvincialRank(game.opponent)
+                return (
                 <button
                   key={game.id}
                   className={`game-list-item game-list-clickable ${selectedOpponent === opponentKey(game) ? "game-list-selected" : ""}`}
                   onClick={() => handleGameClick(game)}
                 >
                   <div className="text-left">
-                    <p className="text-sm font-medium">{game.opponent}</p>
+                    <p className="text-sm font-medium">{game.opponent}{pRank && <span className="opponent-rank"> #{pRank}</span>}</p>
                     <p className="text-xs text-muted-foreground">{game.date}</p>
                     {game.location && (
                       <p className="text-xs text-muted-foreground">{game.location}</p>
@@ -361,7 +379,8 @@ export default function StandingsPage() {
                     </div>
                   </div>
                 </button>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

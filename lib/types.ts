@@ -64,6 +64,7 @@ export type PlaydownConfig = {
   gamesPerMatchup: number
   teams: PlaydownTeam[]
   teamNames?: string[]  // OWHA loop team names, populated by standings sync
+  allTeamsAdvance?: boolean  // true when SubDivName says "All Teams Advance"
 }
 
 export type PlaydownGame = {

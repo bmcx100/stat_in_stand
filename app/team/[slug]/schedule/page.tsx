@@ -8,6 +8,7 @@ import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
 import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
+import { useSupabaseMhrRankings } from "@/hooks/use-supabase-mhr-rankings"
 import { computePlaydownStandings } from "@/lib/playdowns"
 import { formatEventDate } from "@/lib/home-cards"
 import type { Game, StandingsRow, PlaydownStandingsRow } from "@/lib/types"
@@ -39,10 +40,12 @@ function getH2H(games: Game[], opponent: string) {
     const hay = normName(g.opponent)
     return hay === needle || hay.includes(needle) || needle.includes(hay)
   })
+  const sorted = [...matchups].sort((a, b) => b.date.localeCompare(a.date))
   return {
     w: matchups.filter((g) => g.result === "W").length,
     l: matchups.filter((g) => g.result === "L").length,
     t: matchups.filter((g) => g.result === "T").length,
+    lastGame: sorted[0] ?? null,
   }
 }
 
@@ -51,6 +54,7 @@ export default function SchedulePage() {
   const { games, loading } = useSupabaseGames(team.id)
   const { standingsMap, loading: standingsLoading } = useSupabaseStandings(team.id)
   const { playdown, loading: playdownLoading } = useSupabasePlaydowns(team.id)
+  const { rankings: mhrRankings } = useSupabaseMhrRankings(team.id)
   const searchParams = useSearchParams()
   const [expandedGameId, setExpandedGameId] = useState<string | null>(
     searchParams.get("game")
@@ -76,6 +80,16 @@ export default function SchedulePage() {
   // OWHA mode standings for playdowns
   const owhaPlaydownRows = standingsMap["playdowns"]?.rows ?? []
   const isOwhaMode = playdown && (playdown.config.teamNames?.length ?? 0) > 0
+
+  function getProvincialRank(name: string): number | null {
+    if (!mhrRankings) return null
+    const needle = normName(name)
+    const entry = mhrRankings.find((r) => {
+      const hay = normName(r.name)
+      return hay === needle || hay.includes(needle) || needle.includes(hay)
+    })
+    return entry?.ranking ?? null
+  }
 
   function getOpponentInfo(game: Game) {
     const type = game.gameType
@@ -124,6 +138,7 @@ export default function SchedulePage() {
           {upcoming.map((game) => {
             const expanded = expandedGameId === game.id
             const info = expanded ? getOpponentInfo(game) : null
+            const pRank = getProvincialRank(game.opponent)
 
             return (
               <button
@@ -133,7 +148,7 @@ export default function SchedulePage() {
               >
                 <div className="schedule-card-top">
                   <div>
-                    <p className="text-sm font-medium">{game.opponent}</p>
+                    <p className="text-sm font-medium">{game.opponent}{pRank && <span className="opponent-rank"> #{pRank}</span>}</p>
                     {!expanded && (
                       <>
                         <p className="text-xs text-muted-foreground">
@@ -155,6 +170,11 @@ export default function SchedulePage() {
                     )}
                     {info && info.h2hTotal > 0 && (
                       <p className="schedule-expanded-line">Us vs Them: {info.h2h.w}-{info.h2h.l}-{info.h2h.t}</p>
+                    )}
+                    {info?.h2h.lastGame && (
+                      <p className="schedule-expanded-line schedule-last-game-line">
+                        Last: {info.h2h.lastGame.result} {info.h2h.lastGame.teamScore ?? "–"}–{info.h2h.lastGame.opponentScore ?? "–"} · {formatEventDate(info.h2h.lastGame.date, "")}
+                      </p>
                     )}
                   </div>
                 )}

@@ -8,7 +8,8 @@ import { useSupabaseGames } from "@/hooks/use-supabase-games"
 import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
 import { useSupabaseTournaments } from "@/hooks/use-supabase-tournaments"
-import { isPlaydownExpired, computePlaydownStandings, computeQualificationStatus } from "@/lib/playdowns"
+import { useSupabaseMhrRankings } from "@/hooks/use-supabase-mhr-rankings"
+import { isPlaydownExpired, isAllTeamsAdvance, computePlaydownStandings, computeQualificationStatus } from "@/lib/playdowns"
 import { isTournamentExpired } from "@/lib/tournaments"
 import { formatEventDate } from "@/lib/home-cards"
 import type { PlaydownConfig, PlaydownStandingsRow, StandingsRow } from "@/lib/types"
@@ -49,6 +50,7 @@ export default function Dashboard() {
   const standings = standingsMap["regular"]
   const { playdown } = useSupabasePlaydowns(team.id)
   const { tournaments } = useSupabaseTournaments(team.id)
+  const { rankings: mhrRankings } = useSupabaseMhrRankings(team.id)
   const [canScrollUp, setCanScrollUp] = useState(false)
   const [canScrollDown, setCanScrollDown] = useState(false)
   const pageRef = useRef<HTMLDivElement>(null)
@@ -113,7 +115,8 @@ export default function Dashboard() {
 
   const playdownGamesFromTable = games.filter((g) => g.gameType === "playdowns" && g.played)
   const hasPlaydownGames = games.some((g) => g.gameType === "playdowns")
-  const showPlaydownCard = (playdown && playdown.config.teams.length > 0) || hasPlaydownGames
+  const playdownAutoAdvance = playdown && isAllTeamsAdvance(playdown.config)
+  const showPlaydownCard = playdownAutoAdvance || (playdown && playdown.config.teams.length > 0) || hasPlaydownGames
 
   const isOwhaMode = playdown && (playdown.config.teamNames?.length ?? 0) > 0
   const playdownHasTeams = playdown && playdown.config.teams.length > 0
@@ -174,13 +177,33 @@ export default function Dashboard() {
 
   const hasExpiredTournaments = tournaments.some((t) => isTournamentExpired(t.config))
 
+  function getProvincialRank(name: string): number | null {
+    if (!mhrRankings) return null
+    const needle = normName(name)
+    const entry = mhrRankings.find((r) => {
+      const hay = normName(r.name)
+      return hay === needle || hay.includes(needle) || needle.includes(hay)
+    })
+    return entry?.ranking ?? null
+  }
+
   const showPastEvents = (playdown && isPlaydownExpired(playdown.config, playdown.games)) || hasExpiredTournaments
 
   return (
     <div ref={pageRef} className="dashboard-page dashboard-page-full">
       <Link href={`/team/${team.slug}/events`} className="dashboard-section-heading dashboard-section-link">Events</Link>
 
-      {showPlaydownCard && (
+      {showPlaydownCard && playdownAutoAdvance && (
+        <Link href={`/team/${team.slug}/playdowns`} className="dashboard-event-card">
+          <div className="dashboard-event-card-row">
+            <div className="dashboard-event-info">
+              <p className="dashboard-event-label">Playdowns</p>
+              <p className="dashboard-event-meta">All Teams Advance</p>
+            </div>
+          </div>
+        </Link>
+      )}
+      {showPlaydownCard && !playdownAutoAdvance && (
         <Link href={`/team/${team.slug}/playdowns`} className="dashboard-event-card dashboard-event-card-detail">
           <div className="dashboard-event-card-row">
             <div className="dashboard-event-info">
@@ -207,7 +230,7 @@ export default function Dashboard() {
             <p className="team-event-detail-line">
               <span className="team-event-detail-key">Last</span>
               <span className="team-event-detail-val">
-                {playdownLastGame.result} {playdownLastGame.teamScore ?? "–"}–{playdownLastGame.opponentScore ?? "–"} vs {playdownLastGame.opponent}
+                {playdownLastGame.result} {playdownLastGame.teamScore ?? "–"}–{playdownLastGame.opponentScore ?? "–"} vs {playdownLastGame.opponent}{(() => { const r = getProvincialRank(playdownLastGame.opponent); return r ? ` #${r}` : "" })()}
               </span>
             </p>
           )}
@@ -215,7 +238,7 @@ export default function Dashboard() {
             <p className="team-event-detail-line">
               <span className="team-event-detail-key">Next</span>
               <span className="team-event-detail-val">
-                {playdownNextGame.opponent} · {formatEventDate(playdownNextGame.date, playdownNextGame.time ?? "")}
+                {playdownNextGame.opponent}{(() => { const r = getProvincialRank(playdownNextGame.opponent); return r ? ` #${r}` : "" })()} · {formatEventDate(playdownNextGame.date, playdownNextGame.time ?? "")}
               </span>
             </p>
           )}
@@ -264,14 +287,16 @@ export default function Dashboard() {
             <p className="dashboard-record-label">No upcoming games</p>
           ) : (
             <div className="dashboard-nav">
-              {upcoming.map((game) => (
+              {upcoming.map((game) => {
+                const pRank = getProvincialRank(game.opponent)
+                return (
                 <Link
                   key={game.id}
                   href={`/team/${team.slug}/schedule?game=${game.id}`}
                   className="game-list-item game-list-clickable"
                 >
                   <div>
-                    <p className="text-sm font-medium">{game.opponent}</p>
+                    <p className="text-sm font-medium">{game.opponent}{pRank && <span className="opponent-rank"> #{pRank}</span>}</p>
                     <p className="text-xs text-muted-foreground">
                       {game.date}{game.time ? ` at ${game.time}` : ""}
                     </p>
@@ -281,7 +306,8 @@ export default function Dashboard() {
                   </div>
                   <span className="game-type-badge">{game.gameType}</span>
                 </Link>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

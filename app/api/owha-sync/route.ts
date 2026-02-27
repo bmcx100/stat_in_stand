@@ -305,6 +305,7 @@ export async function POST(request: Request) {
     let subDivName = ""
     let qualifyingSpotsFromDiv = 0
     let totalTeamsFromDiv = 0
+    let allAdvance = false
 
     const m = owhaUrl.match(/\/division\/(\d+)\//)
     if (m && m[1] === "0") {
@@ -312,6 +313,7 @@ export async function POST(request: Request) {
       if (ourEntry) {
         subDivName = String(ourEntry.SubDivName ?? "")
         const subDivMatch = subDivName.match(/(\d+) of (\d+) teams advance/i)
+        const allAdvanceMatch = !subDivMatch && /all teams advance/i.test(subDivName)
         if (subDivMatch) {
           qualifyingSpotsFromDiv = Number(subDivMatch[1])
           totalTeamsFromDiv = Number(subDivMatch[2])
@@ -323,6 +325,11 @@ export async function POST(request: Request) {
           loopTeamNames = loopEntries.map((r) =>
             String(r.TeamName ?? "").replace(/\([^)]*\)/g, "").replace(/#\d+/g, "").replace(/[A-Z]{3}\d+-\d+/, "").replace(/\bU\d{2,3}[A-Z]{0,2}\b/g, "").replace(/\s+\b(A{1,2}|B{1,2}|C|AE|MD)\b$/i, "").trim()
           )
+          if (allAdvanceMatch && loopEntries.length > 0) {
+            totalTeamsFromDiv = loopEntries.length
+            qualifyingSpotsFromDiv = loopEntries.length
+            allAdvance = true
+          }
         }
       }
     }
@@ -365,6 +372,7 @@ export async function POST(request: Request) {
           qualifyingSpots: qualifyingSpotsFromDiv || (existing.qualifyingSpots ?? 0),
           gamesPerMatchup: existing.gamesPerMatchup || 1,
           teamNames: loopTeamNames,
+          allTeamsAdvance: allAdvance,
         }
         await serviceSupabase.from("playdowns").update({ config: updatedConfig }).eq("team_id", teamId)
       }

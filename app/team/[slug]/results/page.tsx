@@ -6,7 +6,12 @@ import Link from "next/link"
 import { ArrowLeft, X } from "lucide-react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
+import { useSupabaseMhrRankings } from "@/hooks/use-supabase-mhr-rankings"
 import type { Game, GameType } from "@/lib/types"
+
+function normName(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim()
+}
 
 const GAME_TYPES: Array<{ value: GameType | "all"; label: string }> = [
   { value: "all", label: "All Types" },
@@ -70,7 +75,7 @@ function LastNSummary({ games, count, onCountChange }: { games: Game[]; count: n
   )
 }
 
-function OpponentSummary({ games, opponentName, onClose }: { games: Game[]; opponentName: string; onClose: () => void }) {
+function OpponentSummary({ games, opponentName, rank, onClose }: { games: Game[]; opponentName: string; rank: number | null; onClose: () => void }) {
   if (games.length === 0) return null
 
   const { w, l, t } = computeRecord(games)
@@ -82,7 +87,7 @@ function OpponentSummary({ games, opponentName, onClose }: { games: Game[]; oppo
       </button>
       <div className="last-n-divider" />
       <div className="last-n-stats">
-        <span className="last-ten-label">vs {opponentName}</span>
+        <span className="last-ten-label">vs {opponentName}{rank ? ` #${rank}` : ""}</span>
         <span className="last-ten-record">{w}-{l}-{t}</span>
         <div className="last-ten-dots">
           {games.slice(0, 20).map((g) => {
@@ -101,6 +106,7 @@ export default function ResultsPage() {
   const team = useTeamContext()
   const searchParams = useSearchParams()
   const { games, loading } = useSupabaseGames(team.id)
+  const { rankings: mhrRankings } = useSupabaseMhrRankings(team.id)
   const [filter, setFilter] = useState<GameType | "all">("all")
   const [search, setSearch] = useState(searchParams.get("search") ?? "")
   const [lastN, setLastN] = useState(10)
@@ -198,6 +204,16 @@ export default function ResultsPage() {
 
   const overallRecord = computeRecord(allPlayed)
 
+  function getProvincialRank(name: string): number | null {
+    if (!mhrRankings) return null
+    const needle = normName(name)
+    const entry = mhrRankings.find((r) => {
+      const hay = normName(r.name)
+      return hay === needle || hay.includes(needle) || needle.includes(hay)
+    })
+    return entry?.ranking ?? null
+  }
+
   function handleGameClick(game: Game) {
     const key = opponentKey(game)
     if (selectedOpponent === key) {
@@ -230,7 +246,7 @@ export default function ResultsPage() {
         </div>
 
         {selectedOpponent && selectedOpponentName ? (
-          <OpponentSummary games={opponentGames} opponentName={selectedOpponentName} onClose={clearOpponentFilter} />
+          <OpponentSummary games={opponentGames} opponentName={selectedOpponentName} rank={getProvincialRank(selectedOpponentName)} onClose={clearOpponentFilter} />
         ) : (
           <LastNSummary games={allPlayed} count={lastN} onCountChange={setLastN} />
         )}
@@ -263,14 +279,16 @@ export default function ResultsPage() {
             <p className="dashboard-record-label">No results yet</p>
           ) : (
             <div className="dashboard-nav">
-              {filtered.map((game) => (
+              {filtered.map((game) => {
+                const pRank = getProvincialRank(game.opponent)
+                return (
                 <button
                   key={game.id}
                   className={`game-list-item game-list-clickable ${selectedOpponent === opponentKey(game) ? "game-list-selected" : ""}`}
                   onClick={() => handleGameClick(game)}
                 >
                   <div className="text-left">
-                    <p className="text-sm font-medium">{game.opponent}</p>
+                    <p className="text-sm font-medium">{game.opponent}{pRank && <span className="opponent-rank"> #{pRank}</span>}</p>
                     <p className="text-xs text-muted-foreground">{game.date}</p>
                     {game.location && (
                       <p className="text-xs text-muted-foreground">{game.location}</p>
@@ -286,7 +304,8 @@ export default function ResultsPage() {
                     </div>
                   </div>
                 </button>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

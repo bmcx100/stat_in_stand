@@ -7,7 +7,7 @@ import { useTeamContext } from "@/lib/team-context"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
 import { useSupabaseStandings } from "@/hooks/use-supabase-standings"
-import { computePlaydownStandings, computeQualificationStatus, detectTiebreakerResolutions } from "@/lib/playdowns"
+import { computePlaydownStandings, computeQualificationStatus, detectTiebreakerResolutions, isAllTeamsAdvance } from "@/lib/playdowns"
 import type { PlaydownConfig, PlaydownGame, PlaydownStandingsRow, StandingsRow } from "@/lib/types"
 import type { Game } from "@/lib/types"
 
@@ -100,6 +100,27 @@ export default function PlaydownsPage() {
   }
 
   const { config, games } = playdown
+
+  if (isAllTeamsAdvance(config)) {
+    return (
+      <div className="dashboard-page">
+        <div className="sub-page-header">
+          <h1 className="page-title">Playdowns</h1>
+          <Link href={`/team/${team.slug}`} className="back-link">
+            Back
+            <ArrowLeft className="size-4" />
+          </Link>
+        </div>
+        <div className="playdown-auto-advance-card">
+          <p className="playdown-auto-advance-title">{team.name}</p>
+          <p className="playdown-auto-advance-msg">All Teams Advance</p>
+          <p className="playdown-auto-advance-detail">
+            {config.totalTeams} teams in loop — no games required
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   // ── OWHA mode: standings sync has populated teamNames in config ───────────
   // Use synced OWHA standings + playdown.games JSONB (all loop games) directly.
@@ -299,7 +320,7 @@ export default function PlaydownsPage() {
               <div className="qual-status-segment" data-status="alive"><span className="qual-status-count">{statusCounts.alive}</span><span className="qual-status-label">ALIVE</span></div>
               <div className="qual-status-segment" data-status="locked"><span className="qual-status-count">{statusCounts.locked}</span><span className="qual-status-label">LOCKED</span></div>
             </div>
-            <Link href={`/team/${team.slug}/playdowns/ives-matrix`} className="ives-matrix-link">Ives Matrix →</Link>
+            <Link href={`/team/${team.slug}/playdowns/matricives`} className="ives-matrix-link">Matricives →</Link>
           </>
         )}
         {tab === "graphs" && allZeroPoints && (
@@ -669,7 +690,7 @@ export default function PlaydownsPage() {
               <span className="qual-status-label">LOCKED</span>
             </div>
           </div>
-          <Link href={`/team/${team.slug}/playdowns/ives-matrix`} className="ives-matrix-link">Ives Matrix →</Link>
+          <Link href={`/team/${team.slug}/playdowns/matricives`} className="ives-matrix-link">Matricives →</Link>
 
         </>
       )}

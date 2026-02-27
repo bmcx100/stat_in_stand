@@ -82,7 +82,7 @@ export default function TeamLayout({
               href={item.href}
               className={`team-layout-nav-item ${isActive ? "team-layout-nav-active" : ""}`}
             >
-              <item.icon className="size-5" />
+              <item.icon className="nav-icon" />
               <span>{item.label}</span>
             </Link>
           )

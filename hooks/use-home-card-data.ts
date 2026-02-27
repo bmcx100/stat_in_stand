@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { DbTeam } from "@/hooks/use-supabase-teams"
 import type { AppMode } from "@/app/admin/mode/page"
 import type { TournamentConfig, TournamentGame, PlaydownConfig, PlaydownGame } from "@/lib/types"
+import { isAllTeamsAdvance } from "@/lib/playdowns"
 import {
   detectActiveEvents,
   lookupRanking,
@@ -271,6 +272,22 @@ export function useHomeCardData(teams: DbTeam[]): Map<string, HomeCardData> {
         }
 
         // ── Playdowns ─────────────────────────────────────────────────────────
+        if (!activeTypes.has("playdowns") && playdownRow) {
+          const cfg = playdownRow.config as PlaydownConfig
+          if (isAllTeamsAdvance(cfg)) {
+            const label = [team.age_group, team.level].filter(Boolean).join(" ")
+            activeEvents.push({
+              gameType: "playdowns",
+              label: "Playdowns",
+              collapsedSummary: `${label} All Teams Advance`,
+              lastGame: null,
+              nextGame: null,
+              opponentStanding: null,
+              h2h: { w: 0, l: 0, t: 0 },
+              detailPath: `/team/${team.slug}/playdowns`,
+            })
+          }
+        }
         if (activeTypes.has("playdowns")) {
           const record = buildRecordFromGames(games, team.id, "playdowns")
           let collapsedSummary = `${record.w}-${record.l}`
