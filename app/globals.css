@@ -502,7 +502,7 @@
 }
 
 .team-layout-banner-hint {
-  @apply text-xs text-muted-foreground text-center mt-1 mb-0;
+  @apply flex items-center justify-center gap-2 text-xs text-muted-foreground mt-1 mb-0;
 }
 
 .team-layout-banner-hint-link {
@@ -549,6 +549,42 @@
 
 .team-layout-nav-active .nav-icon {
   transform: scale(1.3);
+}
+
+/* Share */
+.share-button {
+  @apply inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer [&_svg]:size-3.5;
+}
+
+.share-overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.share-overlay-card {
+  @apply relative flex flex-col items-center gap-3 rounded-2xl bg-white px-8 py-8;
+  min-width: 280px;
+}
+
+.share-overlay-close {
+  @apply absolute top-3 right-3 p-1 rounded-full text-gray-400 hover:text-gray-600 transition-colors cursor-pointer [&_svg]:size-5;
+}
+
+.share-overlay-org {
+  @apply text-sm text-gray-500 font-medium;
+}
+
+.share-overlay-team {
+  @apply text-lg text-gray-900 font-bold;
+}
+
+.share-overlay-qr {
+  @apply p-4 bg-white rounded-xl;
+}
+
+.share-overlay-caption {
+  @apply text-sm text-gray-500 mt-1;
 }
 
 /* Dashboard */
@@ -672,7 +708,7 @@
 }
 
 .standings-table th {
-  @apply px-2 py-2 text-left font-medium text-muted-foreground;
+  @apply px-2 py-2 text-left text-xs font-medium text-muted-foreground;
 }
 
 .standings-table td {
@@ -917,6 +953,19 @@
   @apply bg-background shadow-sm;
 }
 
+.playdown-tabs {
+  background: color-mix(in srgb, #185128 20%, transparent);
+}
+
+.playdown-tabs .import-tab:not([data-active="true"]) {
+  background: white;
+}
+
+.playdown-tabs .import-tab[data-active="true"] {
+  background: color-mix(in srgb, #185128 15%, transparent);
+  box-shadow: none;
+}
+
 .import-source-link {
   @apply text-xs text-muted-foreground underline-offset-2 hover:underline;
 }
@@ -1055,7 +1104,41 @@
 
 /* Playdown standings */
 .playdown-self-row {
-  @apply font-bold bg-accent/30;
+  @apply bg-accent/30;
+}
+
+.playdown-expand-col {
+  @apply bg-muted/60 text-center cursor-pointer transition-colors hover:bg-muted;
+  width: 1.5rem;
+  padding: 0 !important;
+}
+
+.playdown-expand-btn {
+  @apply text-sm font-extrabold text-muted-foreground;
+}
+
+.playdown-expand-icon-center {
+  vertical-align: middle;
+}
+
+.playdown-expand-icon-bottom {
+  vertical-align: bottom;
+}
+
+.playdown-team-name {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  max-width: 10rem;
+}
+
+.playdown-team-location,
+.playdown-team-mascot {
+  @apply text-sm;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .playdown-cutoff {
@@ -1197,12 +1280,51 @@ details[open] > .qual-tiebreaker-summary::after {
   @apply flex flex-col gap-2;
 }
 
+.qual-standings-heading {
+  @apply flex flex-col items-center gap-0.5;
+}
+
 .qual-standings-header {
   @apply text-xs text-muted-foreground text-center;
 }
 
+.qual-legend {
+  @apply flex items-center justify-center gap-3 text-[10px] text-muted-foreground;
+}
+
+.qual-legend-item {
+  @apply flex items-center gap-1;
+}
+
+.qual-legend-sep {
+  @apply text-muted-foreground/50;
+}
+
+.qual-legend-swatch {
+  @apply inline-block rounded-sm;
+  width: 10px;
+  height: 10px;
+}
+
+.qual-legend-swatch[data-color="realized"] {
+  background: linear-gradient(135deg, #00b341, #eab308, #d33125);
+}
+
+.qual-legend-swatch[data-color="potential"] {
+  background-color: #c8c8c8;
+}
+
+.qual-legend-swatch[data-color="max"] {
+  background-color: #3d3d3d;
+  @apply border border-muted-foreground/30;
+}
+
 .qual-standings-row {
   @apply flex flex-col gap-1 rounded-lg border px-2 pb-2 pt-3 bg-muted/40;
+}
+
+.qual-standings-row.playdown-self-row {
+  @apply bg-accent;
 }
 
 .qual-standings-row-selected {
@@ -1283,6 +1405,13 @@ details[open] > .qual-tiebreaker-summary::after {
   width: 7ch;
 }
 
+.qual-status-badge-tied {
+  @apply px-2.5 py-1 text-sm font-extrabold rounded-md border border-current;
+  width: auto;
+  min-width: 7ch;
+  letter-spacing: 0.05em;
+}
+
 .qual-status-badge[data-status="locked"] {
   @apply bg-green-600/15 text-green-600;
 }
@@ -1342,6 +1471,14 @@ details[open] > .qual-tiebreaker-summary::after {
   @apply size-7 rounded-full flex items-center justify-center text-xs font-bold text-white cursor-help;
 }
 
+.qual-team-dot-tied {
+  @apply rounded-full px-2;
+  width: auto;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+}
+
 .qual-team-dot[data-status="locked"] {
   background-color: #00b341;
 }
@@ -1355,7 +1492,7 @@ details[open] > .qual-tiebreaker-summary::after {
 }
 
 .qual-team-tooltip {
-  @apply absolute left-1/2 -translate-x-1/2 top-full mt-1 z-20 hidden whitespace-nowrap rounded border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md;
+  @apply absolute left-1/2 -translate-x-1/2 top-full mt-1 z-20 hidden whitespace-pre-line rounded border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md;
 }
 
 .qual-team-dot-wrap:hover .qual-team-tooltip {
@@ -2902,10 +3039,10 @@ details[open] > .qual-tiebreaker-summary::after {
 }
 
 .ives-grid-wrap {
-  --ives-cell: 48px;
-  --ives-hdr: 40px;
-  --ives-font: 14px;
-  --ives-hdr-font: 0.65rem;
+  --ives-cell: 36px;
+  --ives-hdr: 32px;
+  --ives-font: 11px;
+  --ives-hdr-font: 0.55rem;
 }
 
 .ives-grid-row {
@@ -2964,8 +3101,7 @@ details[open] > .qual-tiebreaker-summary::after {
 }
 
 .ives-cell-diag {
-  background: var(--foreground);
-  opacity: 0.12;
+  background: color-mix(in oklch, var(--foreground) 12%, transparent);
   cursor: default;
 }
 
@@ -3025,13 +3161,11 @@ details[open] > .qual-tiebreaker-summary::after {
 }
 
 .ives-cell-group-start {
-  border-left: 2px solid var(--foreground);
-  border-left-style: solid;
-  opacity: 1;
+  border-left: 2px solid color-mix(in oklch, var(--muted-foreground) 30%, transparent);
 }
 
 .ives-col-group-start {
-  border-left: 2px solid var(--foreground);
+  border-left: 2px solid color-mix(in oklch, var(--muted-foreground) 30%, transparent);
 }
 
 /* ── Matricives Standings ──────────────────────────────────── */

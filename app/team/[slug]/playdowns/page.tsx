@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, AlertCircle } from "lucide-react"
+import MatricivesContent from "./matricives-content"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabasePlaydowns } from "@/hooks/use-supabase-playdowns"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
@@ -73,8 +74,9 @@ export default function PlaydownsPage() {
   const { playdown, loading } = useSupabasePlaydowns(team.id)
   const { games: allGames, loading: gamesLoading } = useSupabaseGames(team.id)
   const { standingsMap, loading: standingsLoading } = useSupabaseStandings(team.id)
-  const [tab, setTab] = useState<"standings" | "graphs">("graphs")
+  const [tab, setTab] = useState<"graphs" | "standings" | "schedule" | "simulator">("graphs")
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  const [expandedCols, setExpandedCols] = useState(false)
 
   if (loading || gamesLoading || standingsLoading) {
     return (
@@ -180,9 +182,11 @@ export default function PlaydownsPage() {
             {totalTeams} Teams · Top {qualifyingSpots} qualify · {totalGamesPerTeam} games each
           </p>
         )}
-        <div className="import-tabs">
+        <div className="import-tabs playdown-tabs">
           <button className="import-tab" data-active={tab === "graphs"} onClick={() => setTab("graphs")}>Graphs</button>
-          <button className="import-tab" data-active={tab === "standings"} onClick={() => setTab("standings")}>Standings / Schedule</button>
+          <button className="import-tab" data-active={tab === "standings"} onClick={() => setTab("standings")}>Standings</button>
+          <button className="import-tab" data-active={tab === "schedule"} onClick={() => setTab("schedule")}>Schedule</button>
+          <button className="import-tab" data-active={tab === "simulator"} onClick={() => setTab("simulator")}>Simulator</button>
         </div>
 
         {tab === "standings" && (
@@ -191,23 +195,37 @@ export default function PlaydownsPage() {
               <div className="overflow-x-auto">
                 <table className="standings-table">
                   <thead><tr>
-                    <th></th><th>Team</th><th>PTS</th><th>GP</th><th>W</th><th>L</th><th>T</th><th>OTL</th><th>SOL</th><th>GF</th><th>GA</th><th>DIFF</th>
+                    <th></th><th>Team</th><th>PTS</th><th>GP</th><th>W</th><th>L</th><th>T</th>
+                    {expandedCols && <><th>OTL</th><th>SOL</th><th>GF</th><th>GA</th><th>DIFF</th></>}
+                    <th className="playdown-expand-col" onClick={() => setExpandedCols(!expandedCols)} />
                   </tr></thead>
                   <tbody>
-                    {playdownStandings.map((row, i) => (
-                      <tr
-                        key={row.teamId}
-                        className={`standings-row standings-row-clickable ${row.teamId === "self" ? "playdown-self-row" : ""} ${i === qualifyingSpots - 1 ? "playdown-cutoff" : ""} ${selectedTeamId === row.teamName ? "playdown-row-selected" : ""}`}
-                        onClick={() => setSelectedTeamId(selectedTeamId === row.teamName ? null : row.teamName)}
-                      >
-                        <td><span className={`text-xs font-bold ${row.qualifies ? "text-green-600" : "text-muted-foreground"}`}>{i + 1}</span></td>
-                        <td className="font-medium">{row.teamName}</td>
-                        <td className="font-bold">{row.pts}</td>
-                        <td>{row.gp}/{totalGamesPerTeam}</td><td>{row.w}</td><td>{row.l}</td><td>{row.t}</td>
-                        <td>{row.otl}</td><td>{row.sol}</td><td>{row.gf}</td><td>{row.ga}</td>
-                        <td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      const N = playdownStandings.length
+                      const midIdx = Math.ceil(N / 2) - 1
+                      const isEven = N % 2 === 0
+                      return playdownStandings.map((row, i) => (
+                        <tr
+                          key={row.teamId}
+                          className={`standings-row standings-row-clickable ${row.teamId === "self" ? "playdown-self-row" : ""} ${i === qualifyingSpots - 1 ? "playdown-cutoff" : ""} ${selectedTeamId === row.teamName ? "playdown-row-selected" : ""}`}
+                          onClick={() => setSelectedTeamId(selectedTeamId === row.teamName ? null : row.teamName)}
+                        >
+                          <td><span className={`text-xs font-bold ${row.qualifies ? "text-green-600" : "text-muted-foreground"}`}>{i + 1}</span></td>
+                          <td>
+                            <span className="playdown-team-name">
+                              <span className="playdown-team-location">{row.teamName.split(/\s+/).slice(0, -1).join(" ") || row.teamName}</span>
+                              <span className="playdown-team-mascot">{row.teamName.includes(" ") ? row.teamName.split(/\s+/).slice(-1)[0] : ""}</span>
+                            </span>
+                          </td>
+                          <td className="font-bold">{row.pts}</td>
+                          <td>{row.gp}/{totalGamesPerTeam}</td><td>{row.w}</td><td>{row.l}</td><td>{row.t}</td>
+                          {expandedCols && <><td>{row.otl}</td><td>{row.sol}</td><td>{row.gf}</td><td>{row.ga}</td><td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td></>}
+                          <td className={`playdown-expand-col ${i === midIdx ? (isEven ? "playdown-expand-icon-bottom" : "playdown-expand-icon-center") : ""}`} onClick={(e) => { e.stopPropagation(); setExpandedCols(!expandedCols) }}>
+                            {i === midIdx && <span className="playdown-expand-btn">{expandedCols ? "−" : "+"}</span>}
+                          </td>
+                        </tr>
+                      ))
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -231,6 +249,11 @@ export default function PlaydownsPage() {
                 </div>
               </>
             )}
+          </>
+        )}
+
+        {tab === "schedule" && (
+          <>
             {upcoming.length > 0 && (
               <>
                 <h2 className="text-sm font-semibold">
@@ -249,8 +272,8 @@ export default function PlaydownsPage() {
                 </div>
               </>
             )}
-            {completed.length === 0 && upcoming.length === 0 && (
-              <p className="dashboard-record-label">No playdown games yet. Sync games from the Admin panel.</p>
+            {upcoming.length === 0 && (
+              <p className="dashboard-record-label">No upcoming games.</p>
             )}
           </>
         )}
@@ -258,10 +281,24 @@ export default function PlaydownsPage() {
         {tab === "graphs" && qualification.length > 0 && !allZeroPoints && (
           <>
             <div className="qual-standings-list">
-              <p className="qual-standings-header"># | Team Name | Record | Points</p>
+              <div className="qual-standings-heading">
+                <p className="qual-standings-header"># | Team Name | Record</p>
+                <div className="qual-legend">
+                  <span className="qual-legend-item"><span className="qual-legend-swatch" data-color="realized" /> Realized</span>
+                  <span className="qual-legend-sep">/</span>
+                  <span className="qual-legend-item"><span className="qual-legend-swatch" data-color="potential" /> Potential</span>
+                  <span className="qual-legend-sep">/</span>
+                  <span className="qual-legend-item"><span className="qual-legend-swatch" data-color="max" /> Max</span>
+                </div>
+              </div>
               {qualification.map((row, i) => {
                 const fillWidth = maxScale > 0 ? (row.pts / maxScale) * 100 : 0
                 const potentialWidth = maxScale > 0 ? (row.maxPts / maxScale) * 100 : 0
+                const tiedGroup = qualification
+                  .map((r, idx) => ({ r, rank: idx + 1 }))
+                  .filter((x) => x.r.pts === row.pts)
+                const isTied = tiedGroup.length > 1
+                const tiedLabel = tiedGroup.map((x) => x.rank).join("/")
                 return (
                   <div key={row.teamId} className={`qual-standings-row ${row.teamId === "self" ? "playdown-self-row" : ""}`}>
                     <div className="qual-standings-top">
@@ -280,7 +317,7 @@ export default function PlaydownsPage() {
                           <div className="qual-progress-potential" style={{ width: `${potentialWidth}%` }} />
                           <div className="qual-progress-fill" data-status={row.status} style={{ width: `${fillWidth}%` }} />
                         </div>
-                        <span className="qual-progress-label">{row.pts}/{totalMaxPts} pts</span>
+                        <span className="qual-progress-label">{row.pts}/{row.maxPts}/{totalMaxPts} pts</span>
                       </div>
                       <span className="qual-standings-divider" />
                       <span className="qual-status-badge" data-status={row.status}>
@@ -297,19 +334,25 @@ export default function PlaydownsPage() {
                 <div className="qual-cutoff-line" style={{ left: `${(cutoffPts / maxScale) * 100}%` }} />
                 <span className="qual-zone-label" data-zone="outside">Out</span>
                 <span className="qual-zone-label" data-zone="qualifying">Locked Zone</span>
-                {qualification.map((row, i) => {
-                  const sameGroup = qualification.filter((r) => r.pts === row.pts)
-                  const groupIdx = sameGroup.findIndex((r) => r.teamId === row.teamId)
-                  const reversedIdx = sameGroup.length - 1 - groupIdx
-                  const offset = (reversedIdx - (sameGroup.length - 1) / 2) * 30
-                  if (row.pts === 0) return null
-                  return (
-                    <div key={row.teamId} className="qual-team-dot-wrap" style={{ left: `${(row.pts / maxScale) * 100}%`, marginLeft: `${offset}px` }}>
-                      <div className="qual-team-dot" data-status={row.status}>{i + 1}</div>
-                      <div className="qual-team-tooltip">{row.teamName}: {row.pts} pts ({row.w}-{row.l}-{row.t})</div>
-                    </div>
-                  )
-                })}
+                {(() => {
+                  const seen = new Set<number>()
+                  return qualification.map((row, i) => {
+                    if (row.pts === 0 || seen.has(row.pts)) return null
+                    const group = qualification
+                      .map((r, idx) => ({ r, rank: idx + 1 }))
+                      .filter((x) => x.r.pts === row.pts)
+                    group.forEach((x) => seen.add(x.r.pts))
+                    const label = group.map((x) => x.rank).join("/")
+                    const isTied = group.length > 1
+                    const tooltipLines = group.map((x) => `${x.r.teamName}: ${x.r.pts} pts (${x.r.w}-${x.r.l}-${x.r.t})`).join("\n")
+                    return (
+                      <div key={row.teamId} className="qual-team-dot-wrap" style={{ left: `${(row.pts / maxScale) * 100}%` }}>
+                        <div className={`qual-team-dot ${isTied ? "qual-team-dot-tied" : ""}`} data-status={row.status}>{label}</div>
+                        <div className="qual-team-tooltip">{tooltipLines}</div>
+                      </div>
+                    )
+                  })
+                })()}
                 {Array.from({ length: maxScale + 1 }, (_, n) => (
                   <span key={n} className="qual-axis-tick" style={{ left: `${(n / maxScale) * 100}%` }}>{n}</span>
                 ))}
@@ -320,12 +363,13 @@ export default function PlaydownsPage() {
               <div className="qual-status-segment" data-status="alive"><span className="qual-status-count">{statusCounts.alive}</span><span className="qual-status-label">ALIVE</span></div>
               <div className="qual-status-segment" data-status="locked"><span className="qual-status-count">{statusCounts.locked}</span><span className="qual-status-label">LOCKED</span></div>
             </div>
-            <Link href={`/team/${team.slug}/playdowns/matricives`} className="ives-matrix-link">Matricives →</Link>
           </>
         )}
         {tab === "graphs" && allZeroPoints && (
           <p className="dashboard-record-label">No points recorded yet.</p>
         )}
+
+        {tab === "simulator" && <MatricivesContent />}
       </div>
     )
   }
@@ -394,12 +438,18 @@ export default function PlaydownsPage() {
         {config.totalTeams} Teams - {config.qualifyingSpots} Qualifiers - {config.gamesPerMatchup} Games per Matchup
       </p>
 
-      <div className="import-tabs">
+      <div className="import-tabs playdown-tabs">
         <button className="import-tab" data-active={tab === "graphs"} onClick={() => setTab("graphs")}>
           Graphs
         </button>
         <button className="import-tab" data-active={tab === "standings"} onClick={() => setTab("standings")}>
-          Standings / Schedule
+          Standings
+        </button>
+        <button className="import-tab" data-active={tab === "schedule"} onClick={() => setTab("schedule")}>
+          Schedule
+        </button>
+        <button className="import-tab" data-active={tab === "simulator"} onClick={() => setTab("simulator")}>
+          Simulator
         </button>
       </div>
 
@@ -408,71 +458,76 @@ export default function PlaydownsPage() {
           {/* Standings */}
           {standings.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="standings-table">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <th>Team</th>
-                    <th>PTS</th>
-                    <th>GP</th>
-                    <th>W</th>
-                    <th>L</th>
-                    <th>T</th>
-                    <th>OTL</th>
-                    <th>SOL</th>
-                    <th>GF</th>
-                    <th>GA</th>
-                    <th>DIFF</th>
-                    <th>PIM</th>
-                    <th>Win%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {standings.map((row, i) => (
-                    <tr
-                      key={row.teamId}
-                      className={`standings-row standings-row-clickable ${row.teamId === "self" ? "playdown-self-row" : ""} ${i === config.qualifyingSpots - 1 ? "playdown-cutoff" : ""} ${selectedTeamId === row.teamId ? "playdown-row-selected" : ""}`}
-                      onClick={() => setSelectedTeamId(selectedTeamId === row.teamId ? null : row.teamId)}
-                    >
-                      <td>
-                        <span className={`text-xs font-bold ${row.qualifies ? "text-green-600" : "text-muted-foreground"}`}>
-                          {i + 1}
-                        </span>
-                      </td>
-                      <td className="font-medium">
-                        <span className="qual-name-cell">
-                          {row.teamName || teamName(row.teamId)}
-                          {row.tiedUnresolved && (
-                            <span className="qual-tie-warn-wrap">
-                              <AlertCircle className="qual-tie-warn-icon" />
-                              <span className="qual-tie-warn-tooltip">
-                                Cannot be calculated with current info !!!
-                                <br />5. Most periods won in round-robin play
-                                <br />6. Fewest penalty minutes in round-robin play
-                                <br />7. First goal scored in the series
-                                <br />8. Flip of a coin
-                              </span>
-                            </span>
-                          )}
-                        </span>
-                      </td>
-                      <td className="font-bold">{row.pts}</td>
-                      <td>{row.gp}</td>
-                      <td>{row.w}</td>
-                      <td>{row.l}</td>
-                      <td>{row.t}</td>
-                      <td>{row.otl}</td>
-                      <td>{row.sol}</td>
-                      <td>{row.gf}</td>
-                      <td>{row.ga}</td>
-                      <td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
-                      <td>{row.pim}</td>
-                      <td>{(row.winPct * 100).toFixed(1)}%</td>
+                <table className="standings-table">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>Team</th>
+                      <th>PTS</th>
+                      <th>GP</th>
+                      <th>W</th>
+                      <th>L</th>
+                      <th>T</th>
+                      {expandedCols && <><th>OTL</th><th>SOL</th><th>GF</th><th>GA</th><th>DIFF</th><th>PIM</th><th>Win%</th></>}
+                      <th className="playdown-expand-col" onClick={() => setExpandedCols(!expandedCols)} />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const N = standings.length
+                      const midIdx = Math.ceil(N / 2) - 1
+                      const isEven = N % 2 === 0
+                      return standings.map((row, i) => (
+                        <tr
+                          key={row.teamId}
+                          className={`standings-row standings-row-clickable ${row.teamId === "self" ? "playdown-self-row" : ""} ${i === config.qualifyingSpots - 1 ? "playdown-cutoff" : ""} ${selectedTeamId === row.teamId ? "playdown-row-selected" : ""}`}
+                          onClick={() => setSelectedTeamId(selectedTeamId === row.teamId ? null : row.teamId)}
+                        >
+                          <td>
+                            <span className={`text-xs font-bold ${row.qualifies ? "text-green-600" : "text-muted-foreground"}`}>
+                              {i + 1}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="qual-name-cell">
+                              {(() => {
+                                const n = row.teamName || teamName(row.teamId)
+                                return (
+                                  <span className="playdown-team-name">
+                                    <span className="playdown-team-location">{n.split(/\s+/).slice(0, -1).join(" ") || n}</span>
+                                    <span className="playdown-team-mascot">{n.includes(" ") ? n.split(/\s+/).slice(-1)[0] : ""}</span>
+                                  </span>
+                                )
+                              })()}
+                              {row.tiedUnresolved && (
+                                <span className="qual-tie-warn-wrap">
+                                  <AlertCircle className="qual-tie-warn-icon" />
+                                  <span className="qual-tie-warn-tooltip">
+                                    Cannot be calculated with current info !!!
+                                    <br />5. Most periods won in round-robin play
+                                    <br />6. Fewest penalty minutes in round-robin play
+                                    <br />7. First goal scored in the series
+                                    <br />8. Flip of a coin
+                                  </span>
+                                </span>
+                              )}
+                            </span>
+                          </td>
+                          <td className="font-bold">{row.pts}</td>
+                          <td>{row.gp}</td>
+                          <td>{row.w}</td>
+                        <td>{row.l}</td>
+                        <td>{row.t}</td>
+                          {expandedCols && <><td>{row.otl}</td><td>{row.sol}</td><td>{row.gf}</td><td>{row.ga}</td><td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td><td>{row.pim}</td><td>{(row.winPct * 100).toFixed(1)}%</td></>}
+                          <td className={`playdown-expand-col ${i === midIdx ? (isEven ? "playdown-expand-icon-bottom" : "playdown-expand-icon-center") : ""}`} onClick={(e) => { e.stopPropagation(); setExpandedCols(!expandedCols) }}>
+                            {i === midIdx && <span className="playdown-expand-btn">{expandedCols ? "−" : "+"}</span>}
+                          </td>
+                        </tr>
+                      ))
+                    })()}
+                  </tbody>
+                </table>
+              </div>
           )}
 
           {/* Completed Games */}
@@ -507,7 +562,11 @@ export default function PlaydownsPage() {
               )}
             </>
           )}
+        </>
+      )}
 
+      {tab === "schedule" && (
+        <>
           {/* Upcoming Games */}
           {(upcoming.length > 0 || selectedTeamId) && (
             <>
@@ -515,7 +574,7 @@ export default function PlaydownsPage() {
                 Upcoming{selectedTeamId ? ` — ${teamName(selectedTeamId)}` : ""}
               </h2>
               {filteredUpcoming.length === 0 ? (
-                <p className="dashboard-record-label">No Results Available</p>
+                <p className="dashboard-record-label">No upcoming games.</p>
               ) : (
                 <div className="dashboard-nav">
                   {filteredUpcoming.map((game) => (
@@ -538,8 +597,8 @@ export default function PlaydownsPage() {
             </>
           )}
 
-          {completed.length === 0 && upcoming.length === 0 && (
-            <p className="dashboard-record-label">No playdown games scheduled yet.</p>
+          {upcoming.length === 0 && !selectedTeamId && (
+            <p className="dashboard-record-label">No upcoming games.</p>
           )}
         </>
       )}
@@ -584,10 +643,20 @@ export default function PlaydownsPage() {
 
           {/* Standings with Progress Bars */}
           <div className="qual-standings-list">
-            <p className="qual-standings-header"># | Team Name | Record | Games Played / Games Remaining</p>
+            <p className="qual-standings-header"># | Team Name | Record</p>
+            <div className="qual-legend">
+              <span className="qual-legend-item"><span className="qual-legend-swatch" data-color="realized" /> Realized</span>
+              <span className="qual-legend-item"><span className="qual-legend-swatch" data-color="potential" /> Potential</span>
+              <span className="qual-legend-item"><span className="qual-legend-swatch" data-color="max" /> Max</span>
+            </div>
             {qualification.map((row, i) => {
               const fillWidth = maxScale > 0 ? (row.pts / maxScale) * 100 : 0
               const potentialWidth = maxScale > 0 ? (row.maxPts / maxScale) * 100 : 0
+              const tiedGroup = qualification
+                .map((r, idx) => ({ r, rank: idx + 1 }))
+                .filter((x) => x.r.pts === row.pts)
+              const isTied = tiedGroup.length > 1
+              const tiedLabel = tiedGroup.map((x) => x.rank).join("/")
               return (
                 <div key={row.teamId} className={`qual-standings-row ${row.teamId === "self" ? "playdown-self-row" : ""} ${selectedTeamId === row.teamId ? "qual-standings-row-selected" : ""}`}>
                   <div className="qual-standings-top">
@@ -620,11 +689,11 @@ export default function PlaydownsPage() {
                         <div className="qual-progress-potential" style={{ width: `${potentialWidth}%` }} />
                         <div className="qual-progress-fill" data-status={row.status} style={{ width: `${fillWidth}%` }} />
                       </div>
-                      <span className="qual-progress-label">{row.pts}/{totalMaxPts} pts</span>
+                      <span className="qual-progress-label">{row.pts}/{row.maxPts}/{totalMaxPts} pts</span>
                     </div>
                     <span className="qual-standings-divider" />
-                    <span className="qual-status-badge" data-status={row.status}>
-                      {row.status === "locked" ? "IN" : row.status === "out" ? "OUT" : "ALIVE"}
+                    <span className={`qual-status-badge ${isTied ? "qual-status-badge-tied" : ""}`} data-status={row.status}>
+                      {isTied ? tiedLabel : row.status === "locked" ? "IN" : row.status === "out" ? "OUT" : "ALIVE"}
                     </span>
                   </div>
                 </div>
@@ -642,27 +711,25 @@ export default function PlaydownsPage() {
               />
               <span className="qual-zone-label" data-zone="outside">Out</span>
               <span className="qual-zone-label" data-zone="qualifying">Locked Zone</span>
-              {qualification.map((row, i) => {
-                const sameGroup = qualification.filter((r) => r.pts === row.pts)
-                const groupIdx = sameGroup.findIndex((r) => r.teamId === row.teamId)
-                const reversedIdx = sameGroup.length - 1 - groupIdx
-                const offset = allZeroPoints ? 0 : (reversedIdx - (sameGroup.length - 1) / 2) * 30
-                if (row.pts === 0) return null
-                return (
-                  <div
-                    key={row.teamId}
-                    className="qual-team-dot-wrap"
-                    style={{ left: `${maxScale > 0 ? (row.pts / maxScale) * 100 : 0}%`, marginLeft: `${offset}px` }}
-                  >
-                    <div className="qual-team-dot" data-status={row.status}>
-                      {i + 1}
+              {(() => {
+                const seen = new Set<number>()
+                return qualification.map((row, i) => {
+                  if (row.pts === 0 || seen.has(row.pts)) return null
+                  const group = qualification
+                    .map((r, idx) => ({ r, rank: idx + 1 }))
+                    .filter((x) => x.r.pts === row.pts)
+                  group.forEach((x) => seen.add(x.r.pts))
+                  const label = group.map((x) => x.rank).join("/")
+                  const isTied = group.length > 1
+                  const tooltipLines = group.map((x) => `${x.r.teamName || teamName(x.r.teamId)}: ${x.r.pts} pts (${x.r.w}-${x.r.l}-${x.r.t})`).join("\n")
+                  return (
+                    <div key={row.teamId} className="qual-team-dot-wrap" style={{ left: `${maxScale > 0 ? (row.pts / maxScale) * 100 : 0}%` }}>
+                      <div className={`qual-team-dot ${isTied ? "qual-team-dot-tied" : ""}`} data-status={row.status}>{label}</div>
+                      <div className="qual-team-tooltip">{tooltipLines}</div>
                     </div>
-                    <div className="qual-team-tooltip">
-                      {row.teamName || teamName(row.teamId)}: {row.pts} pts ({row.w}-{row.l}-{row.t})
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              })()}
               {Array.from({ length: maxScale + 1 }, (_, n) => (
                 <span
                   key={n}
@@ -690,10 +757,11 @@ export default function PlaydownsPage() {
               <span className="qual-status-label">LOCKED</span>
             </div>
           </div>
-          <Link href={`/team/${team.slug}/playdowns/matricives`} className="ives-matrix-link">Matricives →</Link>
 
         </>
       )}
+
+      {tab === "simulator" && <MatricivesContent />}
     </div>
   )
 }
