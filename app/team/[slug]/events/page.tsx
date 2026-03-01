@@ -73,7 +73,7 @@ export default function EventsPage() {
   const { playdown, loading } = useSupabasePlaydowns(team.id)
   const { games: allGames, loading: gamesLoading } = useSupabaseGames(team.id)
   const { standingsMap, loading: standingsLoading } = useSupabaseStandings(team.id)
-  const [tab, setTab] = useState<"graphs" | "standings" | "schedule" | "simulator">("graphs")
+  const [tab, setTab] = useState<"standings" | "graphs" | "simulator" | "schedule">("standings")
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [expandedCols, setExpandedCols] = useState(false)
   const tableScrollRef = useRef<HTMLDivElement>(null)
@@ -185,10 +185,10 @@ export default function EventsPage() {
           </p>
         )}
         <div className="import-tabs playdown-tabs">
-          <button className="import-tab" data-active={tab === "graphs"} onClick={() => setTab("graphs")}>Graphs</button>
           <button className="import-tab" data-active={tab === "standings"} onClick={() => setTab("standings")}>Standings</button>
-          <button className="import-tab" data-active={tab === "schedule"} onClick={() => setTab("schedule")}>Schedule</button>
+          <button className="import-tab" data-active={tab === "graphs"} onClick={() => setTab("graphs")}>Graphs</button>
           <button className="import-tab" data-active={tab === "simulator"} onClick={() => setTab("simulator")}>Simulator</button>
+          <button className="import-tab" data-active={tab === "schedule"} onClick={() => setTab("schedule")}>Schedule</button>
         </div>
 
         {tab === "standings" && (
@@ -212,7 +212,7 @@ export default function EventsPage() {
                           className={`standings-row standings-row-clickable ${row.teamId === "self" ? "playdown-self-row" : ""} ${i === qualifyingSpots - 1 ? "playdown-cutoff" : ""} ${selectedTeamId === row.teamName ? "playdown-row-selected" : ""}`}
                           onClick={() => setSelectedTeamId(selectedTeamId === row.teamName ? null : row.teamName)}
                         >
-                          <td><span className={`text-xs font-bold ${row.qualifies ? "text-green-600" : "text-muted-foreground"}`}>{i + 1}</span></td>
+                          <td><span className="playdown-pos">{i + 1}</span></td>
                           <td>
                             <span className="playdown-team-name">
                               <span className="playdown-team-location">{row.teamName.split(/\s+/).slice(0, -1).join(" ") || row.teamName}</span>
@@ -440,17 +440,17 @@ export default function EventsPage() {
       </p>
 
       <div className="import-tabs playdown-tabs">
-        <button className="import-tab" data-active={tab === "graphs"} onClick={() => setTab("graphs")}>
-          Graphs
-        </button>
         <button className="import-tab" data-active={tab === "standings"} onClick={() => setTab("standings")}>
           Standings
         </button>
-        <button className="import-tab" data-active={tab === "schedule"} onClick={() => setTab("schedule")}>
-          Schedule
+        <button className="import-tab" data-active={tab === "graphs"} onClick={() => setTab("graphs")}>
+          Graphs
         </button>
         <button className="import-tab" data-active={tab === "simulator"} onClick={() => setTab("simulator")}>
           Simulator
+        </button>
+        <button className="import-tab" data-active={tab === "schedule"} onClick={() => setTab("schedule")}>
+          Schedule
         </button>
       </div>
 
@@ -485,9 +485,7 @@ export default function EventsPage() {
                           onClick={() => setSelectedTeamId(selectedTeamId === row.teamId ? null : row.teamId)}
                         >
                           <td>
-                            <span className={`text-xs font-bold ${row.qualifies ? "text-green-600" : "text-muted-foreground"}`}>
-                              {i + 1}
-                            </span>
+                            <span className="playdown-pos">{i + 1}</span>
                           </td>
                           <td>
                             <span className="qual-name-cell">

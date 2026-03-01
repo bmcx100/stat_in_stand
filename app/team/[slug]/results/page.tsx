@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft, X } from "lucide-react"
+import { X } from "lucide-react"
 import { useTeamContext } from "@/lib/team-context"
 import { useSupabaseGames } from "@/hooks/use-supabase-games"
 import { useSupabaseMhrRankings } from "@/hooks/use-supabase-mhr-rankings"
@@ -14,7 +13,7 @@ function normName(s: string) {
 }
 
 const GAME_TYPES: Array<{ value: GameType | "all"; label: string }> = [
-  { value: "all", label: "All Types" },
+  { value: "all", label: "All Game Types" },
   { value: "unlabeled", label: "Unlabeled" },
   { value: "regular", label: "Regular Season" },
   { value: "tournament", label: "Tournament" },
@@ -107,7 +106,8 @@ export default function ResultsPage() {
   const searchParams = useSearchParams()
   const { games, loading } = useSupabaseGames(team.id)
   const { rankings: mhrRankings } = useSupabaseMhrRankings(team.id)
-  const [filter, setFilter] = useState<GameType | "all">("all")
+  const initialType = searchParams.get("type") as GameType | null
+  const [filter, setFilter] = useState<GameType | "all">(initialType ?? "all")
   const [search, setSearch] = useState(searchParams.get("search") ?? "")
   const [lastN, setLastN] = useState(10)
   const [selectedOpponent, setSelectedOpponent] = useState<string | null>(null)
@@ -202,7 +202,8 @@ export default function ResultsPage() {
     ? allPlayed.filter((g) => opponentKey(g) === selectedOpponent)
     : []
 
-  const overallRecord = computeRecord(allPlayed)
+  const typeFiltered = filter === "all" ? allPlayed : allPlayed.filter((g) => g.gameType === filter)
+  const overallRecord = computeRecord(typeFiltered)
 
   function getProvincialRank(name: string): number | null {
     if (!mhrRankings) return null
@@ -232,33 +233,10 @@ export default function ResultsPage() {
     <div ref={pageRef} className="results-page-wrap">
       <div className="results-header">
         <div className="sub-page-header">
-          <h1 className="page-title">All Games</h1>
-          <Link href={`/team/${team.slug}`} className="back-link">
-            Back
-            <ArrowLeft className="size-4" />
-          </Link>
+          <h1 className="page-title-lg">Results</h1>
         </div>
-
-        <div className="results-record-bar">
-          <span className="text-xs text-muted-foreground">Overall</span>
-          <span className="text-sm font-bold">{overallRecord.w}-{overallRecord.l}-{overallRecord.t}</span>
-          <span className="text-xs text-muted-foreground">{allPlayed.length} GP</span>
-        </div>
-
-        {selectedOpponent && selectedOpponentName ? (
-          <OpponentSummary games={opponentGames} opponentName={selectedOpponentName} rank={getProvincialRank(selectedOpponentName)} onClose={clearOpponentFilter} />
-        ) : (
-          <LastNSummary games={allPlayed} count={lastN} onCountChange={setLastN} />
-        )}
 
         <div className="filter-bar justify-between">
-          <input
-            type="text"
-            className="game-form-input"
-            placeholder="Search opponent..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setSelectedOpponent(null) }}
-          />
           <select
             className="game-form-select"
             value={filter}
@@ -268,7 +246,26 @@ export default function ResultsPage() {
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
+          <input
+            type="text"
+            className="game-form-input"
+            placeholder="Search opponent..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setSelectedOpponent(null) }}
+          />
         </div>
+
+        <div className="results-record-bar">
+          <span className="text-xs text-muted-foreground">Overall</span>
+          <span className="text-sm font-bold">{overallRecord.w}-{overallRecord.l}-{overallRecord.t}</span>
+          <span className="text-xs text-muted-foreground">{typeFiltered.length} GP</span>
+        </div>
+
+        {selectedOpponent && selectedOpponentName ? (
+          <OpponentSummary games={opponentGames} opponentName={selectedOpponentName} rank={getProvincialRank(selectedOpponentName)} onClose={clearOpponentFilter} />
+        ) : (
+          <LastNSummary games={typeFiltered} count={lastN} onCountChange={setLastN} />
+        )}
       </div>
 
       <div className="results-scroll-wrap">

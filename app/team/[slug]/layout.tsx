@@ -63,7 +63,7 @@ export default function TeamLayout({
   const navItems = [
     { href: `/team/${slug}`, icon: Home, label: "Home" },
     { href: `/team/${slug}/events`, icon: Calendar, label: "Events" },
-    { href: `/team/${slug}/standings`, icon: Trophy, label: "Results" },
+    { href: `/team/${slug}/results`, icon: Trophy, label: "Results" },
   ]
 
   return (

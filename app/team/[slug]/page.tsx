@@ -321,7 +321,7 @@ export default function Dashboard() {
         </Link>
 
         {teamRow && (
-          <Link href={`/team/${team.slug}/standings`} className="dashboard-record-card">
+          <Link href={`/team/${team.slug}/results?type=regular`} className="dashboard-record-card">
             <p className="dashboard-record">{teamRow.w}-{teamRow.l}-{teamRow.t}</p>
             <p className="dashboard-record-label">Regular Season</p>
           </Link>
