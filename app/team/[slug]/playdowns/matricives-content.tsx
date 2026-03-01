@@ -454,7 +454,7 @@ export default function MatricivesContent() {
           ).flat()}
         </div>
         {teamNames.map((_, r) => (
-          <div key={r} className="ives-grid-row">
+          <div key={r} className={`ives-grid-row ${r === ourIdx ? "ives-grid-row-self" : ""}`}>
             <div className="ives-row-header">{initials[r]}</div>
             {teamNames.map((_, c) =>
               Array.from({ length: M }, (__, g) => {
@@ -506,7 +506,7 @@ export default function MatricivesContent() {
             return (
               <div key={t.idx}>
                 {i === Q && <div className="ives-qual-line" />}
-                <div className="ives-standings-row" style={{ borderLeftColor: sc }}>
+                <div className={`ives-standings-row ${t.idx === ourIdx ? "ives-standings-row-self" : ""}`} style={{ borderLeftColor: sc }}>
                   <span className={`ives-st-rank ${i < Q ? "ives-qualifying" : ""}`}>{i + 1}</span>
                   <span className="ives-st-team">{getLocation(t.name)}</span>
                   <span className="ives-st-num">{t.w}</span>

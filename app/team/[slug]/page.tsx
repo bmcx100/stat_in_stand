@@ -194,7 +194,7 @@ export default function Dashboard() {
       <Link href={`/team/${team.slug}/events`} className="dashboard-section-heading dashboard-section-link">Events</Link>
 
       {showPlaydownCard && playdownAutoAdvance && (
-        <Link href={`/team/${team.slug}/playdowns`} className="dashboard-event-card">
+        <Link href={`/team/${team.slug}/events`} className="dashboard-event-card">
           <div className="dashboard-event-card-row">
             <div className="dashboard-event-info">
               <p className="dashboard-event-label">Playdowns</p>
@@ -204,7 +204,7 @@ export default function Dashboard() {
         </Link>
       )}
       {showPlaydownCard && !playdownAutoAdvance && (
-        <Link href={`/team/${team.slug}/playdowns`} className="dashboard-event-card dashboard-event-card-detail">
+        <Link href={`/team/${team.slug}/events`} className="dashboard-event-card dashboard-event-card-detail">
           <div className="dashboard-event-card-row">
             <div className="dashboard-event-info">
               <p className="dashboard-event-label">Playdowns</p>

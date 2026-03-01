@@ -284,7 +284,7 @@ export function useHomeCardData(teams: DbTeam[]): Map<string, HomeCardData> {
               nextGame: null,
               opponentStanding: null,
               h2h: { w: 0, l: 0, t: 0 },
-              detailPath: `/team/${team.slug}/playdowns`,
+              detailPath: `/team/${team.slug}/events`,
             })
           }
         }
@@ -329,7 +329,7 @@ export function useHomeCardData(teams: DbTeam[]): Map<string, HomeCardData> {
             nextGame,
             opponentStanding: null,
             h2h,
-            detailPath: `/team/${team.slug}/playdowns`,
+            detailPath: `/team/${team.slug}/events`,
             statusCounts: playdownContext?.statusCounts,
           })
         }

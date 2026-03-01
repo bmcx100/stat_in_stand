@@ -62,8 +62,8 @@ export default function TeamLayout({
 
   const navItems = [
     { href: `/team/${slug}`, icon: Home, label: "Home" },
-    { href: `/team/${slug}/schedule`, icon: Calendar, label: "Schedule" },
-    { href: `/team/${slug}/standings`, icon: Trophy, label: "Standings" },
+    { href: `/team/${slug}/events`, icon: Calendar, label: "Events" },
+    { href: `/team/${slug}/standings`, icon: Trophy, label: "Results" },
   ]
 
   return (
@@ -132,7 +132,11 @@ export default function TeamLayout({
               className={`team-layout-nav-item ${isActive ? "team-layout-nav-active" : ""}`}
             >
               <item.icon className="nav-icon" />
-              <span>{item.label}</span>
+              <span className="nav-label">
+                {item.label.split("").map((char, i) => (
+                  <span key={i} className="nav-letter" style={{ animationDelay: `${(item.label.length - 1 - i) * 0.05}s` }}>{char}</span>
+                ))}
+              </span>
             </Link>
           )
         })}
